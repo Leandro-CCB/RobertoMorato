@@ -305,6 +305,42 @@ td{padding:9px 12px;vertical-align:middle;}
 
 .btn-carga{background:#0f766e;color:#fff;border:none;padding:11px 26px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .18s;box-shadow:0 2px 8px rgba(15,118,110,.25);}
 .btn-carga:hover{background:#0d6460;transform:translateY(-1px);box-shadow:0 4px 14px rgba(15,118,110,.35);}
+.btn-prorrogar{background:var(--ultra-light);color:var(--ultra);border:1.5px solid #bfdbfe;padding:8px 12px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .18s;letter-spacing:.3px;}
+.btn-prorrogar:hover{background:#dbeafe;border-color:var(--ultra);}
+.empresa-dias-table{width:100%;border-collapse:collapse;margin-top:8px;}
+.empresa-dias-table th{background:var(--surface3);padding:7px 10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);border:1px solid var(--border);text-align:left;}
+.empresa-dias-table td{padding:7px 10px;border:1px solid var(--border);font-size:13px;vertical-align:middle;background:#fff;}
+.empresa-dias-table input[type=number]{width:70px;text-align:center;padding:5px 7px;font-size:13px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;background:var(--surface2);}
+.empresa-dias-table input[type=number]:focus{border-color:var(--ultra);outline:none;box-shadow:0 0 0 2px rgba(29,78,216,.1);}
+.prorrogar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;align-items:center;justify-content:center;}
+.prorrogar-overlay.open{display:flex;}
+.prorrogar-box{background:#fff;border-radius:14px;padding:24px;width:100%;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid var(--border);}
+.prorrogar-title{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:1px;color:var(--ultra);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.status-badge{cursor:pointer;transition:opacity .15s,box-shadow .15s;user-select:none;}
+.status-badge:hover{opacity:.82;box-shadow:0 2px 8px rgba(0,0,0,.13);}
+.status-popup-wrap{position:relative;display:inline-block;}
+/* ── Status quick-change overlay ── */
+.status-qs-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:8000;align-items:center;justify-content:center;}
+.status-qs-overlay.open{display:flex;}
+.status-qs-box{background:#fff;border-radius:16px;padding:20px;box-shadow:0 8px 40px rgba(0,0,0,.2);border:1px solid var(--border);width:min(340px,90vw);}
+.status-qs-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.8px;color:var(--muted);margin-bottom:14px;text-align:center;}
+.status-qs-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.status-qs-full{grid-column:1/-1;}
+.status-opt{display:flex;align-items:center;justify-content:center;gap:7px;padding:11px 10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:2px solid transparent;background:var(--surface2);width:100%;font-family:'DM Sans',sans-serif;}
+.status-opt:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.1);}
+.status-opt.opt-avencer{color:#854d0e;border-color:#fde68a;background:#fef9c3;}
+.status-opt.opt-avencer:hover{background:#fef08a;border-color:#f59e0b;}
+.status-opt.opt-pago{color:var(--success);border-color:#bbf7d0;background:var(--success-light);}
+.status-opt.opt-pago:hover{background:#dcfce7;border-color:var(--success);}
+.status-opt.opt-vencido{color:var(--danger);border-color:#fca5a5;background:var(--danger-light);}
+.status-opt.opt-vencido:hover{background:#fee2e2;border-color:var(--danger);}
+.status-opt.opt-prorrogado{color:var(--ultra);border-color:#bfdbfe;background:var(--ultra-light);}
+.status-opt.opt-prorrogado:hover{background:#dbeafe;border-color:var(--ultra);}
+.status-cancelado{background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;}
+.status-opt.opt-cancelado{color:#4b5563;border-color:#d1d5db;background:#f3f4f6;}
+.status-opt.opt-cancelado:hover{background:#e5e7eb;border-color:#9ca3af;}
+.status-qs-cancel{margin-top:10px;width:100%;padding:8px;border:none;background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;border-radius:8px;font-family:'DM Sans',sans-serif;}
+.status-qs-cancel:hover{background:var(--surface3);}
 
 .carga-modal .modal-box{max-width:740px;}
 .carga-form-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;}
@@ -525,7 +561,7 @@ td{padding:9px 12px;vertical-align:middle;}
       </div>
       <div class="form-group">
         <label>Empresa (Comprou)</label>
-        <select id="cEmpresa">
+        <select id="cEmpresa" onchange="calcVencimentoAuto()">
           <option value="">— Selecione —</option>
           <option value="BERTONI">Bertoni</option>
           <option value="ROSA">Rosa</option>
@@ -585,8 +621,11 @@ td{padding:9px 12px;vertical-align:middle;}
 
     <div class="carga-form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px;">
       <div class="form-group">
-        <label>Data de Vencimento <span style="font-size:9px;color:var(--ultra);font-weight:600">(5 dias úteis auto)</span></label>
-        <input type="date" id="cVenc" />
+        <label>Data de Vencimento <span style="font-size:9px;color:var(--ultra);font-weight:600">(auto por empresa)</span></label>
+        <div style="display:flex;gap:7px;align-items:center;">
+          <input type="date" id="cVenc" style="flex:1;" />
+          <button class="btn-prorrogar" onclick="abrirProrrogar()" title="Registrar boleto prorrogado">📅 Prorrogado</button>
+        </div>
       </div>
       <div class="form-group">
         <label>Observação</label>
@@ -753,14 +792,64 @@ td{padding:9px 12px;vertical-align:middle;}
 
 <!-- MODAL CONFIG FRETE -->
 <div class="modal-overlay" id="freteConfigModal">
-  <div class="modal-box" style="max-width:480px;">
+  <div class="modal-box" style="max-width:560px;">
     <div class="modal-title">⚙️ Configurar Valores de Frete</div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Defina o valor do frete <strong>por botijão</strong> para cada produto. O frete total será calculado automaticamente (valor × quantidade).</p>
-    <div id="freteConfigGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;"></div>
+    <div id="freteConfigGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;"></div>
+
+    <div style="border-top:1.5px solid var(--border);padding-top:16px;margin-bottom:16px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:.8px;color:var(--ultra);margin-bottom:6px;">🏢 Dias Úteis de Vencimento por Empresa</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Configure quantos dias úteis cada empresa tem para o vencimento do boleto após a data da carga.</p>
+      <table class="empresa-dias-table">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th style="text-align:center">Dias Úteis</th>
+            <th style="text-align:center">Exemplo (hoje)</th>
+          </tr>
+        </thead>
+        <tbody id="empresaDiasBody"></tbody>
+      </table>
+    </div>
+
     <div class="modal-actions">
       <button class="btn-carga" onclick="salvarFreteConfig()">💾 Salvar</button>
       <button class="btn-secondary" onclick="fecharFreteConfig()">✕ Cancelar</button>
       <span id="freteConfigMsg" style="color:var(--success);font-size:13px;font-weight:600;align-self:center;"></span>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL STATUS QUICK SELECT -->
+<div class="status-qs-overlay" id="statusQSModal" onclick="fecharStatusQS()">
+  <div class="status-qs-box" onclick="event.stopPropagation()">
+    <div class="status-qs-title">✏️ ALTERAR STATUS DO BOLETO</div>
+    <div class="status-qs-grid">
+      <button class="status-opt opt-avencer"   onclick="setStatusCarga(_statusPopupCargaId,'A VENCER')">⏳ A Vencer</button>
+      <button class="status-opt opt-pago"      onclick="setStatusCarga(_statusPopupCargaId,'PAGO')">✅ Pago</button>
+      <button class="status-opt opt-vencido"   onclick="setStatusCarga(_statusPopupCargaId,'VENCIDO')">❌ Vencido</button>
+      <button class="status-opt opt-cancelado" onclick="setStatusCarga(_statusPopupCargaId,'CANCELADO')">🚫 Cancelado</button>
+      <button class="status-opt opt-prorrogado status-qs-full" onclick="setStatusProrrogado(_statusPopupCargaId)">📅 Prorrogado — informar nova data…</button>
+    </div>
+    <button class="status-qs-cancel" onclick="fecharStatusQS()">✕ Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL BOLETO PRORROGADO -->
+<div class="prorrogar-overlay" id="prorrogarModal">
+  <div class="prorrogar-box">
+    <div class="prorrogar-title">📅 Boleto Prorrogado</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">Informe a nova data de vencimento deste boleto prorrogado.</p>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label>Nova Data de Vencimento</label>
+      <input type="date" id="prorrogarData" style="font-size:15px;font-weight:700;color:var(--ultra);" />
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px;padding:8px 10px;background:var(--ultra-light);border-radius:8px;border:1px solid #bfdbfe;">
+      📌 A data de vencimento original será substituída pela nova data informada.
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-primary" style="flex:1;" onclick="confirmarProrrogar()">✓ Confirmar</button>
+      <button class="btn-secondary" onclick="fecharProrrogar()">✕ Cancelar</button>
     </div>
   </div>
 </div>
@@ -1479,6 +1568,15 @@ function adicionarNovoPR(){
 // ══════════════════════════════════════════════════════
 let cargas = JSON.parse(localStorage.getItem('gas_cargas') || '[]');
 let freteConfig = JSON.parse(localStorage.getItem('gas_frete_config') || '{}');
+let empresaDiasConfig = JSON.parse(localStorage.getItem('gas_empresa_dias') || '{}');
+
+// Empresas e seus dias úteis padrão
+const EMPRESAS_VENC = [
+  { nome: 'BERTONI',  diasPadrao: 5 },
+  { nome: 'ROSA',     diasPadrao: 5 },
+  { nome: 'PINHEIRO', diasPadrao: 6 },
+  { nome: 'LIROMILS', diasPadrao: 5 },
+];
 
 const PRODUTOS_FRETE = ['P 05','P 13','P 20','P 45','P 05 + P 13','P 13 + P 45','Mix (vários)'];
 
@@ -1493,6 +1591,9 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('freteConfigModal').addEventListener('click', function(e){
     if(e.target === this) fecharFreteConfig();
+  });
+  document.getElementById('prorrogarModal').addEventListener('click', function(e){
+    if(e.target === this) fecharProrrogar();
   });
 });
 
@@ -1514,8 +1615,12 @@ function addDiasUteis(dataStr, dias) {
 
 function calcVencimentoAuto() {
   const data = document.getElementById('cData').value;
+  const empresa = document.getElementById('cEmpresa').value;
   if (data) {
-    document.getElementById('cVenc').value = addDiasUteis(data, 5);
+    const dias = (empresa && empresaDiasConfig[empresa] != null)
+      ? empresaDiasConfig[empresa]
+      : (empresa ? (EMPRESAS_VENC.find(e => e.nome === empresa)?.diasPadrao || 5) : 5);
+    document.getElementById('cVenc').value = addDiasUteis(data, dias);
   }
 }
 
@@ -1552,7 +1657,34 @@ function abrirFreteConfig() {
       </div>
     </div>`;
   }).join('');
+
+  // Tabela de empresas e dias úteis
+  const hoje = new Date().toISOString().split('T')[0];
+  const tbody = document.getElementById('empresaDiasBody');
+  tbody.innerHTML = EMPRESAS_VENC.map(e => {
+    const dias = empresaDiasConfig[e.nome] != null ? empresaDiasConfig[e.nome] : e.diasPadrao;
+    const exemplVenc = addDiasUteis(hoje, dias);
+    const [y,m,d] = exemplVenc.split('-');
+    return `<tr>
+      <td style="font-weight:700">${e.nome}</td>
+      <td style="text-align:center">
+        <input type="number" id="dias_${e.nome}" min="1" max="30" value="${dias}"
+          onchange="atualizarExemploDias('${e.nome}')"/>
+      </td>
+      <td style="text-align:center;color:var(--ultra);font-weight:600;font-size:12px;" id="ex_${e.nome}">${d}/${m}/${y}</td>
+    </tr>`;
+  }).join('');
+
   document.getElementById('freteConfigModal').classList.add('open');
+}
+
+function atualizarExemploDias(empresa) {
+  const input = document.getElementById('dias_' + empresa);
+  const dias = parseInt(input.value) || 5;
+  const hoje = new Date().toISOString().split('T')[0];
+  const venc = addDiasUteis(hoje, dias);
+  const [y,m,d] = venc.split('-');
+  document.getElementById('ex_' + empresa).textContent = d+'/'+m+'/'+y;
 }
 
 function fecharFreteConfig() {
@@ -1566,10 +1698,103 @@ function salvarFreteConfig() {
     if (el) freteConfig[p] = parseFloat(el.value) || 0;
   });
   localStorage.setItem('gas_frete_config', JSON.stringify(freteConfig));
+
+  // Salvar dias úteis por empresa
+  EMPRESAS_VENC.forEach(e => {
+    const el = document.getElementById('dias_' + e.nome);
+    if (el) empresaDiasConfig[e.nome] = parseInt(el.value) || e.diasPadrao;
+  });
+  localStorage.setItem('gas_empresa_dias', JSON.stringify(empresaDiasConfig));
+
   const m = document.getElementById('freteConfigMsg');
   m.textContent = '✓ Salvo!';
   setTimeout(() => { m.textContent = ''; fecharFreteConfig(); }, 1200);
   showToast('✓ Config. de frete salva!');
+}
+
+// ── STATUS QUICK SELECT ──
+let _statusPopupCargaId = null;
+
+function abrirStatusQS(id, ev) {
+  if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+  _statusPopupCargaId = id;
+  document.getElementById('statusQSModal').classList.add('open');
+}
+
+function fecharStatusQS() {
+  document.getElementById('statusQSModal').classList.remove('open');
+}
+
+function setStatusCarga(id, novoStatus) {
+  if (id == null) return;
+  const idx = cargas.findIndex(c => c.id === id);
+  if (idx === -1) return;
+  cargas[idx].status = novoStatus;
+  saveCargas();
+  renderCargas();
+  fecharStatusQS();
+  const labels = {'PAGO':'✅ Pago!','A VENCER':'⏳ A Vencer!','VENCIDO':'❌ Vencido!','CANCELADO':'🚫 Cancelado!'};
+  showToast(labels[novoStatus] || '✓ Status atualizado!');
+}
+
+function setStatusProrrogado(id) {
+  fecharStatusQS();
+  if (id != null) _statusPopupCargaId = id;
+  const carga = cargas.find(c => c.id === id);
+  const input = document.getElementById('prorrogarData');
+  // Sugere dia seguinte ao vencimento atual
+  if (carga && carga.venc) {
+    const d = new Date(carga.venc + 'T12:00:00');
+    d.setDate(d.getDate() + 1);
+    input.value = d.toISOString().split('T')[0];
+  } else {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    input.value = d.toISOString().split('T')[0];
+  }
+  // Marca o modal como sendo da tabela
+  document.getElementById('prorrogarModal').dataset.origem = 'tabela';
+  document.getElementById('prorrogarModal').classList.add('open');
+}
+
+// ── BOLETO PRORROGADO ──
+function abrirProrrogar() {
+  const vencAtual = document.getElementById('cVenc').value;
+  const input = document.getElementById('prorrogarData');
+  if (vencAtual) {
+    const d = new Date(vencAtual + 'T12:00:00');
+    d.setDate(d.getDate() + 1);
+    input.value = d.toISOString().split('T')[0];
+  } else {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    input.value = d.toISOString().split('T')[0];
+  }
+  document.getElementById('prorrogarModal').dataset.origem = 'form';
+  document.getElementById('prorrogarModal').classList.add('open');
+}
+function fecharProrrogar() {
+  document.getElementById('prorrogarModal').classList.remove('open');
+}
+function confirmarProrrogar() {
+  const novaData = document.getElementById('prorrogarData').value;
+  if (!novaData) { showToast('⚠ Informe a nova data de vencimento!'); return; }
+  const origem = document.getElementById('prorrogarModal').dataset.origem;
+  if (origem === 'tabela' && _statusPopupCargaId != null) {
+    const idx = cargas.findIndex(c => c.id === _statusPopupCargaId);
+    if (idx !== -1) {
+      cargas[idx].status = 'PRORROGADO';
+      cargas[idx].venc   = novaData;
+      saveCargas();
+      renderCargas();
+      showToast('📅 Boleto prorrogado!');
+    }
+    _statusPopupCargaId = null;
+  } else {
+    document.getElementById('cVenc').value = novaData;
+    showToast('📅 Vencimento prorrogado!');
+  }
+  fecharProrrogar();
 }
 
 // Calcula o líquido em tempo real no formulário
@@ -1748,9 +1973,14 @@ function renderCargas() {
 
   tb.innerHTML = [...f].sort((a, b) => b.data.localeCompare(a.data)).map(c => {
     let badgeClass = 'status-avencer';
-    if (c.status === 'PAGO')    badgeClass = 'status-pago';
-    if (c.status === 'VENCIDO') badgeClass = 'status-vencido';
+    if (c.status === 'PAGO')       badgeClass = 'status-pago';
+    if (c.status === 'VENCIDO')    badgeClass = 'status-vencido';
+    if (c.status === 'CANCELADO')  badgeClass = 'status-cancelado';
+    if (c.status === 'PRORROGADO') badgeClass = 'status-avencer';
+    const statusLabel = c.status === 'PRORROGADO' ? '📅 PRORROGADO' : c.status;
     const caminhaoLabel = c.caminhao ? `🚛 ${c.caminhao}` : '-';
+    const vencDisplay = c.venc ? fmtDate(c.venc) : '-';
+    const vencStyle = c.status === 'PRORROGADO' ? 'color:var(--ultra);font-weight:700' : 'color:var(--muted)';
     return `<tr>
       <td>${fmtDate(c.data)}</td>
       <td style="font-weight:600">${c.produto}</td>
@@ -1763,8 +1993,10 @@ function renderCargas() {
       <td style="color:var(--danger)">${c.desconto ? fmtVal(c.desconto) : '-'}</td>
       <td class="td-liquido">${fmtVal(c.liquido || c.valor)}</td>
       <td class="td-frete">${c.frete ? fmtVal(c.frete) : '-'}</td>
-      <td style="color:var(--muted)">${c.venc ? fmtDate(c.venc) : '-'}</td>
-      <td><span class="status-badge ${badgeClass}">${c.status}</span></td>
+      <td style="${vencStyle}">${vencDisplay}</td>
+      <td>
+        <span class="status-badge ${badgeClass}" onclick="abrirStatusQS(${c.id}, event)">${statusLabel} ▾</span>
+      </td>
       <td style="color:var(--muted);font-size:11px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.obs || '-'}</td>
       <td style="white-space:nowrap">
         <button class="btn-sm-edit" onclick="abrirEdicaoCarga(${c.id})">✏️</button>
