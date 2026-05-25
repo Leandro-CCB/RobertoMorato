@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grupo Bertoni — Controle Personalizado dos PR de Morato</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+:root {
+  --bg:#f0f2f7;
+  --surface:#ffffff;
+  --surface2:#f7f8fc;
+  --surface3:#eef0f6;
+  --border:#dde1ec;
+  --accent:#e07b00;
+  --accent-light:#fff3e0;
+  --ultra:#1d4ed8;
+  --ultra-light:#eff6ff;
+  --butano:#15803d;
+  --butano-light:#f0fdf4;
+  --text:#1a1f36;
+  --muted:#6b7280;
+  --muted2:#9ca3af;
+  --danger:#dc2626;
+  --danger-light:#fef2f2;
+  --success:#16a34a;
+  --success-light:#f0fdf4;
+  --radius:12px;
+  --shadow:0 1px 4px rgba(0,0,0,.08),0 4px 12px rgba(0,0,0,.05);
+  --shadow-hover:0 4px 16px rgba(0,0,0,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ── HEADER ── */
+header{
+  background:#fff;
+  border-bottom:1px solid var(--border);
+  box-shadow:0 2px 8px rgba(0,0,0,.06);
+  padding:0 20px;
+  display:flex;align-items:center;gap:14px;height:56px;
+  position:sticky;top:0;z-index:100;
+}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent);white-space:nowrap;}
+.logo span{color:var(--text);}
+.tabs{display:flex;gap:3px;margin-left:auto;flex-wrap:wrap;}
+.tab-btn{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:7px 16px;border:none;border-radius:8px;cursor:pointer;letter-spacing:.4px;text-transform:uppercase;transition:all .18s;background:transparent;color:var(--muted);}
+.tab-btn.active{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(224,123,0,.3);}
+.tab-btn:not(.active):hover{background:var(--surface3);color:var(--text);}
+
+/* ── PAGES ── */
+.page{display:none;padding:20px;max-width:1400px;margin:0 auto;}
+.page.active{display:block;}
+
+/* ── TITLES ── */
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px;color:var(--accent);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── CARD ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px;box-shadow:var(--shadow);}
+
+/* ── INPUTS ── */
+.form-group{display:flex;flex-direction:column;gap:5px;}
+label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);}
+input,select{background:var(--surface2);border:1.5px solid var(--border);color:var(--text);padding:9px 11px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border .18s,box-shadow .18s;width:100%;}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,123,0,.12);}
+input[readonly]{background:var(--surface3);cursor:default;color:var(--success);font-weight:700;}
+select option{background:#fff;}
+
+/* ── LINHAS ── */
+.header-row{display:grid;grid-template-columns:90px 140px 150px 1fr;gap:8px;padding:0 12px;margin-bottom:4px;}
+.header-row label{text-align:center;}
+.linha-row{display:grid;grid-template-columns:90px 140px 150px 1fr;gap:8px;align-items:center;margin-bottom:8px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;transition:border .18s;}
+.linha-row:focus-within{border-color:var(--accent);}
+
+/* ── BRAND TOGGLE ── */
+.brand-toggle{display:flex;gap:6px;}
+.brand-btn{flex:1;padding:9px 6px;border:2px solid var(--border);border-radius:8px;background:#fff;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .18s;text-align:center;white-space:nowrap;}
+.brand-btn.ultra.active{border-color:var(--ultra);background:var(--ultra-light);color:var(--ultra);}
+.brand-btn.butano.active{border-color:var(--butano);background:var(--butano-light);color:var(--butano);}
+.brand-btn:not(.active):hover{border-color:var(--muted2);color:var(--text);}
+
+/* ── PAGAMENTO ── */
+.pay-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
+.pay-col{display:flex;flex-direction:column;gap:5px;}
+.pay-col label{text-align:center;}
+.pay-col input{text-align:right;padding:9px 8px;font-size:13px;}
+
+/* ── TOTALS BAR ── */
+.totals-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+.total-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:9px;box-shadow:var(--shadow);flex:1;min-width:140px;}
+.t-icon{font-size:20px;flex-shrink:0;line-height:1;}
+.t-info{display:flex;flex-direction:column;gap:1px;}
+.t-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);}
+.t-value{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--accent);letter-spacing:.5px;line-height:1.1;}
+.t-value.green{color:var(--success);}
+.t-value.blue{color:var(--ultra);}
+.t-value.red{color:var(--danger);}
+.t-value.bgreen{color:var(--butano);}
+
+/* ── LANÇAMENTO TOTALS ── */
+.venda-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0;padding:14px;background:var(--accent-light);border:1.5px solid #f5c97a;border-radius:10px;}
+.vt-item{text-align:center;}
+.vt-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);margin-bottom:4px;}
+.vt-value{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--text);}
+
+/* ── BUTTONS ── */
+.btn-primary{background:var(--accent);color:#fff;border:none;padding:11px 26px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .18s;box-shadow:0 2px 8px rgba(224,123,0,.25);}
+.btn-primary:hover{background:#c96d00;transform:translateY(-1px);box-shadow:0 4px 14px rgba(224,123,0,.35);}
+.btn-sm-del{background:transparent;color:var(--danger);border:1.5px solid var(--border);padding:6px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;transition:all .18s;}
+.btn-sm-del:hover{border-color:var(--danger);background:var(--danger-light);}
+
+/* ── TABLE ── */
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead{background:var(--surface3);}
+thead th{padding:9px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+tbody tr{border-bottom:1px solid var(--border);transition:background .12s;background:#fff;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:var(--surface2);}
+td{padding:9px 12px;vertical-align:middle;}
+.badge{display:inline-block;padding:3px 9px;border-radius:10px;font-size:10px;font-weight:700;}
+.badge-ultra{background:var(--ultra-light);color:var(--ultra);border:1px solid #bfdbfe;}
+.badge-butano{background:var(--butano-light);color:var(--butano);border:1px solid #bbf7d0;}
+
+/* ── FILTER ROW ── */
+.filter-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:16px;}
+.filter-row .form-group{min-width:140px;flex:1;}
+
+/* ── SUMMARY GLOBAL ── */
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:20px;}
+.summary-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);}
+.s-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px;}
+.s-value{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--accent);}
+.s-value.green{color:var(--success);}
+.s-value.blue{color:var(--ultra);}
+.s-value.red{color:var(--danger);}
+.s-value.bgreen{color:var(--butano);}
+
+/* ── PR CARDS GRID ── */
+.pr-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:20px;}
+
+.pr-card{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:16px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  transition:box-shadow .2s,transform .2s;
+  display:flex;flex-direction:column;
+}
+.pr-card:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px);}
+
+.pr-card-header{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px;
+  background:linear-gradient(135deg,#fffbf5 0%,#fff4e0 100%);
+  border-bottom:1px solid #f0d8a8;
+}
+.pr-avatar{
+  width:44px;height:44px;border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),#f5c97a);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',sans-serif;font-size:20px;color:#fff;
+  flex-shrink:0;letter-spacing:1px;
+  box-shadow:0 2px 8px rgba(224,123,0,.3);
+}
+.pr-header-info{flex:1;min-width:0;}
+.pr-name{font-size:15px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pr-total-botijoes{font-size:11px;color:var(--muted);margin-top:2px;}
+.pr-total-valor-header{text-align:right;flex-shrink:0;}
+.pr-total-valor-header .ptv-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--accent);display:block;margin-bottom:1px;}
+.pr-total-valor-header .ptv-val{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--success);line-height:1.1;}
+
+.pr-card-body{padding:14px 16px;display:flex;flex-direction:column;gap:12px;flex:1;}
+
+/* marcas */
+.pr-marcas{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.pr-marca-pill{
+  display:flex;flex-direction:column;gap:4px;
+  padding:10px 12px;border-radius:10px;
+}
+.pr-marca-pill.ultra{background:var(--ultra-light);border:1.5px solid #bfdbfe;}
+.pr-marca-pill.butano{background:var(--butano-light);border:1.5px solid #bbf7d0;}
+.pm-top{display:flex;align-items:center;gap:5px;}
+.pm-icon{font-size:13px;}
+.pm-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;}
+.pr-marca-pill.ultra .pm-label{color:var(--ultra);}
+.pr-marca-pill.butano .pm-label{color:var(--butano);}
+.pm-bottom{display:flex;justify-content:space-between;align-items:baseline;margin-top:3px;}
+.pm-qtd{font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;}
+.pr-marca-pill.ultra .pm-qtd{color:var(--ultra);}
+.pr-marca-pill.butano .pm-qtd{color:var(--butano);}
+.pm-val-small{font-size:11px;font-weight:700;}
+.pr-marca-pill.ultra .pm-val-small{color:var(--ultra);}
+.pr-marca-pill.butano .pm-val-small{color:var(--butano);}
+
+/* pagamentos */
+.pr-pagamentos{background:var(--surface2);border-radius:10px;padding:10px 12px;}
+.pr-pag-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px;}
+.pr-pag-rows{display:flex;flex-direction:column;gap:4px;}
+.pr-pag-row{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:#fff;border-radius:7px;border:1px solid var(--border);}
+.pr-pag-row .pp-name{font-size:11px;color:var(--muted);font-weight:500;}
+.pr-pag-row .pp-val{font-size:12px;font-weight:700;color:var(--text);}
+.pr-pag-row .pp-val.fiado{color:var(--danger);}
+
+/* footer oculto – total foi movido pro header */
+.pr-card-footer{display:none;}
+
+/* ── PAY BREAKDOWN ── */
+.pay-breakdown{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:8px;}
+.pay-item{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;}
+.pi-label{color:var(--muted);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.pi-val{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent);}
+
+/* ── CONFIG ── */
+.config-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+.config-item{background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px;transition:border .18s;}
+.config-item:focus-within{border-color:var(--accent);}
+.config-item .pr-name-cfg{font-size:13px;font-weight:700;color:var(--text);}
+.config-prices{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.price-field{display:flex;flex-direction:column;gap:4px;}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--success);color:#fff;padding:10px 22px;border-radius:9px;font-weight:700;font-size:13px;transition:transform .3s;z-index:999;pointer-events:none;box-shadow:0 4px 14px rgba(22,163,74,.3);}
+#toast.show{transform:translateX(-50%) translateY(0);}
+.empty{text-align:center;padding:32px;color:var(--muted2);font-size:13px;}
+
+/* ── EDIT BUTTON ── */
+.btn-sm-edit{background:transparent;color:var(--ultra);border:1.5px solid var(--border);padding:6px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;transition:all .18s;margin-right:4px;}
+.btn-sm-edit:hover{border-color:var(--ultra);background:var(--ultra-light);}
+.btn-pdf{background:var(--danger);color:#fff;border:none;padding:11px 22px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .18s;box-shadow:0 2px 8px rgba(220,38,38,.25);}
+.btn-pdf:hover{background:#b91c1c;transform:translateY(-1px);}
+.btn-secondary{background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:11px 22px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .18s;}
+.btn-secondary:hover{background:var(--border);transform:translateY(-1px);}
+.btn-success{background:var(--success);color:#fff;border:none;padding:11px 22px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .18s;box-shadow:0 2px 8px rgba(22,163,74,.25);}
+.btn-success:hover{background:#15803d;transform:translateY(-1px);}
+
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:#fff;border-radius:16px;padding:24px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid var(--border);}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent);margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+.modal-grid{display:grid;grid-template-columns:180px 1fr;gap:12px;margin-bottom:14px;}
+.modal-pay-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.modal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+
+/* ── ADD PR MODAL ── */
+.add-pr-area{display:flex;gap:10px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;}
+.add-pr-area input{max-width:260px;}
+
+/* ── CHARTS ── */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);}
+.chart-card canvas{max-height:220px;}
+.chart-full{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:16px;}
+.chart-full-wrap{position:relative;width:100%;}
+
+/* ── RANKING ── */
+.ranking-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:16px;}
+.rank-list{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
+.rank-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);}
+.rank-pos{font-family:'Bebas Neue',sans-serif;font-size:26px;width:32px;text-align:center;flex-shrink:0;}
+.rank-pos.gold{color:#f59e0b;} .rank-pos.silver{color:#94a3b8;} .rank-pos.bronze{color:#b45309;}
+.rank-pos.p4,.rank-pos.p5{color:var(--muted2);}
+.rank-info{flex:1;}
+.rank-name{font-size:14px;font-weight:700;color:var(--text);}
+.rank-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.rank-val{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--success);text-align:right;}
+.rank-bar-wrap{width:100%;background:var(--border);border-radius:4px;height:5px;margin-top:4px;}
+.rank-bar{height:5px;border-radius:4px;background:linear-gradient(90deg,var(--accent),#f5c97a);}
+
+/* ── FOOTER ── */
+.site-footer{background:#1a1f36;color:#9ca3af;text-align:center;padding:16px 20px;font-size:12px;margin-top:32px;}
+.site-footer strong{color:#fff;}
+
+/* ── CONTROLE DE CARGAS ── */
+.carga-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
+.carga-sum-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px 11px;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow);}
+.cs-icon{font-size:18px;flex-shrink:0;line-height:1;}
+.cs-info{display:flex;flex-direction:column;gap:1px;}
+.cs-label{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);}
+.cs-value{font-family:'Bebas Neue',sans-serif;font-size:17px;color:#0f766e;letter-spacing:.5px;line-height:1.1;}
+.cs-value.orange{color:var(--accent);}
+.cs-value.red{color:var(--danger);}
+.cs-value.blue{color:var(--ultra);}
+
+.carga-form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:14px;}
+.carga-form-grid-wide{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;}
+
+.status-badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.3px;}
+.status-pago{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;}
+.status-avencer{background:#fef9c3;color:#854d0e;border:1px solid #fde68a;}
+.status-vencido{background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;}
+
+.carga-filter-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:16px;}
+.carga-filter-bar .form-group{min-width:130px;flex:1;}
+
+/* linha da tabela de cargas destacada */
+.td-valor{font-weight:700;color:#0f766e;}
+.td-frete{color:var(--ultra);font-weight:600;}
+.td-liquido{font-weight:700;color:var(--success);}
+
+.btn-carga{background:#0f766e;color:#fff;border:none;padding:11px 26px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .18s;box-shadow:0 2px 8px rgba(15,118,110,.25);}
+.btn-carga:hover{background:#0d6460;transform:translateY(-1px);box-shadow:0 4px 14px rgba(15,118,110,.35);}
+
+.carga-modal .modal-box{max-width:740px;}
+.carga-form-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;}
+.carga-form-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+
+@media(max-width:700px){
+  .pay-grid{grid-template-columns:repeat(4,1fr);}
+  .header-row,.linha-row{grid-template-columns:70px 110px 120px 1fr;}
+  .pr-cards-grid{grid-template-columns:1fr;}
+  .tab-btn{padding:6px 10px;font-size:11px;}
+  .charts-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🔥 Grupo Bertoni <span style="font-size:14px;letter-spacing:1px;font-family:'DM Sans',sans-serif;font-weight:600;color:var(--muted);text-transform:none"> — Controle PR Morato</span></div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('lancamento',this)">📋 Lançamento</button>
+    <button class="tab-btn" onclick="showTab('resumo',this)">📊 Resumo</button>
+    <button class="tab-btn" onclick="showTab('cargas',this)">🚛 Cargas</button>
+    <button class="tab-btn" onclick="showTab('config',this)">⚙️ Config</button>
+  </div>
+</header>
+
+<!-- ==================== LANÇAMENTO ==================== -->
+<div id="tab-lancamento" class="page active">
+
+  <div class="totals-bar">
+    <div class="total-card"><div class="t-icon">🛢️</div><div class="t-info"><div class="t-label">Botijões Hoje</div><div class="t-value" id="tqtd">0</div></div></div>
+    <div class="total-card"><div class="t-icon">💰</div><div class="t-info"><div class="t-label">Valor Total Hoje</div><div class="t-value green" id="tval">R$ 0,00</div></div></div>
+    <div class="total-card"><div class="t-icon">🔵</div><div class="t-info"><div class="t-label">Ultragaz Hoje</div><div class="t-value blue" id="tqultra">0</div></div></div>
+    <div class="total-card"><div class="t-icon">🟢</div><div class="t-info"><div class="t-label">Butano Hoje</div><div class="t-value bgreen" id="tqbutano">0</div></div></div>
+    <div class="total-card"><div class="t-icon">📒</div><div class="t-info"><div class="t-label">Fiado Hoje</div><div class="t-value red" id="tfiado">R$ 0,00</div></div></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📋 Novo Lançamento</div>
+
+    <div style="display:grid;grid-template-columns:180px 1fr;gap:12px;margin-bottom:16px;">
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="fData" />
+      </div>
+      <div class="form-group">
+        <label>PR (Vendedor)</label>
+        <select id="fPr" onchange="onPrChange()">
+          <option value="">— Selecione o PR —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-title" style="font-size:14px;margin-bottom:8px;">Itens da Venda</div>
+    <div class="header-row">
+      <label style="text-align:center">Quantidade</label>
+      <label style="text-align:center">Valor Unit. (R$)</label>
+      <label style="text-align:center">Valor Total</label>
+      <label style="text-align:center">Marca</label>
+    </div>
+    <div id="linhas-container"></div>
+
+    <div class="venda-totals">
+      <div class="vt-item"><div class="vt-label">Total Qtd</div><div class="vt-value" id="lTotalQtd">0</div></div>
+      <div class="vt-item"><div class="vt-label">Total Venda</div><div class="vt-value" id="lTotalVal">R$ 0,00</div></div>
+      <div class="vt-item"><div class="vt-label">Linhas Ativas</div><div class="vt-value" id="lTotalLinhas">0</div></div>
+    </div>
+
+    <div class="section-title" style="font-size:14px;margin-bottom:8px;">Pagamento <span style="font-size:11px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(opcional)</span></div>
+    <div class="pay-grid">
+      <div class="pay-col"><label>💵 Espécie</label><input type="number" id="pEspecie" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
+      <div class="pay-col"><label>💳 Débito</label><input type="number" id="pDebito" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
+      <div class="pay-col"><label>💳 Crédito</label><input type="number" id="pCredito" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
+      <div class="pay-col"><label>📱 QR Code</label><input type="number" id="pQrCode" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
+      <div class="pay-col"><label>⚡ Pix</label><input type="number" id="pPix" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
+      <div class="pay-col"><label>🪙 Moeda</label><input type="number" id="pMoeda" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
+      <div class="pay-col"><label>📒 Fiado</label><input type="number" id="pFiado" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
+    </div>
+    <div style="margin-top:8px;font-size:12px;color:var(--muted)">
+      Total informado no pagamento: <span id="pagTotal" style="color:var(--accent);font-weight:700">R$ 0,00</span>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px;">
+      <button class="btn-primary" onclick="addLancamento()">✚ Registrar Venda</button>
+      <span id="formError" style="color:var(--danger);font-size:13px;font-weight:600"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📊 Lançamentos</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th><th>PR</th><th>Qtd</th><th>Vlr Unit.</th><th>Total Item</th>
+            <th>Marca</th><th>Espécie</th><th>Débito</th><th>Crédito</th>
+            <th>QR Code</th><th>Pix</th><th>Moeda</th><th>Fiado</th><th>Total Pago</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tbodyLanc">
+          <tr><td colspan="15" class="empty">Nenhum lançamento ainda.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== RESUMO ==================== -->
+<div id="tab-resumo" class="page">
+
+  <!-- Filtros -->
+  <div class="card">
+    <div class="section-title">🔍 Filtros</div>
+    <div class="filter-row">
+      <div class="form-group"><label>PR</label><select id="rFiltPr" onchange="renderResumo()"><option value="">Todos os PRs</option></select></div>
+      <div class="form-group"><label>Marca</label>
+        <select id="rFiltMarca" onchange="renderResumo()">
+          <option value="">Todas</option><option>Ultragaz</option><option>Butano</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Mês</label><select id="rFiltMes" onchange="renderResumo()"><option value="">Todos os meses</option></select></div>
+      <div style="display:flex;align-items:flex-end;">
+        <button class="btn-pdf" onclick="exportarPDF()">📄 Exportar PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Totais globais -->
+  <div class="summary-grid" id="summaryCards"></div>
+
+  <!-- Pagamentos globais -->
+  <div class="card">
+    <div class="section-title">💰 Por Forma de Pagamento</div>
+    <div class="pay-breakdown" id="payBreakdown"></div>
+  </div>
+
+  <!-- Cartões por PR -->
+  <div class="section-title" style="margin-top:4px;">👤 Por Vendedor (PR)</div>
+  <div class="pr-cards-grid" id="prCardsGrid"></div>
+
+  <!-- Gráficos -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="section-title" style="font-size:14px;margin-bottom:12px;">🔵 Ultragaz — Qtd por Mês</div>
+      <canvas id="chartUltra"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="section-title" style="font-size:14px;margin-bottom:12px;">🟢 Butano — Qtd por Mês</div>
+      <canvas id="chartButano"></canvas>
+    </div>
+  </div>
+  <div class="chart-full">
+    <div class="section-title" style="font-size:14px;margin-bottom:12px;">📊 Botijões por PR (Quantidade Total)</div>
+    <div class="chart-full-wrap" id="chartPRWrap">
+      <canvas id="chartPR"></canvas>
+    </div>
+  </div>
+
+  <!-- Ranking Top 5 PR -->
+  <div class="ranking-card">
+    <div class="section-title" style="font-size:14px;margin-bottom:0;">🏆 Top 5 Melhores PRs</div>
+    <div class="rank-list" id="rankingList"></div>
+  </div>
+
+  <!-- Tabela detalhada -->
+  <div class="card">
+    <div class="section-title">📋 Detalhamento</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th><th>PR</th><th>Qtd</th><th>Vlr Unit.</th><th>Total Item</th>
+            <th>Marca</th><th>Espécie</th><th>Débito</th><th>Crédito</th>
+            <th>QR Code</th><th>Pix</th><th>Moeda</th><th>Fiado</th><th>Total Pago</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyResumo">
+          <tr><td colspan="14" class="empty">Nenhum dado.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONTROLE DE CARGAS ==================== -->
+<div id="tab-cargas" class="page">
+
+  <!-- Resumo -->
+  <div class="carga-summary" id="cargaSummary"></div>
+
+  <!-- Formulário de novo lançamento de carga -->
+  <div class="card">
+    <div class="section-title">🚛 Nova Carga
+      <button class="btn-frete-config" onclick="abrirFreteConfig()" style="margin-left:auto;background:var(--ultra-light);color:var(--ultra);border:1.5px solid #bfdbfe;padding:5px 13px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.4px;text-transform:uppercase;transition:all .18s;" title="Configurar valores de frete por produto">⚙️ Config. Frete</button>
+    </div>
+
+    <div class="carga-form-grid">
+      <div class="form-group">
+        <label>Data da Carga</label>
+        <input type="date" id="cData" onchange="calcVencimentoAuto()" />
+      </div>
+      <div class="form-group">
+        <label>Produto</label>
+        <select id="cProduto" onchange="calcFreteAuto()">
+          <option value="">— Selecione —</option>
+          <option>P 05</option>
+          <option>P 13</option>
+          <option>P 20</option>
+          <option>P 45</option>
+          <option>P 05 + P 13</option>
+          <option>P 13 + P 45</option>
+          <option>Mix (vários)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>NF (Nota Fiscal)</label>
+        <input type="text" id="cNF" placeholder="Ex: 2823519" />
+      </div>
+      <div class="form-group">
+        <label>Empresa (Comprou)</label>
+        <select id="cEmpresa">
+          <option value="">— Selecione —</option>
+          <option value="BERTONI">Bertoni</option>
+          <option value="ROSA">Rosa</option>
+          <option value="PINHEIRO">Pinheiro</option>
+          <option value="LIROMILS">Liromils</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Transportadora (Frete)</label>
+        <select id="cTransp">
+          <option value="IVG TRANSPORTES">IVG Transportes</option>
+          <option value="BERTONI">Bertoni</option>
+          <option value="OUTRO">Outro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Caminhão</label>
+        <select id="cCaminhao">
+          <option value="">— Selecione —</option>
+          <option value="FORD">🚛 Ford</option>
+          <option value="MERCEDES">🚛 Mercedes</option>
+          <option value="OUTRO">🚛 Outro</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="carga-form-grid">
+      <div class="form-group">
+        <label>Quantidade (botijões)</label>
+        <input type="number" id="cQtd" min="0" placeholder="0" oninput="calcFreteAuto()" />
+      </div>
+      <div class="form-group">
+        <label>Valor da Carga (R$)</label>
+        <input type="number" id="cValor" min="0" step="0.01" placeholder="0,00" oninput="calcCargaLiquido()" />
+      </div>
+      <div class="form-group">
+        <label>Desconto (R$)</label>
+        <input type="number" id="cDesconto" min="0" step="0.01" placeholder="0,00" oninput="calcCargaLiquido()" />
+      </div>
+      <div class="form-group">
+        <label>Valor Líquido (R$)</label>
+        <input type="text" id="cLiquido" readonly placeholder="R$ 0,00" />
+      </div>
+      <div class="form-group">
+        <label>Valor do Frete (R$) <span style="font-size:9px;color:var(--ultra);font-weight:600">(auto)</span></label>
+        <input type="number" id="cFrete" min="0" step="0.01" placeholder="0,00" />
+      </div>
+      <div class="form-group">
+        <label>Status do Pagamento</label>
+        <select id="cStatus">
+          <option value="A VENCER">⏳ A Vencer</option>
+          <option value="PAGO">✅ Pago</option>
+          <option value="VENCIDO">❌ Vencido</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="carga-form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px;">
+      <div class="form-group">
+        <label>Data de Vencimento <span style="font-size:9px;color:var(--ultra);font-weight:600">(5 dias úteis auto)</span></label>
+        <input type="date" id="cVenc" />
+      </div>
+      <div class="form-group">
+        <label>Observação</label>
+        <input type="text" id="cObs" placeholder="Ex: 20 TROCA P13, VG, DOAÇÃO…" />
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <button class="btn-carga" onclick="addCarga()">✚ Registrar Carga</button>
+      <span id="cargaErr" style="color:var(--danger);font-size:13px;font-weight:600;"></span>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card">
+    <div class="section-title">🔍 Filtros</div>
+    <div class="carga-filter-bar">
+      <div class="form-group"><label>Empresa</label>
+        <select id="cfEmpresa" onchange="renderCargas()"><option value="">Todas</option></select>
+      </div>
+      <div class="form-group"><label>Produto</label>
+        <select id="cfProduto" onchange="renderCargas()">
+          <option value="">Todos</option>
+          <option>P 05</option><option>P 13</option><option>P 20</option><option>P 45</option>
+          <option>P 05 + P 13</option><option>P 13 + P 45</option><option>Mix (vários)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Status</label>
+        <select id="cfStatus" onchange="renderCargas()">
+          <option value="">Todos</option>
+          <option>PAGO</option><option>A VENCER</option><option>VENCIDO</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Mês</label>
+        <select id="cfMes" onchange="renderCargas()"><option value="">Todos</option></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela -->
+  <div class="card">
+    <div class="section-title">📋 Registro de Cargas</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Produto</th>
+            <th>NF</th>
+            <th>Empresa</th>
+            <th>Transportadora</th>
+            <th>Caminhão</th>
+            <th>Qtd</th>
+            <th>Valor Carga</th>
+            <th>Desconto</th>
+            <th>Líquido</th>
+            <th>Frete</th>
+            <th>Vencimento</th>
+            <th>Status</th>
+            <th>Obs</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbodyCargas">
+          <tr><td colspan="15" class="empty">Nenhuma carga registrada ainda.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR CARGA -->
+<div class="modal-overlay carga-modal" id="editCargaModal">
+  <div class="modal-box">
+    <div class="modal-title">✏️ Editar Carga</div>
+    <input type="hidden" id="editCargaId" />
+    <div class="carga-form-3">
+      <div class="form-group"><label>Data da Carga</label><input type="date" id="ecData" /></div>
+      <div class="form-group"><label>Produto</label>
+        <select id="ecProduto">
+          <option>P 05</option><option>P 13</option><option>P 20</option><option>P 45</option>
+          <option>P 05 + P 13</option><option>P 13 + P 45</option><option>Mix (vários)</option>
+        </select>
+      </div>
+      <div class="form-group"><label>NF</label><input type="text" id="ecNF" /></div>
+    </div>
+    <div class="carga-form-3">
+      <div class="form-group"><label>Empresa</label>
+        <select id="ecEmpresa">
+          <option value="">— Selecione —</option>
+          <option value="BERTONI">Bertoni</option>
+          <option value="ROSA">Rosa</option>
+          <option value="PINHEIRO">Pinheiro</option>
+          <option value="LIROMILS">Liromils</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Transportadora</label>
+        <select id="ecTransp">
+          <option value="IVG TRANSPORTES">IVG Transportes</option>
+          <option value="BERTONI">Bertoni</option>
+          <option value="OUTRO">Outro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Caminhão</label>
+        <select id="ecCaminhao">
+          <option value="">— Selecione —</option>
+          <option value="FORD">🚛 Ford</option>
+          <option value="MERCEDES">🚛 Mercedes</option>
+          <option value="OUTRO">🚛 Outro</option>
+        </select>
+      </div>
+    </div>
+    <div class="carga-form-3">
+      <div class="form-group"><label>Qtd (botijões)</label><input type="number" id="ecQtd" min="0" oninput="calcEditFreteAuto()" /></div>
+      <div class="form-group"><label>Valor Carga (R$)</label><input type="number" id="ecValor" min="0" step="0.01" oninput="calcEditCargaLiquido()" /></div>
+      <div class="form-group"><label>Desconto (R$)</label><input type="number" id="ecDesconto" min="0" step="0.01" oninput="calcEditCargaLiquido()" /></div>
+    </div>
+    <div class="carga-form-3">
+      <div class="form-group"><label>Líquido</label><input type="text" id="ecLiquido" readonly /></div>
+      <div class="form-group"><label>Frete (R$)</label><input type="number" id="ecFrete" min="0" step="0.01" /></div>
+      <div class="form-group"><label>Vencimento</label><input type="date" id="ecVenc" /></div>
+    </div>
+    <div class="carga-form-2" style="margin-bottom:12px;">
+      <div class="form-group"><label>Status</label>
+        <select id="ecStatus">
+          <option value="A VENCER">⏳ A Vencer</option>
+          <option value="PAGO">✅ Pago</option>
+          <option value="VENCIDO">❌ Vencido</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Observação</label><input type="text" id="ecObs" /></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-carga" onclick="salvarEdicaoCarga()">💾 Salvar</button>
+      <button class="btn-secondary" onclick="fecharCargaModal()">✕ Cancelar</button>
+      <span id="editCargaErr" style="color:var(--danger);font-size:13px;font-weight:600;align-self:center;"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONFIG ==================== -->
+<div id="tab-config" class="page">
+  <div class="card">
+    <div class="section-title">➕ Adicionar Novo PR</div>
+    <div class="add-pr-area">
+      <div class="form-group">
+        <label>Nome do novo PR</label>
+        <input type="text" id="newPrInput" placeholder="Ex: JOÃO DA SILVA" style="max-width:280px;" oninput="this.value=this.value.toUpperCase()" />
+      </div>
+      <button class="btn-success" onclick="adicionarNovoPR()">✚ Adicionar PR</button>
+      <span id="newPrMsg" style="font-size:13px;font-weight:700;color:var(--success);align-self:center;"></span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-title">⚙️ Preço do P13 por PR</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Configure o preço de venda do Ultragaz e Butano para cada PR. O preço é carregado automaticamente ao selecionar o PR e a marca no lançamento.</p>
+    <div class="config-grid" id="configGrid"></div>
+    <div style="margin-top:18px;display:flex;gap:12px;align-items:center;">
+      <button class="btn-primary" onclick="saveConfig()">💾 Salvar Configurações</button>
+      <span id="configMsg" style="font-size:13px;font-weight:700;color:var(--success)"></span>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIG FRETE -->
+<div class="modal-overlay" id="freteConfigModal">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-title">⚙️ Configurar Valores de Frete</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Defina o valor do frete <strong>por botijão</strong> para cada produto. O frete total será calculado automaticamente (valor × quantidade).</p>
+    <div id="freteConfigGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn-carga" onclick="salvarFreteConfig()">💾 Salvar</button>
+      <button class="btn-secondary" onclick="fecharFreteConfig()">✕ Cancelar</button>
+      <span id="freteConfigMsg" style="color:var(--success);font-size:13px;font-weight:600;align-self:center;"></span>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <strong>Grupo Bertoni — Controle Personalizado dos PR de Morato</strong> &nbsp;|&nbsp; Desenvolvido por <strong>Leandro Machado</strong>
+</footer>
+
+<div id="toast">✓ Registrado!</div>
+
+<!-- ── MODAL EDITAR LANÇAMENTO ── -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <div class="modal-title">✏️ Editar Lançamento</div>
+    <input type="hidden" id="editId" />
+    <div class="modal-grid">
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="editData" />
+      </div>
+      <div class="form-group">
+        <label>PR (Vendedor)</label>
+        <select id="editPr"></select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:90px 140px 150px 1fr;gap:8px;padding:0 0 6px;margin-bottom:4px;">
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);text-align:center">Quantidade</label>
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);text-align:center">Valor Unit. (R$)</label>
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);text-align:center">Valor Total</label>
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);text-align:center">Marca</label>
+    </div>
+    <div style="display:grid;grid-template-columns:90px 140px 150px 1fr;gap:8px;align-items:center;margin-bottom:14px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;">
+      <input type="number" id="editQtd" min="0" placeholder="0" oninput="calcEditTotal()" />
+      <input type="number" id="editPreco" min="0" step="0.01" placeholder="0,00" oninput="calcEditTotal()" />
+      <input type="text" id="editTotal" readonly placeholder="R$ 0,00" />
+      <div class="brand-toggle">
+        <button class="brand-btn ultra" id="editBtnUltra" onclick="selectEditBrand('Ultragaz')">🔵 Ultra</button>
+        <button class="brand-btn butano" id="editBtnButano" onclick="selectEditBrand('Butano')">🟢 Butano</button>
+      </div>
+    </div>
+    <div class="section-title" style="font-size:13px;margin-bottom:8px;">💳 Pagamento</div>
+    <div class="modal-pay-grid">
+      <div class="pay-col"><label>💵 Espécie</label><input type="number" id="ePEspecie" min="0" step="0.01" placeholder="0,00" /></div>
+      <div class="pay-col"><label>💳 Débito</label><input type="number" id="ePDebito" min="0" step="0.01" placeholder="0,00" /></div>
+      <div class="pay-col"><label>💳 Crédito</label><input type="number" id="ePCredito" min="0" step="0.01" placeholder="0,00" /></div>
+      <div class="pay-col"><label>📱 QR Code</label><input type="number" id="ePQrCode" min="0" step="0.01" placeholder="0,00" /></div>
+      <div class="pay-col"><label>⚡ Pix</label><input type="number" id="ePPix" min="0" step="0.01" placeholder="0,00" /></div>
+      <div class="pay-col"><label>🪙 Moeda</label><input type="number" id="ePMoeda" min="0" step="0.01" placeholder="0,00" /></div>
+      <div class="pay-col"><label>📒 Fiado</label><input type="number" id="ePFiado" min="0" step="0.01" placeholder="0,00" /></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="salvarEdicao()">💾 Salvar Alterações</button>
+      <button class="btn-secondary" onclick="fecharModal()">✕ Cancelar</button>
+      <span id="editErr" style="color:var(--danger);font-size:13px;font-weight:600;align-self:center;"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+const PRS = [
+  'ABIDIAS','ADEMIR','ADRIANO','ALMEIDA','AVULSO','BOM GAS','BUIU','C. FINAL',
+  'CABERÃO','CLAYTON','COSTELA','ECONOMIA','EMANUEL','EVERTON','FABIANO',
+  'GABRIEL','GEL','GERALDO','HENRIQUE','IDEAL','IVAN','JAL','LEANDRO',
+  'LORIVAL','LUCAS','LUCIANA','LUIS','MATEUS','MAURICIO','MORATO','NALVA',
+  'NETO','NOVA','OLIVERA','PORTARIA ARCILIO','PORTARIA ROSA','ROBERTO',
+  'SANTOS','SENEVAIDO','SEU PEDRO','SIQUERA'
+].sort();
+
+const PAY_FIELDS = ['Espécie','Débito','Crédito','QR Code','Pix','Moeda','Fiado'];
+const PAY_IDS    = ['pEspecie','pDebito','pCredito','pQrCode','pPix','pMoeda','pFiado'];
+const PAY_EMOJIS = {'Espécie':'💵','Débito':'💳','Crédito':'💳','QR Code':'📱','Pix':'⚡','Moeda':'🪙','Fiado':'📒'};
+
+let lancamentos  = JSON.parse(localStorage.getItem('gas_lanc2') || '[]');
+let configPrecos = JSON.parse(localStorage.getItem('gas_config') || '{}');
+
+// ── INIT ──
+window.onload = () => {
+  document.getElementById('fData').value = new Date().toISOString().split('T')[0];
+  ['fPr','rFiltPr','editPr'].forEach(id => {
+    const sel = document.getElementById(id);
+    if(id==='fPr') { const ph=document.createElement('option');ph.value='';ph.textContent='— Selecione o PR —';sel.appendChild(ph); }
+    else if(id==='rFiltPr') { const ph=document.createElement('option');ph.value='';ph.textContent='Todos os PRs';sel.appendChild(ph); }
+    PRS.forEach(pr => { const o=document.createElement('option'); o.value=pr; o.textContent=pr; sel.appendChild(o); });
+  });
+  buildLinhas();
+  buildConfigGrid();
+  renderTable();
+  renderTotals();
+  // Fechar modal clicando no overlay
+  document.getElementById('editModal').addEventListener('click',function(e){if(e.target===this)fecharModal();});
+};
+
+// ── LINHAS ──
+function buildLinhas() {
+  const c = document.getElementById('linhas-container');
+  c.innerHTML = '';
+  for (let i=0;i<3;i++) {
+    const d = document.createElement('div');
+    d.className='linha-row'; d.id='linha_'+i;
+    d.innerHTML=`
+      <input type="number" id="l${i}_qtd" min="0" placeholder="0" oninput="calcLinha(${i})" />
+      <input type="number" id="l${i}_preco" min="0" step="0.01" placeholder="0,00" oninput="calcLinha(${i})" />
+      <input type="text" id="l${i}_total" readonly placeholder="R$ 0,00" />
+      <div class="brand-toggle">
+        <button class="brand-btn ultra" id="l${i}_ultra" onclick="selectLinhaBrand(${i},'Ultragaz')">🔵 Ultra</button>
+        <button class="brand-btn butano" id="l${i}_butano" onclick="selectLinhaBrand(${i},'Butano')">🟢 Butano</button>
+      </div>`;
+    c.appendChild(d);
+  }
+}
+function selectLinhaBrand(i,brand) {
+  document.getElementById(`l${i}_ultra`).classList.toggle('active',brand==='Ultragaz');
+  document.getElementById(`l${i}_butano`).classList.toggle('active',brand==='Butano');
+  const pr=document.getElementById('fPr').value;
+  if (pr&&configPrecos[pr]) {
+    const p=brand==='Ultragaz'?(configPrecos[pr].ultragaz||0):(configPrecos[pr].butano||0);
+    if(p>0) document.getElementById(`l${i}_preco`).value=p;
+  }
+  calcLinha(i);
+}
+function onPrChange() {
+  for(let i=0;i<3;i++){
+    if(document.getElementById(`l${i}_ultra`).classList.contains('active')) selectLinhaBrand(i,'Ultragaz');
+    if(document.getElementById(`l${i}_butano`).classList.contains('active')) selectLinhaBrand(i,'Butano');
+  }
+}
+function calcLinha(i) {
+  const qtd=parseFloat(document.getElementById(`l${i}_qtd`).value)||0;
+  const p  =parseFloat(document.getElementById(`l${i}_preco`).value)||0;
+  const t  =qtd*p;
+  document.getElementById(`l${i}_total`).value=t>0?'R$ '+fmtNum(t):'';
+  calcLinhaTotais();
+}
+function getLinhaBrand(i){
+  if(document.getElementById(`l${i}_ultra`).classList.contains('active')) return 'Ultragaz';
+  if(document.getElementById(`l${i}_butano`).classList.contains('active')) return 'Butano';
+  return '';
+}
+function calcLinhaTotais(){
+  let q=0,v=0,n=0;
+  for(let i=0;i<3;i++){
+    const qq=parseFloat(document.getElementById(`l${i}_qtd`).value)||0;
+    const pp=parseFloat(document.getElementById(`l${i}_preco`).value)||0;
+    if(qq>0){q+=qq;v+=qq*pp;n++;}
+  }
+  document.getElementById('lTotalQtd').textContent=q;
+  document.getElementById('lTotalVal').textContent='R$ '+fmtNum(v);
+  document.getElementById('lTotalLinhas').textContent=n;
+}
+
+// ── PAGAMENTO ──
+function calcPagTotal(){
+  let t=0; PAY_IDS.forEach(id=>t+=parseFloat(document.getElementById(id).value)||0);
+  document.getElementById('pagTotal').textContent='R$ '+fmtNum(t);
+}
+
+// ── REGISTRAR ──
+function addLancamento(){
+  const data=document.getElementById('fData').value;
+  const pr  =document.getElementById('fPr').value;
+  const err =document.getElementById('formError');
+  if(!data){err.textContent='⚠ Informe a data.';return;}
+  if(!pr)  {err.textContent='⚠ Selecione o PR.';return;}
+  err.textContent='';
+  const linhas=[];
+  for(let i=0;i<3;i++){
+    const q=parseFloat(document.getElementById(`l${i}_qtd`).value)||0;
+    const p=parseFloat(document.getElementById(`l${i}_preco`).value)||0;
+    const m=getLinhaBrand(i);
+    if(q>0&&p>0&&m) linhas.push({qtd:q,preco:p,total:q*p,marca:m});
+  }
+  if(!linhas.length){err.textContent='⚠ Preencha ao menos 1 linha (qtd + preço + marca).';return;}
+  const pag={};
+  PAY_IDS.forEach((id,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(id).value)||0);
+  const now=Date.now();
+  linhas.forEach((l,idx)=>lancamentos.push({id:now+idx,data,pr,...l,pag}));
+  save(); renderTable(); renderTotals();
+  showToast(`✓ ${linhas.length} linha(s) registrada(s)!`);
+  for(let i=0;i<3;i++){
+    ['qtd','preco','total'].forEach(f=>document.getElementById(`l${i}_${f}`).value='');
+    document.getElementById(`l${i}_ultra`).classList.remove('active');
+    document.getElementById(`l${i}_butano`).classList.remove('active');
+  }
+  PAY_IDS.forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pagTotal').textContent='R$ 0,00';
+  ['lTotalQtd','lTotalLinhas'].forEach(id=>document.getElementById(id).textContent='0');
+  document.getElementById('lTotalVal').textContent='R$ 0,00';
+}
+
+// ── DELETE ──
+function deleteLanc(id){
+  if(!confirm('Remover este lançamento?')) return;
+  lancamentos=lancamentos.filter(l=>l.id!==id);
+  save(); renderTable(); renderTotals();
+}
+
+// ── SAVE ──
+function save(){localStorage.setItem('gas_lanc2',JSON.stringify(lancamentos));}
+
+// ── FORMAT ──
+function fmtNum(v){return v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
+function fmtVal(v){return 'R$ '+fmtNum(v);}
+function fmtDate(d){const[y,m,dd]=d.split('-');return`${dd}/${m}/${y}`;}
+function sumPag(pag){return Object.values(pag||{}).reduce((a,b)=>a+b,0);}
+
+// ── RENDER TABLE ──
+function renderTable(){
+  const tb=document.getElementById('tbodyLanc');
+  if(!lancamentos.length){tb.innerHTML='<tr><td colspan="15" class="empty">Nenhum lançamento ainda.</td></tr>';return;}
+  tb.innerHTML=[...lancamentos].reverse().map(l=>`
+    <tr>
+      <td>${fmtDate(l.data)}</td>
+      <td style="font-weight:700">${l.pr}</td>
+      <td style="font-family:'Bebas Neue',sans-serif;font-size:18px">${l.qtd}</td>
+      <td>${fmtVal(l.preco)}</td>
+      <td style="font-weight:700;color:var(--success)">${fmtVal(l.total)}</td>
+      <td><span class="badge badge-${l.marca==='Ultragaz'?'ultra':'butano'}">${l.marca}</span></td>
+      ${PAY_FIELDS.map(p=>`<td style="color:${p==='Fiado'?'var(--danger)':'var(--muted)'}">${l.pag&&l.pag[p]>0?fmtVal(l.pag[p]):'-'}</td>`).join('')}
+      <td style="font-weight:700;color:var(--accent)">${fmtVal(sumPag(l.pag))}</td>
+      <td style="white-space:nowrap"><button class="btn-sm-edit" onclick="abrirEdicao(${l.id})">✏️</button><button class="btn-sm-del" onclick="deleteLanc(${l.id})">✕</button></td>
+    </tr>`).join('');
+}
+
+// ── TOTALS BAR ──
+function renderTotals(){
+  const today=new Date().toISOString().split('T')[0];
+  const t=lancamentos.filter(l=>l.data===today);
+  document.getElementById('tqtd').textContent=t.reduce((a,b)=>a+b.qtd,0);
+  document.getElementById('tval').textContent=fmtVal(t.reduce((a,b)=>a+b.total,0));
+  document.getElementById('tqultra').textContent=t.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.qtd,0);
+  document.getElementById('tqbutano').textContent=t.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.qtd,0);
+  document.getElementById('tfiado').textContent=fmtVal(t.reduce((a,b)=>a+(b.pag&&b.pag['Fiado']||0),0));
+}
+
+// ── CHART INSTANCES ──
+let chartUltraInst=null, chartButanoInst=null, chartPRInst=null;
+
+function destroyCharts(){
+  if(chartUltraInst){chartUltraInst.destroy();chartUltraInst=null;}
+  if(chartButanoInst){chartButanoInst.destroy();chartButanoInst=null;}
+  if(chartPRInst){chartPRInst.destroy();chartPRInst=null;}
+}
+
+function renderCharts(f){
+  destroyCharts();
+  Chart.register(ChartDataLabels);
+
+  const mesVal=document.getElementById('rFiltMes').value;
+  let anoRef;
+  if(mesVal) anoRef=mesVal.slice(0,4);
+  else if(f.length){
+    const anos={};
+    f.forEach(l=>{const a=l.data.slice(0,4);anos[a]=(anos[a]||0)+1;});
+    anoRef=Object.keys(anos).sort((a,b)=>anos[b]-anos[a])[0];
+  } else anoRef=new Date().getFullYear().toString();
+
+  const mesesLabels=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const prFilt=document.getElementById('rFiltPr').value;
+  let base=[...lancamentos].filter(l=>l.data.startsWith(anoRef));
+  if(prFilt) base=base.filter(l=>l.pr===prFilt);
+
+  const dataUltra=Array(12).fill(0);
+  const dataButano=Array(12).fill(0);
+  base.forEach(l=>{
+    const mo=parseInt(l.data.slice(5,7),10)-1;
+    if(l.marca==='Ultragaz') dataUltra[mo]+=l.qtd;
+    if(l.marca==='Butano')   dataButano[mo]+=l.qtd;
+  });
+
+  // Rótulo dentro da barra (center) para não ser cortado; se barra muito pequena, acima
+  function makeDatalabels(color){
+    return{
+      display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,
+      anchor:ctx=>{const v=ctx.dataset.data[ctx.dataIndex];const max=Math.max(...ctx.dataset.data);return v/max>0.25?'center':'end';},
+      align:ctx=>{const v=ctx.dataset.data[ctx.dataIndex];const max=Math.max(...ctx.dataset.data);return v/max>0.25?'center':'top';},
+      offset:0,
+      font:{size:12,weight:'700'},
+      color:ctx=>{const v=ctx.dataset.data[ctx.dataIndex];const max=Math.max(...ctx.dataset.data);return v/max>0.25?'#fff':color;},
+      formatter:v=>v,
+      textStrokeColor:ctx=>{const v=ctx.dataset.data[ctx.dataIndex];const max=Math.max(...ctx.dataset.data);return v/max>0.25?'rgba(0,0,0,0.2)':'transparent';},
+      textStrokeWidth:2
+    };
+  }
+
+  const scaleCommon={
+    x:{grid:{display:false},ticks:{font:{size:10}}},
+    y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}},grid:{color:'#f0f2f7'},grace:'15%'}
+  };
+
+  // Gráfico Ultragaz
+  chartUltraInst=new Chart(document.getElementById('chartUltra'),{
+    type:'bar',
+    data:{
+      labels:mesesLabels,
+      datasets:[{
+        data:dataUltra,
+        backgroundColor:mesesLabels.map((_,i)=>dataUltra[i]>0?'rgba(29,78,216,0.80)':'rgba(29,78,216,0.12)'),
+        borderColor:'#1d4ed8',borderWidth:1.5,borderRadius:6,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      layout:{padding:{top:8}},
+      plugins:{
+        legend:{display:false},
+        datalabels:makeDatalabels('#1d4ed8'),
+        tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y} botijões Ultragaz`}}
+      },
+      scales:scaleCommon
+    }
+  });
+
+  // Gráfico Butano
+  chartButanoInst=new Chart(document.getElementById('chartButano'),{
+    type:'bar',
+    data:{
+      labels:mesesLabels,
+      datasets:[{
+        data:dataButano,
+        backgroundColor:mesesLabels.map((_,i)=>dataButano[i]>0?'rgba(21,128,61,0.80)':'rgba(21,128,61,0.12)'),
+        borderColor:'#15803d',borderWidth:1.5,borderRadius:6,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      layout:{padding:{top:8}},
+      plugins:{
+        legend:{display:false},
+        datalabels:makeDatalabels('#15803d'),
+        tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y} botijões Butano`}}
+      },
+      scales:scaleCommon
+    }
+  });
+
+  // Gráfico por PR — HORIZONTAL, quantidade de botijões
+  const prQtds={};
+  f.forEach(l=>{prQtds[l.pr]=(prQtds[l.pr]||0)+l.qtd;});
+  const prsSorted=Object.entries(prQtds).sort((a,b)=>b[1]-a[1]);
+  const prLabels=prsSorted.map(x=>x[0]);
+  const prVals=prsSorted.map(x=>x[1]);
+  const palette=['#e07b00','#1d4ed8','#15803d','#dc2626','#7c3aed','#0891b2','#be185d','#d97706','#059669','#2563eb','#9333ea','#db2777','#16a34a','#ea580c','#f59e0b'];
+
+  // Altura dinâmica: 36px por barra + margens
+  const chartHeight=Math.max(200, prLabels.length*38+60);
+  const wrap=document.getElementById('chartPRWrap');
+  wrap.style.height=chartHeight+'px';
+
+  chartPRInst=new Chart(document.getElementById('chartPR'),{
+    type:'bar',
+    data:{
+      labels:prLabels,
+      datasets:[{
+        data:prVals,
+        backgroundColor:prLabels.map((_,i)=>palette[i%palette.length]+'dd'),
+        borderColor:prLabels.map((_,i)=>palette[i%palette.length]),
+        borderWidth:1.5,borderRadius:5,
+      }]
+    },
+    options:{
+      indexAxis:'y',  // HORIZONTAL
+      responsive:true,maintainAspectRatio:false,
+      layout:{padding:{right:50}},
+      plugins:{
+        legend:{display:false},
+        datalabels:{
+          display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,
+          anchor:'end',align:'right',offset:4,
+          font:{size:11,weight:'700'},
+          color:ctx=>palette[ctx.dataIndex%palette.length],
+          formatter:v=>`${v} bot.`
+        },
+        tooltip:{callbacks:{label:ctx=>`${ctx.parsed.x} botijões`}}
+      },
+      scales:{
+        x:{beginAtZero:true,ticks:{font:{size:10},stepSize:1},grid:{color:'#f0f2f7'},grace:'10%'},
+        y:{grid:{display:false},ticks:{font:{size:11,weight:'600'},color:'#374151'}}
+      }
+    }
+  });
+}
+
+function renderRanking(f){
+  const prTotais={};
+  const prQtds={};
+  f.forEach(l=>{
+    prTotais[l.pr]=(prTotais[l.pr]||0)+l.total;
+    prQtds[l.pr]=(prQtds[l.pr]||0)+l.qtd;
+  });
+  const top5=Object.entries(prTotais).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxVal=top5[0]?top5[0][1]:1;
+  const medals=['🥇','🥈','🥉','4º','5º'];
+  const posClass=['gold','silver','bronze','p4','p5'];
+  document.getElementById('rankingList').innerHTML=top5.length
+    ? top5.map(([pr,val],i)=>`
+      <div class="rank-item">
+        <div class="rank-pos ${posClass[i]}">${medals[i]}</div>
+        <div class="rank-info">
+          <div class="rank-name">${pr}</div>
+          <div class="rank-sub">${prQtds[pr]} botijão(s) vendido(s)</div>
+          <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.round(val/maxVal*100)}%"></div></div>
+        </div>
+        <div class="rank-val">${fmtVal(val)}</div>
+      </div>`).join('')
+    : '<div class="empty">Nenhum dado para o filtro selecionado.</div>';
+}
+
+// ── RESUMO ──
+const MESES_PT=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function buildMesOptions(){
+  const sel=document.getElementById('rFiltMes');
+  const meses=new Set(lancamentos.map(l=>l.data.slice(0,7)));
+  const sorted=[...meses].sort().reverse();
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Todos os meses</option>';
+  sorted.forEach(m=>{
+    const [y,mo]=m.split('-');
+    const o=document.createElement('option');
+    o.value=m; o.textContent=`${MESES_PT[parseInt(mo,10)-1]} ${y}`;
+    if(m===cur) o.selected=true;
+    sel.appendChild(o);
+  });
+}
+function renderResumo(){
+  buildMesOptions();
+  let f=[...lancamentos];
+  const pr   =document.getElementById('rFiltPr').value;
+  const marca=document.getElementById('rFiltMarca').value;
+  const mes  =document.getElementById('rFiltMes').value;
+  if(pr)    f=f.filter(l=>l.pr===pr);
+  if(marca) f=f.filter(l=>l.marca===marca);
+  if(mes)   f=f.filter(l=>l.data.startsWith(mes));
+
+  // ── Totais globais ──
+  document.getElementById('summaryCards').innerHTML=`
+    <div class="summary-card"><div class="s-label">Total Botijões</div><div class="s-value">${f.reduce((a,b)=>a+b.qtd,0)}</div></div>
+    <div class="summary-card"><div class="s-label">Valor Total</div><div class="s-value green">${fmtVal(f.reduce((a,b)=>a+b.total,0))}</div></div>
+    <div class="summary-card"><div class="s-label">Ultragaz Qtd</div><div class="s-value blue">${f.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.qtd,0)}</div></div>
+    <div class="summary-card"><div class="s-label">Ultragaz Valor</div><div class="s-value blue" style="font-size:18px">${fmtVal(f.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.total,0))}</div></div>
+    <div class="summary-card"><div class="s-label">Butano Qtd</div><div class="s-value bgreen">${f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.qtd,0)}</div></div>
+    <div class="summary-card"><div class="s-label">Butano Valor</div><div class="s-value bgreen" style="font-size:18px">${fmtVal(f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.total,0))}</div></div>
+    <div class="summary-card"><div class="s-label">Total Fiado</div><div class="s-value red">${fmtVal(f.reduce((a,b)=>a+(b.pag&&b.pag['Fiado']||0),0))}</div></div>
+    <div class="summary-card"><div class="s-label">Nº Lançamentos</div><div class="s-value">${f.length}</div></div>`;
+
+  // ── Breakdown pagamentos ──
+  document.getElementById('payBreakdown').innerHTML=PAY_FIELDS.map(p=>{
+    const val=f.reduce((a,b)=>a+(b.pag&&b.pag[p]||0),0);
+    const n=f.filter(l=>l.pag&&l.pag[p]>0).length;
+    return`<div class="pay-item">
+      <div class="pi-label">${PAY_EMOJIS[p]} ${p}</div>
+      <div class="pi-val">${fmtVal(val)}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${n} registros</div>
+    </div>`;
+  }).join('');
+
+  // ── Cartões por PR ──
+  const prsSemDados = [];
+  const prsComDados = [];
+  const prsAtivos = [...new Set(f.map(l=>l.pr))].sort();
+
+  const grid=document.getElementById('prCardsGrid');
+  if(!prsAtivos.length){
+    grid.innerHTML='<div class="empty" style="grid-column:1/-1">Nenhum PR com dados para os filtros selecionados.</div>';
+  } else {
+    grid.innerHTML=prsAtivos.map(pr=>{
+      const itens=f.filter(l=>l.pr===pr);
+      const qtdUltra=itens.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.qtd,0);
+      const qtdButano=itens.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.qtd,0);
+      const valUltra=itens.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.total,0);
+      const valButano=itens.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.total,0);
+      const totalVenda=itens.reduce((a,b)=>a+b.total,0);
+      const totalQtd=itens.reduce((a,b)=>a+b.qtd,0);
+
+      // pagamentos somados
+      const pagSoma={};
+      PAY_FIELDS.forEach(p=>pagSoma[p]=itens.reduce((a,b)=>a+(b.pag&&b.pag[p]||0),0));
+      const pagRows=PAY_FIELDS.filter(p=>pagSoma[p]>0).map(p=>`
+        <div class="pr-pag-row">
+          <span class="pp-name">${PAY_EMOJIS[p]} ${p}</span>
+          <span class="pp-val ${p==='Fiado'?'fiado':''}">${fmtVal(pagSoma[p])}</span>
+        </div>`).join('');
+
+      const initials=pr.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+      return`
+        <div class="pr-card">
+          <div class="pr-card-header">
+            <div class="pr-avatar">${initials.slice(0,2)}</div>
+            <div class="pr-header-info">
+              <div class="pr-name">${pr}</div>
+              <div class="pr-total-botijoes">${totalQtd} botijão(s) no período</div>
+            </div>
+            <div class="pr-total-valor-header">
+              <span class="ptv-label">Total</span>
+              <span class="ptv-val">${fmtVal(totalVenda)}</span>
+            </div>
+          </div>
+          <div class="pr-card-body">
+            <div class="pr-marcas">
+              <div class="pr-marca-pill ultra">
+                <div class="pm-top"><span class="pm-icon">🔵</span><span class="pm-label">Ultragaz</span></div>
+                <div class="pm-bottom">
+                  <span class="pm-qtd">${qtdUltra}</span>
+                  <span class="pm-val-small">${fmtVal(valUltra)}</span>
+                </div>
+              </div>
+              <div class="pr-marca-pill butano">
+                <div class="pm-top"><span class="pm-icon">🟢</span><span class="pm-label">Butano</span></div>
+                <div class="pm-bottom">
+                  <span class="pm-qtd">${qtdButano}</span>
+                  <span class="pm-val-small">${fmtVal(valButano)}</span>
+                </div>
+              </div>
+            </div>
+            ${pagRows?`<div class="pr-pagamentos">
+              <div class="pr-pag-title">💳 Formas de Pagamento</div>
+              <div class="pr-pag-rows">${pagRows}</div>
+            </div>`:'<div style="font-size:12px;color:var(--muted2);text-align:center;padding:8px 0">Sem dados de pagamento</div>'}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── Tabela ──
+  const tb=document.getElementById('tbodyResumo');
+  if(!f.length){tb.innerHTML='<tr><td colspan="14" class="empty">Nenhum dado.</td></tr>';
+    destroyCharts(); renderRanking(f); return;}
+  tb.innerHTML=[...f].sort((a,b)=>b.data.localeCompare(a.data)).map(l=>`
+    <tr>
+      <td>${fmtDate(l.data)}</td>
+      <td style="font-weight:700">${l.pr}</td>
+      <td style="font-family:'Bebas Neue',sans-serif;font-size:18px">${l.qtd}</td>
+      <td>${fmtVal(l.preco)}</td>
+      <td style="font-weight:700;color:var(--success)">${fmtVal(l.total)}</td>
+      <td><span class="badge badge-${l.marca==='Ultragaz'?'ultra':'butano'}">${l.marca}</span></td>
+      ${PAY_FIELDS.map(p=>`<td style="color:${p==='Fiado'?'var(--danger)':'var(--muted)'}">${l.pag&&l.pag[p]>0?fmtVal(l.pag[p]):'-'}</td>`).join('')}
+      <td style="font-weight:700;color:var(--accent)">${fmtVal(sumPag(l.pag))}</td>
+    </tr>`).join('');
+
+  // Gráficos e Ranking
+  setTimeout(()=>{ renderCharts(f); renderRanking(f); }, 0);
+}
+
+// ── CONFIG ──
+function buildConfigGrid(){
+  document.getElementById('configGrid').innerHTML=PRS.map(pr=>{
+    const cfg=configPrecos[pr]||{};
+    const safeid=pr.replace(/[^a-zA-Z0-9]/g,'_');
+    return`<div class="config-item" id="cfgcard_${safeid}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div class="pr-name-cfg">👤 ${pr}</div>
+        <button class="btn-sm-del" title="Excluir PR" onclick="excluirPR('${pr.replace(/'/g,"\\'")}')">🗑️</button>
+      </div>
+      <div class="config-prices">
+        <div class="price-field"><label>🔵 Ultragaz (R$)</label><input type="number" id="cfg_${safeid}_ultra" min="0" step="0.01" value="${cfg.ultragaz||''}" placeholder="0,00" /></div>
+        <div class="price-field"><label>🟢 Butano (R$)</label><input type="number" id="cfg_${safeid}_butano" min="0" step="0.01" value="${cfg.butano||''}" placeholder="0,00" /></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function saveConfig(){
+  PRS.forEach(pr=>{
+    const safeid=pr.replace(/[^a-zA-Z0-9]/g,'_');
+    const uEl=document.getElementById(`cfg_${safeid}_ultra`);
+    const bEl=document.getElementById(`cfg_${safeid}_butano`);
+    configPrecos[pr]={
+      ultragaz:uEl?parseFloat(uEl.value)||0:0,
+      butano:  bEl?parseFloat(bEl.value)||0:0
+    };
+  });
+  localStorage.setItem('gas_config',JSON.stringify(configPrecos));
+  const m=document.getElementById('configMsg');
+  m.textContent='✓ Configurações salvas!';
+  setTimeout(()=>m.textContent='',3000);
+  showToast('✓ Configurações salvas!');
+}
+function excluirPR(pr){
+  const temLanc=lancamentos.some(l=>l.pr===pr);
+  const aviso=temLanc?`\n⚠️ Atenção: existe(m) lançamento(s) registrado(s) para este PR.\nEles NÃO serão excluídos, mas o PR não aparecerá mais para novos lançamentos.`:'';
+  if(!confirm(`Deseja excluir o PR "${pr}"?${aviso}`)) return;
+  const idx=PRS.indexOf(pr);
+  if(idx===-1) return;
+  PRS.splice(idx,1);
+  delete configPrecos[pr];
+  localStorage.setItem('gas_config',JSON.stringify(configPrecos));
+  // Atualiza todos os selects
+  ['fPr','rFiltPr','editPr'].forEach(id=>{
+    const sel=document.getElementById(id);
+    const cur=sel.value;
+    sel.innerHTML='';
+    if(id==='fPr'){const ph=document.createElement('option');ph.value='';ph.textContent='— Selecione o PR —';sel.appendChild(ph);}
+    else if(id==='rFiltPr'){const ph=document.createElement('option');ph.value='';ph.textContent='Todos os PRs';sel.appendChild(ph);}
+    PRS.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;sel.appendChild(o);});
+    if(cur!==pr) sel.value=cur;
+  });
+  buildConfigGrid();
+  showToast(`🗑️ PR "${pr}" excluído!`);
+}
+
+// ── TABS ──
+function showTab(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='resumo') renderResumo();
+  if(name==='cargas') renderCargas();
+}
+
+// ── TOAST ──
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ── EDIÇÃO ──
+const EDIT_PAY_IDS=['ePEspecie','ePDebito','ePCredito','ePQrCode','ePPix','ePMoeda','ePFiado'];
+
+function abrirEdicao(id){
+  const l=lancamentos.find(x=>x.id===id);
+  if(!l) return;
+  document.getElementById('editId').value=id;
+  document.getElementById('editData').value=l.data;
+  document.getElementById('editQtd').value=l.qtd;
+  document.getElementById('editPreco').value=l.preco;
+  document.getElementById('editTotal').value=l.total>0?'R$ '+fmtNum(l.total):'';
+  selectEditBrand(l.marca);
+  // preenche PR select se ainda não populado
+  const sel=document.getElementById('editPr');
+  if(!sel.options.length){
+    PRS.forEach(pr=>{const o=document.createElement('option');o.value=pr;o.textContent=pr;sel.appendChild(o);});
+  }
+  sel.value=l.pr;
+  EDIT_PAY_IDS.forEach((eid,idx)=>{
+    document.getElementById(eid).value=(l.pag&&l.pag[PAY_FIELDS[idx]])||'';
+  });
+  document.getElementById('editErr').textContent='';
+  document.getElementById('editModal').classList.add('open');
+}
+function fecharModal(){
+  document.getElementById('editModal').classList.remove('open');
+}
+function selectEditBrand(brand){
+  document.getElementById('editBtnUltra').classList.toggle('active',brand==='Ultragaz');
+  document.getElementById('editBtnButano').classList.toggle('active',brand==='Butano');
+  calcEditTotal();
+}
+function calcEditTotal(){
+  const qtd=parseFloat(document.getElementById('editQtd').value)||0;
+  const p=parseFloat(document.getElementById('editPreco').value)||0;
+  const t=qtd*p;
+  document.getElementById('editTotal').value=t>0?'R$ '+fmtNum(t):'';
+}
+function getEditBrand(){
+  if(document.getElementById('editBtnUltra').classList.contains('active')) return 'Ultragaz';
+  if(document.getElementById('editBtnButano').classList.contains('active')) return 'Butano';
+  return '';
+}
+function salvarEdicao(){
+  const id=parseInt(document.getElementById('editId').value);
+  const data=document.getElementById('editData').value;
+  const pr=document.getElementById('editPr').value;
+  const qtd=parseFloat(document.getElementById('editQtd').value)||0;
+  const preco=parseFloat(document.getElementById('editPreco').value)||0;
+  const marca=getEditBrand();
+  const err=document.getElementById('editErr');
+  if(!data){err.textContent='⚠ Informe a data.';return;}
+  if(!pr){err.textContent='⚠ Selecione o PR.';return;}
+  if(!qtd||!preco||!marca){err.textContent='⚠ Preencha qtd, preço e marca.';return;}
+  err.textContent='';
+  const pag={};
+  EDIT_PAY_IDS.forEach((eid,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(eid).value)||0);
+  const idx=lancamentos.findIndex(x=>x.id===id);
+  if(idx===-1) return;
+  lancamentos[idx]={...lancamentos[idx],data,pr,qtd,preco,total:qtd*preco,marca,pag};
+  save(); renderTable(); renderTotals();
+  fecharModal();
+  showToast('✓ Lançamento atualizado!');
+}
+
+// ── ADICIONAR NOVO PR ──
+function adicionarNovoPR(){
+  const input=document.getElementById('newPrInput');
+  const nome=input.value.trim().toUpperCase();
+  const msg=document.getElementById('newPrMsg');
+  if(!nome){msg.style.color='var(--danger)';msg.textContent='⚠ Informe o nome do PR.';return;}
+  if(PRS.includes(nome)){msg.style.color='var(--danger)';msg.textContent='⚠ PR já existe na lista.';return;}
+  PRS.push(nome);
+  PRS.sort();
+  // atualiza selects de PR
+  ['fPr','rFiltPr'].forEach(id=>{
+    const sel=document.getElementById(id);
+    const cur=sel.value;
+    sel.innerHTML='';
+    const ph=document.createElement('option');
+    ph.value='';ph.textContent=id==='fPr'?'— Selecione o PR —':'Todos os PRs';
+    sel.appendChild(ph);
+    PRS.forEach(pr=>{const o=document.createElement('option');o.value=pr;o.textContent=pr;sel.appendChild(o);});
+    sel.value=cur;
+  });
+  // atualiza select do modal de edição
+  const editSel=document.getElementById('editPr');
+  editSel.innerHTML='';
+  PRS.forEach(pr=>{const o=document.createElement('option');o.value=pr;o.textContent=pr;editSel.appendChild(o);});
+  buildConfigGrid();
+  input.value='';
+  msg.style.color='var(--success)';
+  msg.textContent=`✓ "${nome}" adicionado com sucesso!`;
+  setTimeout(()=>msg.textContent='',3500);
+  showToast(`✓ PR "${nome}" adicionado!`);
+}
+
+// ══════════════════════════════════════════════════════
+//  CONTROLE DE CARGAS
+// ══════════════════════════════════════════════════════
+let cargas = JSON.parse(localStorage.getItem('gas_cargas') || '[]');
+let freteConfig = JSON.parse(localStorage.getItem('gas_frete_config') || '{}');
+
+const PRODUTOS_FRETE = ['P 05','P 13','P 20','P 45','P 05 + P 13','P 13 + P 45','Mix (vários)'];
+
+// Init data de hoje no formulário de carga
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('cData').value = new Date().toISOString().split('T')[0];
+  calcVencimentoAuto();
+  renderCargas();
+  // fechar modal clicando fora
+  document.getElementById('editCargaModal').addEventListener('click', function(e){
+    if(e.target === this) fecharCargaModal();
+  });
+  document.getElementById('freteConfigModal').addEventListener('click', function(e){
+    if(e.target === this) fecharFreteConfig();
+  });
+});
+
+function saveCargas() {
+  localStorage.setItem('gas_cargas', JSON.stringify(cargas));
+}
+
+// ── DIAS ÚTEIS ──
+function addDiasUteis(dataStr, dias) {
+  const d = new Date(dataStr + 'T12:00:00');
+  let count = 0;
+  while (count < dias) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) count++; // pula sábado(6) e domingo(0)
+  }
+  return d.toISOString().split('T')[0];
+}
+
+function calcVencimentoAuto() {
+  const data = document.getElementById('cData').value;
+  if (data) {
+    document.getElementById('cVenc').value = addDiasUteis(data, 5);
+  }
+}
+
+// ── FRETE AUTOMÁTICO ──
+function calcFreteAuto() {
+  const produto = document.getElementById('cProduto').value;
+  const qtd = parseFloat(document.getElementById('cQtd').value) || 0;
+  const valorUnit = freteConfig[produto] || 0;
+  if (valorUnit > 0 && qtd > 0) {
+    document.getElementById('cFrete').value = (valorUnit * qtd).toFixed(2);
+  }
+}
+
+function calcEditFreteAuto() {
+  const produto = document.getElementById('ecProduto').value;
+  const qtd = parseFloat(document.getElementById('ecQtd').value) || 0;
+  const valorUnit = freteConfig[produto] || 0;
+  if (valorUnit > 0 && qtd > 0) {
+    document.getElementById('ecFrete').value = (valorUnit * qtd).toFixed(2);
+  }
+}
+
+// ── MODAL CONFIG FRETE ──
+function abrirFreteConfig() {
+  const grid = document.getElementById('freteConfigGrid');
+  grid.innerHTML = PRODUTOS_FRETE.map(p => {
+    const safeid = p.replace(/[^a-zA-Z0-9]/g,'_');
+    return `<div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:12px;">
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);display:block;margin-bottom:6px;">🛢️ ${p}</label>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:12px;color:var(--muted)">R$/bot:</span>
+        <input type="number" id="frete_${safeid}" min="0" step="0.01" value="${freteConfig[p]||''}" placeholder="0,00"
+          style="flex:1;background:#fff;border:1.5px solid var(--border);color:var(--text);padding:7px 9px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;width:100%;" />
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('freteConfigModal').classList.add('open');
+}
+
+function fecharFreteConfig() {
+  document.getElementById('freteConfigModal').classList.remove('open');
+}
+
+function salvarFreteConfig() {
+  PRODUTOS_FRETE.forEach(p => {
+    const safeid = p.replace(/[^a-zA-Z0-9]/g,'_');
+    const el = document.getElementById('frete_' + safeid);
+    if (el) freteConfig[p] = parseFloat(el.value) || 0;
+  });
+  localStorage.setItem('gas_frete_config', JSON.stringify(freteConfig));
+  const m = document.getElementById('freteConfigMsg');
+  m.textContent = '✓ Salvo!';
+  setTimeout(() => { m.textContent = ''; fecharFreteConfig(); }, 1200);
+  showToast('✓ Config. de frete salva!');
+}
+
+// Calcula o líquido em tempo real no formulário
+function calcCargaLiquido() {
+  const v = parseFloat(document.getElementById('cValor').value) || 0;
+  const d = parseFloat(document.getElementById('cDesconto').value) || 0;
+  const liq = v - d;
+  document.getElementById('cLiquido').value = liq > 0 ? 'R$ ' + fmtNum(liq) : '';
+}
+function calcEditCargaLiquido() {
+  const v = parseFloat(document.getElementById('ecValor').value) || 0;
+  const d = parseFloat(document.getElementById('ecDesconto').value) || 0;
+  document.getElementById('ecLiquido').value = 'R$ ' + fmtNum(v - d);
+}
+
+// Adicionar nova carga
+function addCarga() {
+  const err = document.getElementById('cargaErr');
+  const data     = document.getElementById('cData').value;
+  const produto  = document.getElementById('cProduto').value;
+  const empresa  = document.getElementById('cEmpresa').value;
+  const valor    = parseFloat(document.getElementById('cValor').value) || 0;
+
+  if (!data)    { err.textContent = '⚠ Informe a data da carga.'; return; }
+  if (!produto) { err.textContent = '⚠ Selecione o produto.'; return; }
+  if (!empresa) { err.textContent = '⚠ Informe a empresa.'; return; }
+  if (!valor)   { err.textContent = '⚠ Informe o valor da carga.'; return; }
+  err.textContent = '';
+
+  const desconto = parseFloat(document.getElementById('cDesconto').value) || 0;
+  const carga = {
+    id:        Date.now(),
+    data,
+    produto,
+    nf:        document.getElementById('cNF').value.trim(),
+    empresa,
+    transp:    document.getElementById('cTransp').value,
+    caminhao:  document.getElementById('cCaminhao').value,
+    qtd:       parseFloat(document.getElementById('cQtd').value) || 0,
+    valor,
+    desconto,
+    liquido:   valor - desconto,
+    frete:     parseFloat(document.getElementById('cFrete').value) || 0,
+    venc:      document.getElementById('cVenc').value,
+    status:    document.getElementById('cStatus').value,
+    obs:       document.getElementById('cObs').value.trim(),
+  };
+
+  cargas.push(carga);
+  saveCargas();
+  renderCargas();
+  showToast('✅ Carga registrada!');
+
+  // Limpa formulário
+  ['cNF','cQtd','cValor','cDesconto','cLiquido','cFrete','cObs'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('cProduto').value = '';
+  document.getElementById('cEmpresa').value = '';
+  document.getElementById('cTransp').value = 'IVG TRANSPORTES';
+  document.getElementById('cCaminhao').value = '';
+  document.getElementById('cStatus').value = 'A VENCER';
+  document.getElementById('cData').value = new Date().toISOString().split('T')[0];
+  calcVencimentoAuto();
+}
+
+// Deletar carga
+function deleteCarga(id) {
+  if (!confirm('Remover esta carga?')) return;
+  cargas = cargas.filter(c => c.id !== id);
+  saveCargas();
+  renderCargas();
+}
+
+// Editar carga
+function abrirEdicaoCarga(id) {
+  const c = cargas.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('editCargaId').value   = id;
+  document.getElementById('ecData').value         = c.data;
+  document.getElementById('ecProduto').value       = c.produto;
+  document.getElementById('ecNF').value            = c.nf || '';
+  document.getElementById('ecEmpresa').value       = c.empresa;
+  document.getElementById('ecTransp').value        = c.transp || 'IVG TRANSPORTES';
+  document.getElementById('ecCaminhao').value      = c.caminhao || '';
+  document.getElementById('ecQtd').value           = c.qtd || '';
+  document.getElementById('ecValor').value         = c.valor;
+  document.getElementById('ecDesconto').value      = c.desconto || '';
+  document.getElementById('ecLiquido').value       = 'R$ ' + fmtNum(c.liquido || c.valor);
+  document.getElementById('ecFrete').value         = c.frete || '';
+  document.getElementById('ecVenc').value          = c.venc || '';
+  document.getElementById('ecStatus').value        = c.status;
+  document.getElementById('ecObs').value           = c.obs || '';
+  document.getElementById('editCargaErr').textContent = '';
+  document.getElementById('editCargaModal').classList.add('open');
+}
+function fecharCargaModal() {
+  document.getElementById('editCargaModal').classList.remove('open');
+}
+function salvarEdicaoCarga() {
+  const id  = parseInt(document.getElementById('editCargaId').value);
+  const idx = cargas.findIndex(x => x.id === id);
+  if (idx === -1) return;
+  const err = document.getElementById('editCargaErr');
+  const data    = document.getElementById('ecData').value;
+  const empresa = document.getElementById('ecEmpresa').value;
+  const valor   = parseFloat(document.getElementById('ecValor').value) || 0;
+  if (!data)    { err.textContent = '⚠ Informe a data.'; return; }
+  if (!empresa) { err.textContent = '⚠ Informe a empresa.'; return; }
+  if (!valor)   { err.textContent = '⚠ Informe o valor.'; return; }
+  err.textContent = '';
+  const desconto = parseFloat(document.getElementById('ecDesconto').value) || 0;
+  cargas[idx] = {
+    ...cargas[idx],
+    data,
+    produto:  document.getElementById('ecProduto').value,
+    nf:       document.getElementById('ecNF').value.trim(),
+    empresa,
+    transp:   document.getElementById('ecTransp').value,
+    caminhao: document.getElementById('ecCaminhao').value,
+    qtd:      parseFloat(document.getElementById('ecQtd').value) || 0,
+    valor,
+    desconto,
+    liquido:  valor - desconto,
+    frete:    parseFloat(document.getElementById('ecFrete').value) || 0,
+    venc:     document.getElementById('ecVenc').value,
+    status:   document.getElementById('ecStatus').value,
+    obs:      document.getElementById('ecObs').value.trim(),
+  };
+  saveCargas();
+  renderCargas();
+  fecharCargaModal();
+  showToast('✓ Carga atualizada!');
+}
+
+// Renderizar tudo da aba cargas
+function renderCargas() {
+  buildCargasMesOptions();
+  buildCargasEmpresaOptions();
+
+  const fEmpresa = document.getElementById('cfEmpresa').value;
+  const fProd    = document.getElementById('cfProduto').value;
+  const fStatus  = document.getElementById('cfStatus').value;
+  const fMes     = document.getElementById('cfMes').value;
+
+  let f = [...cargas];
+  if (fEmpresa) f = f.filter(c => c.empresa === fEmpresa);
+  if (fProd)    f = f.filter(c => c.produto === fProd);
+  if (fStatus)  f = f.filter(c => c.status === fStatus);
+  if (fMes)     f = f.filter(c => c.data.startsWith(fMes));
+
+  // ── Cards de resumo ──
+  const totalValor   = f.reduce((a, c) => a + c.valor, 0);
+  const totalLiquido = f.reduce((a, c) => a + (c.liquido || c.valor), 0);
+  const totalFrete   = f.reduce((a, c) => a + (c.frete || 0), 0);
+  const totalPago    = f.filter(c => c.status === 'PAGO').reduce((a, c) => a + (c.liquido || c.valor), 0);
+  const totalPagar   = f.filter(c => c.status !== 'PAGO').reduce((a, c) => a + (c.liquido || c.valor), 0);
+  const totalVencido = f.filter(c => c.status === 'VENCIDO').reduce((a, c) => a + (c.liquido || c.valor), 0);
+
+  document.getElementById('cargaSummary').innerHTML = `
+    <div class="carga-sum-card"><div class="cs-icon">🚛</div><div class="cs-info"><div class="cs-label">Nº de Cargas</div><div class="cs-value orange">${f.length}</div></div></div>
+    <div class="carga-sum-card"><div class="cs-icon">💰</div><div class="cs-info"><div class="cs-label">Valor Total</div><div class="cs-value">${fmtVal(totalValor)}</div></div></div>
+    <div class="carga-sum-card"><div class="cs-icon">🧾</div><div class="cs-info"><div class="cs-label">Valor Líquido</div><div class="cs-value">${fmtVal(totalLiquido)}</div></div></div>
+    <div class="carga-sum-card"><div class="cs-icon">✅</div><div class="cs-info"><div class="cs-label">Total Pago</div><div class="cs-value" style="color:var(--success)">${fmtVal(totalPago)}</div></div></div>
+    <div class="carga-sum-card"><div class="cs-icon">⏳</div><div class="cs-info"><div class="cs-label">A Pagar</div><div class="cs-value orange">${fmtVal(totalPagar)}</div></div></div>
+    <div class="carga-sum-card"><div class="cs-icon">🚚</div><div class="cs-info"><div class="cs-label">Total Frete</div><div class="cs-value blue">${fmtVal(totalFrete)}</div></div></div>
+    <div class="carga-sum-card"><div class="cs-icon">❌</div><div class="cs-info"><div class="cs-label">Vencidas</div><div class="cs-value red">${fmtVal(totalVencido)}</div></div></div>
+  `;
+
+  // ── Tabela ──
+  const tb = document.getElementById('tbodyCargas');
+  if (!f.length) {
+    tb.innerHTML = '<tr><td colspan="15" class="empty">Nenhuma carga para os filtros selecionados.</td></tr>';
+    return;
+  }
+
+  tb.innerHTML = [...f].sort((a, b) => b.data.localeCompare(a.data)).map(c => {
+    let badgeClass = 'status-avencer';
+    if (c.status === 'PAGO')    badgeClass = 'status-pago';
+    if (c.status === 'VENCIDO') badgeClass = 'status-vencido';
+    const caminhaoLabel = c.caminhao ? `🚛 ${c.caminhao}` : '-';
+    return `<tr>
+      <td>${fmtDate(c.data)}</td>
+      <td style="font-weight:600">${c.produto}</td>
+      <td style="color:var(--muted);font-size:11px">${c.nf || '-'}</td>
+      <td style="font-weight:700">${c.empresa}</td>
+      <td style="color:var(--muted)">${c.transp || '-'}</td>
+      <td style="color:var(--muted);font-size:11px">${caminhaoLabel}</td>
+      <td style="text-align:center;font-family:'Bebas Neue',sans-serif;font-size:18px">${c.qtd || '-'}</td>
+      <td class="td-valor">${fmtVal(c.valor)}</td>
+      <td style="color:var(--danger)">${c.desconto ? fmtVal(c.desconto) : '-'}</td>
+      <td class="td-liquido">${fmtVal(c.liquido || c.valor)}</td>
+      <td class="td-frete">${c.frete ? fmtVal(c.frete) : '-'}</td>
+      <td style="color:var(--muted)">${c.venc ? fmtDate(c.venc) : '-'}</td>
+      <td><span class="status-badge ${badgeClass}">${c.status}</span></td>
+      <td style="color:var(--muted);font-size:11px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.obs || '-'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-sm-edit" onclick="abrirEdicaoCarga(${c.id})">✏️</button>
+        <button class="btn-sm-del" onclick="deleteCarga(${c.id})">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function buildCargasMesOptions() {
+  const sel = document.getElementById('cfMes');
+  const cur = sel.value;
+  const meses = new Set(cargas.map(c => c.data.slice(0, 7)));
+  const sorted = [...meses].sort().reverse();
+  sel.innerHTML = '<option value="">Todos</option>';
+  sorted.forEach(m => {
+    const [y, mo] = m.split('-');
+    const o = document.createElement('option');
+    o.value = m;
+    o.textContent = `${MESES_PT[parseInt(mo, 10) - 1]} ${y}`;
+    if (m === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function buildCargasEmpresaOptions() {
+  const sel = document.getElementById('cfEmpresa');
+  const cur = sel.value;
+  const empresas = [...new Set(cargas.map(c => c.empresa))].sort();
+  sel.innerHTML = '<option value="">Todas</option>';
+  empresas.forEach(e => {
+    const o = document.createElement('option');
+    o.value = e; o.textContent = e;
+    if (e === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function exportarPDF(){
+  const pr=document.getElementById('rFiltPr').value;
+  const marca=document.getElementById('rFiltMarca').value;
+  const mesVal=document.getElementById('rFiltMes').value;
+
+  let f=[...lancamentos];
+  if(pr) f=f.filter(l=>l.pr===pr);
+  if(marca) f=f.filter(l=>l.marca===marca);
+  if(mesVal) f=f.filter(l=>l.data.startsWith(mesVal));
+
+  if(!f.length){showToast('⚠ Nenhum dado para exportar!');return;}
+
+  // Labels de filtro
+  let mesLabel='Todos os meses';
+  if(mesVal){const[y,mo]=mesVal.split('-');mesLabel=`${MESES_PT[parseInt(mo,10)-1]} ${y}`;}
+  const prLabel=pr||'Todos os PRs';
+  const marcaLabel=marca||'Todas as marcas';
+
+  // Totais
+  const totalQtd=f.reduce((a,b)=>a+b.qtd,0);
+  const totalVal=f.reduce((a,b)=>a+b.total,0);
+  const qtdUltra=f.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.qtd,0);
+  const valUltra=f.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.total,0);
+  const qtdButano=f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.qtd,0);
+  const valButano=f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.total,0);
+  const pagSomas={};
+  PAY_FIELDS.forEach(p=>pagSomas[p]=f.reduce((a,b)=>a+(b.pag&&b.pag[p]||0),0));
+
+  // Linhas da tabela
+  const rows=[...f].sort((a,b)=>b.data.localeCompare(a.data)).map(l=>`
+    <tr>
+      <td>${l.pr}</td>
+      <td style="text-align:center">${l.qtd}</td>
+      <td>R$ ${fmtNum(l.preco)}</td>
+      <td style="font-weight:700">R$ ${fmtNum(l.total)}</td>
+      <td style="text-align:center"><span style="padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;${l.marca==='Ultragaz'?'background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe':'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0'}">${l.marca}</span></td>
+      ${PAY_FIELDS.map(p=>`<td style="text-align:right;color:${p==='Fiado'?'#dc2626':'#6b7280'}">${l.pag&&l.pag[p]>0?'R$ '+fmtNum(l.pag[p]):'-'}</td>`).join('')}
+      <td style="text-align:right;font-weight:700">R$ ${fmtNum(sumPag(l.pag))}</td>
+    </tr>`).join('');
+
+  const pagTotaisRow=`<tr style="background:#fff3e0;font-weight:700">
+    <td colspan="5" style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.5px">TOTAIS DO PERÍODO</td>
+    ${PAY_FIELDS.map(p=>`<td style="text-align:right;color:${p==='Fiado'?'#dc2626':'#374151'}">${pagSomas[p]>0?'R$ '+fmtNum(pagSomas[p]):'-'}</td>`).join('')}
+    <td style="text-align:right">R$ ${fmtNum(PAY_FIELDS.reduce((a,p)=>a+pagSomas[p],0))}</td>
+  </tr>`;
+
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+  <title>Relatório PR – ${mesLabel}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;color:#1a1f36;background:#fff;padding:24px;font-size:12px;}
+    .report-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #e07b00;}
+    .logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#e07b00;}
+    .logo span{color:#1a1f36;}
+    .report-meta{text-align:right;font-size:11px;color:#6b7280;}
+    .report-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:#1a1f36;margin-bottom:4px;}
+    .filtros{display:flex;gap:16px;font-size:11px;color:#6b7280;margin-bottom:18px;flex-wrap:wrap;}
+    .filtro-item{background:#f7f8fc;border:1px solid #dde1ec;border-radius:6px;padding:4px 10px;}
+    .filtro-label{font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;color:#1a1f36;}
+    .summary-row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px;}
+    .sum-box{background:#f7f8fc;border:1px solid #dde1ec;border-radius:8px;padding:10px 12px;text-align:center;}
+    .sum-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:4px;}
+    .sum-val{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#e07b00;}
+    .sum-val.green{color:#16a34a;} .sum-val.blue{color:#1d4ed8;} .sum-val.red{color:#dc2626;}
+    table{width:100%;border-collapse:collapse;font-size:11px;}
+    thead{background:#f0f2f7;}
+    th{padding:7px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;border-bottom:1px solid #dde1ec;white-space:nowrap;}
+    td{padding:6px 8px;border-bottom:1px solid #f0f2f7;vertical-align:middle;}
+    tr:hover td{background:#f9fafb;}
+    .section-title{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;color:#e07b00;margin:16px 0 8px;border-bottom:1px solid #dde1ec;padding-bottom:4px;}
+    .footer{margin-top:24px;text-align:center;font-size:10px;color:#9ca3af;border-top:1px solid #dde1ec;padding-top:10px;}
+    @media print{body{padding:10px;} .no-print{display:none;}}
+  </style></head><body>
+  <div class="report-header">
+    <div>
+      <div class="logo">🔥 Grupo Bertoni <span>Controle PR Morato</span></div>
+      <div class="report-title">Relatório de Vendas PR</div>
+    </div>
+    <div class="report-meta">
+      <div>Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+      <div style="margin-top:4px">${f.length} lançamento(s)</div>
+    </div>
+  </div>
+  <div class="filtros">
+    <div class="filtro-item"><span class="filtro-label">Período:</span>${mesLabel}</div>
+    <div class="filtro-item"><span class="filtro-label">PR:</span>${prLabel}</div>
+    <div class="filtro-item"><span class="filtro-label">Marca:</span>${marcaLabel}</div>
+  </div>
+  <div class="summary-row">
+    <div class="sum-box"><div class="sum-lbl">Total Botijões</div><div class="sum-val">${totalQtd}</div></div>
+    <div class="sum-box"><div class="sum-lbl">Valor Total</div><div class="sum-val green" style="font-size:16px">R$ ${fmtNum(totalVal)}</div></div>
+    <div class="sum-box"><div class="sum-lbl">Ultragaz Qtd</div><div class="sum-val blue">${qtdUltra}</div></div>
+    <div class="sum-box"><div class="sum-lbl">Ultragaz Valor</div><div class="sum-val blue" style="font-size:14px">R$ ${fmtNum(valUltra)}</div></div>
+    <div class="sum-box"><div class="sum-lbl">Butano Qtd</div><div class="sum-val" style="color:#15803d">${qtdButano}</div></div>
+    <div class="sum-box"><div class="sum-lbl">Butano Valor</div><div class="sum-val" style="color:#15803d;font-size:14px">R$ ${fmtNum(valButano)}</div></div>
+  </div>
+  <div class="section-title">📋 Detalhamento</div>
+  <table>
+    <thead><tr>
+      <th>PR</th><th>Qtd</th><th>Vlr Unit.</th><th>Total Item</th><th>Marca</th>
+      <th>Espécie</th><th>Débito</th><th>Crédito</th><th>QR Code</th><th>Pix</th><th>Moeda</th><th>Fiado</th><th>Total Pago</th>
+    </tr></thead>
+    <tbody>${rows}${pagTotaisRow}</tbody>
+  </table>
+  <div class="footer"><strong style="color:#374151">Sistema Controle de PR</strong> — Desenvolvido por <strong style="color:#374151">Leandro Machado</strong></div>
+  <div class="no-print" style="margin-top:20px;text-align:center">
+    <button onclick="window.print()" style="background:#e07b00;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px">🖨️ Imprimir / Salvar PDF</button>
+    <button onclick="window.close()" style="background:#f0f2f7;color:#374151;border:1px solid #dde1ec;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✕ Fechar</button>
+  </div>
+  </body></html>`;
+
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  const win=window.open(url,'_blank');
+  if(!win){showToast('⚠ Permita pop-ups para exportar!');return;}
+  showToast('📄 Relatório gerado!');
+}
+</script>
+</body>
+</html>
