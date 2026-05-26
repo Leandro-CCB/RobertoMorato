@@ -6,6 +6,201 @@
 <title>Grupo Bertoni — Controle Personalizado dos PR de Morato</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<!-- Firebase via REST API — funciona com file:// sem CDN externo -->
+<script>
+(function() {
+  'use strict';
+
+  const PROJECT = 'gas-do-povo-3ce65';
+  const KEY     = 'AIzaSyBUNAiODlVTn1C_VQ1bgpurDNBQvRmmwKs';
+  const BASE    = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
+
+  // ── Firestore REST helpers ──────────────────────────────────────────
+
+  // Converte objeto JS → formato Firestore value
+  function toFSValue(v) {
+    if (v === null || v === undefined) return { nullValue: null };
+    if (typeof v === 'boolean') return { booleanValue: v };
+    if (typeof v === 'number')  return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+    if (typeof v === 'string')  return { stringValue: v };
+    if (Array.isArray(v))       return { arrayValue: { values: v.map(toFSValue) } };
+    if (typeof v === 'object')  return { mapValue: { fields: toFSFields(v) } };
+    return { stringValue: String(v) };
+  }
+  function toFSFields(obj) {
+    const f = {};
+    for (const k in obj) if (Object.prototype.hasOwnProperty.call(obj, k)) f[k] = toFSValue(obj[k]);
+    return f;
+  }
+
+  // Converte formato Firestore value → objeto JS
+  function fromFSValue(v) {
+    if (!v) return null;
+    if ('nullValue'    in v) return null;
+    if ('booleanValue' in v) return v.booleanValue;
+    if ('integerValue' in v) return parseInt(v.integerValue, 10);
+    if ('doubleValue'  in v) return v.doubleValue;
+    if ('stringValue'  in v) return v.stringValue;
+    if ('arrayValue'   in v) return (v.arrayValue.values || []).map(fromFSValue);
+    if ('mapValue'     in v) return fromFSFields(v.mapValue.fields || {});
+    return null;
+  }
+  function fromFSFields(fields) {
+    const obj = {};
+    for (const k in fields) obj[k] = fromFSValue(fields[k]);
+    return obj;
+  }
+  function fromFSDoc(doc) {
+    if (!doc || !doc.fields) return null;
+    const obj = fromFSFields(doc.fields);
+    // extrai ID do name: projects/.../documents/col/ID
+    obj._fbId = (doc.name || '').split('/').pop();
+    return obj;
+  }
+
+  // GET coleção
+  async function fsGetCollection(col) {
+    let docs = [], pageToken = null;
+    do {
+      let url = `${BASE}/${col}?key=${KEY}&pageSize=300`;
+      if (pageToken) url += `&pageToken=${pageToken}`;
+      const r = await fetch(url);
+      const j = await r.json();
+      if (j.documents) docs = docs.concat(j.documents.map(fromFSDoc));
+      pageToken = j.nextPageToken || null;
+    } while (pageToken);
+    return docs;
+  }
+
+  // GET documento
+  async function fsGetDoc(col, id) {
+    const r = await fetch(`${BASE}/${col}/${id}?key=${KEY}`);
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j.fields ? fromFSFields(j.fields) : null;
+  }
+
+  // SET (cria ou sobrescreve) documento
+  async function fsSetDoc(col, id, data) {
+    const body = JSON.stringify({ fields: toFSFields(data) });
+    const r = await fetch(`${BASE}/${col}/${id}?key=${KEY}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body
+    });
+    if (!r.ok) throw new Error(`fsSetDoc ${col}/${id} failed: ${r.status}`);
+    return r.json();
+  }
+
+  // DELETE documento
+  async function fsDeleteDoc(col, id) {
+    await fetch(`${BASE}/${col}/${id}?key=${KEY}`, { method: 'DELETE' });
+  }
+
+  // Salva coleção inteira (apaga + reescreve)
+  async function fsSaveCollection(col, arr, idFn) {
+    // Apaga existentes
+    const existing = await fsGetCollection(col);
+    await Promise.all(existing.map(d => fsDeleteDoc(col, d._fbId)));
+    // Escreve novos
+    await Promise.all(arr.map(item => {
+      const { _fbId, ...data } = item;
+      return fsSetDoc(col, String(idFn(item)), data);
+    }));
+  }
+
+  // ── Loading overlay ─────────────────────────────────────────────────
+  function showLoadingOverlay(show) {
+    let el = document.getElementById('fbLoadingOverlay');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'fbLoadingOverlay';
+      el.style.cssText = 'position:fixed;inset:0;background:rgba(255,255,255,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:DM Sans,sans-serif;';
+      el.innerHTML = '<div style="font-size:42px">🔥</div><div style="font-size:15px;font-weight:700;color:#e07b00">Conectando ao Firebase…</div><div style="width:44px;height:44px;border:4px solid #e07b00;border-top-color:transparent;border-radius:50%;animation:fbspin .8s linear infinite"></div><style>@keyframes fbspin{to{transform:rotate(360deg)}}</style>';
+      document.body.appendChild(el);
+    }
+    el.style.display = show ? 'flex' : 'none';
+  }
+
+  // ── Carga inicial ───────────────────────────────────────────────────
+  async function carregarDados() {
+    showLoadingOverlay(true);
+    try {
+      const [lancs, cargas, cfgPrecos, cfgFrete, cfgDias] = await Promise.all([
+        fsGetCollection('lancamentos'),
+        fsGetCollection('cargas'),
+        fsGetDoc('config', 'precos'),
+        fsGetDoc('config', 'frete'),
+        fsGetDoc('config', 'empresa_dias'),
+      ]);
+      window._lancamentos       = lancs;
+      window._cargas            = cargas;
+      window._configPrecos      = cfgPrecos      || {};
+      window._freteConfig       = cfgFrete       || {};
+      window._empresaDiasConfig = cfgDias        || {};
+    } catch(e) {
+      console.error('Erro ao carregar dados:', e);
+      alert('⚠️ Não foi possível conectar ao Firebase.\nVerifique sua conexão com a internet.');
+    }
+    showLoadingOverlay(false);
+  }
+
+  // ── Backup ──────────────────────────────────────────────────────────
+  async function executarBackup(label) {
+    const [lancs, cargas, cfgP, cfgF, cfgD] = await Promise.all([
+      fsGetCollection('lancamentos'),
+      fsGetCollection('cargas'),
+      fsGetDoc('config', 'precos'),
+      fsGetDoc('config', 'frete'),
+      fsGetDoc('config', 'empresa_dias'),
+    ]);
+    const backup = {
+      data: label,
+      criadoEm: new Date().toISOString(),
+      lancamentos: lancs.map(d => { const {_fbId,...r}=d; return r; }),
+      cargas:      cargas.map(d => { const {_fbId,...r}=d; return r; }),
+      config: { precos: cfgP||{}, frete: cfgF||{}, empresa_dias: cfgD||{} }
+    };
+    await fsSetDoc('backups', label, backup);
+    await fsSetDoc('config', 'backup_meta', {
+      ultimo: label,
+      total_lancamentos: backup.lancamentos.length,
+      total_cargas: backup.cargas.length,
+    });
+    return backup;
+  }
+
+  async function verificarEFazerBackup() {
+    try {
+      const meta  = await fsGetDoc('config', 'backup_meta');
+      const hoje  = new Date().toISOString().split('T')[0];
+      const ultimo = meta ? meta.ultimo : '';
+      const diff  = ultimo
+        ? Math.floor((new Date(hoje) - new Date(ultimo)) / 86400000)
+        : 999;
+      if (diff >= 10) { await executarBackup(hoje); console.log('✅ Backup automático:', hoje); }
+    } catch(e) { console.warn('Backup automático falhou:', e); }
+  }
+
+  // ── Exposição global ─────────────────────────────────────────────────
+  window._fbSetDoc  = fsSetDoc;
+  window._fbGetDoc  = fsGetDoc;
+
+  window._saveLancamentos = () => fsSaveCollection('lancamentos', window._lancamentos || [], l => l.id);
+  window._saveCargas      = () => fsSaveCollection('cargas',      window._cargas      || [], c => c.id);
+
+  window._executarBackup  = executarBackup;
+  window._fbGetBackups    = async () => {
+    const docs = await fsGetCollection('backups');
+    return docs.sort((a,b) => (b.data||'').localeCompare(a.data||''));
+  };
+
+  // ── Boot ─────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', async () => {
+    await carregarDados();
+    await verificarEFazerBackup();
+    if (window._appInit) window._appInit();
+  });
+})();
+</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 :root {
@@ -365,6 +560,8 @@ td{padding:9px 12px;vertical-align:middle;}
     <button class="tab-btn" onclick="showTab('cargas',this)">🚛 Cargas</button>
     <button class="tab-btn" onclick="showTab('config',this)">⚙️ Config</button>
   </div>
+  <button onclick="abrirBackupModal()" title="Backup dos dados" style="background:transparent;border:1.5px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;font-size:16px;color:var(--muted);transition:all .18s;flex-shrink:0;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='transparent'">🗄️</button>
+</div>
 </header>
 
 <!-- ==================== LANÇAMENTO ==================== -->
@@ -922,11 +1119,18 @@ const PAY_FIELDS = ['Espécie','Débito','Crédito','QR Code','Pix','Moeda','Fia
 const PAY_IDS    = ['pEspecie','pDebito','pCredito','pQrCode','pPix','pMoeda','pFiado'];
 const PAY_EMOJIS = {'Espécie':'💵','Débito':'💳','Crédito':'💳','QR Code':'📱','Pix':'⚡','Moeda':'🪙','Fiado':'📒'};
 
-let lancamentos  = JSON.parse(localStorage.getItem('gas_lanc2') || '[]');
-let configPrecos = JSON.parse(localStorage.getItem('gas_config') || '{}');
+// Variáveis de estado — preenchidas pelo módulo Firebase antes de _appInit
+let lancamentos  = [];
+let configPrecos = {};
 
-// ── INIT ──
-window.onload = () => {
+// ── INIT (chamado após Firebase carregar os dados) ──
+window._appInit = function() {
+  // Sincroniza variáveis locais com os dados carregados do Firebase
+  lancamentos  = window._lancamentos  || [];
+  configPrecos = window._configPrecos || {};
+  cargas       = window._cargas       || [];
+  freteConfig  = window._freteConfig  || {};
+  empresaDiasConfig = window._empresaDiasConfig || {};
   document.getElementById('fData').value = new Date().toISOString().split('T')[0];
   ['fPr','rFiltPr','editPr'].forEach(id => {
     const sel = document.getElementById(id);
@@ -940,7 +1144,8 @@ window.onload = () => {
   renderTotals();
   // Fechar modal clicando no overlay
   document.getElementById('editModal').addEventListener('click',function(e){if(e.target===this)fecharModal();});
-};
+  initCargasUI();
+}; // end _appInit
 
 // ── LINHAS ──
 function buildLinhas() {
@@ -1007,7 +1212,7 @@ function calcPagTotal(){
 }
 
 // ── REGISTRAR ──
-function addLancamento(){
+async function addLancamento(){
   const data=document.getElementById('fData').value;
   const pr  =document.getElementById('fPr').value;
   const err =document.getElementById('formError');
@@ -1026,7 +1231,7 @@ function addLancamento(){
   PAY_IDS.forEach((id,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(id).value)||0);
   const now=Date.now();
   linhas.forEach((l,idx)=>lancamentos.push({id:now+idx,data,pr,...l,pag}));
-  save(); renderTable(); renderTotals();
+  await save(); renderTable(); renderTotals();
   showToast(`✓ ${linhas.length} linha(s) registrada(s)!`);
   for(let i=0;i<3;i++){
     ['qtd','preco','total'].forEach(f=>document.getElementById(`l${i}_${f}`).value='');
@@ -1040,14 +1245,19 @@ function addLancamento(){
 }
 
 // ── DELETE ──
-function deleteLanc(id){
+async function deleteLanc(id){
   if(!confirm('Remover este lançamento?')) return;
   lancamentos=lancamentos.filter(l=>l.id!==id);
-  save(); renderTable(); renderTotals();
+  await save(); renderTable(); renderTotals();
 }
 
-// ── SAVE ──
-function save(){localStorage.setItem('gas_lanc2',JSON.stringify(lancamentos));}
+// ── SAVE (Firebase) ──
+async function save() {
+  window._lancamentos = lancamentos; // sincroniza antes de salvar
+  try {
+    await window._saveLancamentos();
+  } catch(e) { console.error('Erro ao salvar lançamentos:', e); }
+}
 
 // ── FORMAT ──
 function fmtNum(v){return v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
@@ -1410,7 +1620,7 @@ function buildConfigGrid(){
     </div>`;
   }).join('');
 }
-function saveConfig(){
+async function saveConfig(){
   PRS.forEach(pr=>{
     const safeid=pr.replace(/[^a-zA-Z0-9]/g,'_');
     const uEl=document.getElementById(`cfg_${safeid}_ultra`);
@@ -1420,13 +1630,17 @@ function saveConfig(){
       butano:  bEl?parseFloat(bEl.value)||0:0
     };
   });
-  localStorage.setItem('gas_config',JSON.stringify(configPrecos));
+  window._configPrecos = configPrecos; // sincroniza
+  // Salva configPrecos no Firebase
+  try {
+    await window._fbSetDoc('config', 'precos', configPrecos);
+  } catch(e) { console.error('Erro ao salvar config:', e); }
   const m=document.getElementById('configMsg');
   m.textContent='✓ Configurações salvas!';
   setTimeout(()=>m.textContent='',3000);
   showToast('✓ Configurações salvas!');
 }
-function excluirPR(pr){
+async function excluirPR(pr){
   const temLanc=lancamentos.some(l=>l.pr===pr);
   const aviso=temLanc?`\n⚠️ Atenção: existe(m) lançamento(s) registrado(s) para este PR.\nEles NÃO serão excluídos, mas o PR não aparecerá mais para novos lançamentos.`:'';
   if(!confirm(`Deseja excluir o PR "${pr}"?${aviso}`)) return;
@@ -1434,7 +1648,8 @@ function excluirPR(pr){
   if(idx===-1) return;
   PRS.splice(idx,1);
   delete configPrecos[pr];
-  localStorage.setItem('gas_config',JSON.stringify(configPrecos));
+  // Salva no Firebase
+  try { await window._fbSetDoc('config', 'precos', configPrecos); } catch(e) {}
   // Atualiza todos os selects
   ['fPr','rFiltPr','editPr'].forEach(id=>{
     const sel=document.getElementById(id);
@@ -1509,7 +1724,7 @@ function getEditBrand(){
   if(document.getElementById('editBtnButano').classList.contains('active')) return 'Butano';
   return '';
 }
-function salvarEdicao(){
+async function salvarEdicao(){
   const id=parseInt(document.getElementById('editId').value);
   const data=document.getElementById('editData').value;
   const pr=document.getElementById('editPr').value;
@@ -1526,7 +1741,7 @@ function salvarEdicao(){
   const idx=lancamentos.findIndex(x=>x.id===id);
   if(idx===-1) return;
   lancamentos[idx]={...lancamentos[idx],data,pr,qtd,preco,total:qtd*preco,marca,pag};
-  save(); renderTable(); renderTotals();
+  await save(); renderTable(); renderTotals();
   fecharModal();
   showToast('✓ Lançamento atualizado!');
 }
@@ -1566,9 +1781,8 @@ function adicionarNovoPR(){
 // ══════════════════════════════════════════════════════
 //  CONTROLE DE CARGAS
 // ══════════════════════════════════════════════════════
-let cargas = JSON.parse(localStorage.getItem('gas_cargas') || '[]');
-let freteConfig = JSON.parse(localStorage.getItem('gas_frete_config') || '{}');
-let empresaDiasConfig = JSON.parse(localStorage.getItem('gas_empresa_dias') || '{}');
+// cargas, freteConfig e empresaDiasConfig são carregados do Firebase pelo módulo ES
+// e armazenados em window.* antes de _appInit ser chamado
 
 // Empresas e seus dias úteis padrão
 const EMPRESAS_VENC = [
@@ -1580,12 +1794,11 @@ const EMPRESAS_VENC = [
 
 const PRODUTOS_FRETE = ['P 05','P 13','P 20','P 45','P 05 + P 13','P 13 + P 45','Mix (vários)'];
 
-// Init data de hoje no formulário de carga
-window.addEventListener('DOMContentLoaded', () => {
+// Configuração de modais de cargas — chamada dentro do _appInit (após Firebase carregar)
+function initCargasUI() {
   document.getElementById('cData').value = new Date().toISOString().split('T')[0];
   calcVencimentoAuto();
   renderCargas();
-  // fechar modal clicando fora
   document.getElementById('editCargaModal').addEventListener('click', function(e){
     if(e.target === this) fecharCargaModal();
   });
@@ -1595,10 +1808,13 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('prorrogarModal').addEventListener('click', function(e){
     if(e.target === this) fecharProrrogar();
   });
-});
+}
 
-function saveCargas() {
-  localStorage.setItem('gas_cargas', JSON.stringify(cargas));
+async function saveCargas() {
+  window._cargas = cargas; // sincroniza antes de salvar
+  try {
+    await window._saveCargas();
+  } catch(e) { console.error('Erro ao salvar cargas:', e); }
 }
 
 // ── DIAS ÚTEIS ──
@@ -1691,20 +1907,26 @@ function fecharFreteConfig() {
   document.getElementById('freteConfigModal').classList.remove('open');
 }
 
-function salvarFreteConfig() {
+async function salvarFreteConfig() {
   PRODUTOS_FRETE.forEach(p => {
     const safeid = p.replace(/[^a-zA-Z0-9]/g,'_');
     const el = document.getElementById('frete_' + safeid);
     if (el) freteConfig[p] = parseFloat(el.value) || 0;
   });
-  localStorage.setItem('gas_frete_config', JSON.stringify(freteConfig));
+  // Salva frete no Firebase (será feito junto com empresa_dias abaixo)
 
   // Salvar dias úteis por empresa
   EMPRESAS_VENC.forEach(e => {
     const el = document.getElementById('dias_' + e.nome);
     if (el) empresaDiasConfig[e.nome] = parseInt(el.value) || e.diasPadrao;
   });
-  localStorage.setItem('gas_empresa_dias', JSON.stringify(empresaDiasConfig));
+  window._freteConfig = freteConfig;
+  window._empresaDiasConfig = empresaDiasConfig;
+  // Salva freteConfig e empresaDiasConfig no Firebase
+  try {
+    await window._fbSetDoc('config', 'frete', freteConfig);
+    await window._fbSetDoc('config', 'empresa_dias', empresaDiasConfig);
+  } catch(e) { console.error('Erro ao salvar config frete/dias:', e); }
 
   const m = document.getElementById('freteConfigMsg');
   m.textContent = '✓ Salvo!';
@@ -1725,12 +1947,12 @@ function fecharStatusQS() {
   document.getElementById('statusQSModal').classList.remove('open');
 }
 
-function setStatusCarga(id, novoStatus) {
+async function setStatusCarga(id, novoStatus) {
   if (id == null) return;
   const idx = cargas.findIndex(c => c.id === id);
   if (idx === -1) return;
   cargas[idx].status = novoStatus;
-  saveCargas();
+  await saveCargas();
   renderCargas();
   fecharStatusQS();
   const labels = {'PAGO':'✅ Pago!','A VENCER':'⏳ A Vencer!','VENCIDO':'❌ Vencido!','CANCELADO':'🚫 Cancelado!'};
@@ -1776,7 +1998,7 @@ function abrirProrrogar() {
 function fecharProrrogar() {
   document.getElementById('prorrogarModal').classList.remove('open');
 }
-function confirmarProrrogar() {
+async function confirmarProrrogar() {
   const novaData = document.getElementById('prorrogarData').value;
   if (!novaData) { showToast('⚠ Informe a nova data de vencimento!'); return; }
   const origem = document.getElementById('prorrogarModal').dataset.origem;
@@ -1811,7 +2033,7 @@ function calcEditCargaLiquido() {
 }
 
 // Adicionar nova carga
-function addCarga() {
+async function addCarga() {
   const err = document.getElementById('cargaErr');
   const data     = document.getElementById('cData').value;
   const produto  = document.getElementById('cProduto').value;
@@ -1844,7 +2066,7 @@ function addCarga() {
   };
 
   cargas.push(carga);
-  saveCargas();
+  await saveCargas();
   renderCargas();
   showToast('✅ Carga registrada!');
 
@@ -1862,10 +2084,10 @@ function addCarga() {
 }
 
 // Deletar carga
-function deleteCarga(id) {
+async function deleteCarga(id) {
   if (!confirm('Remover esta carga?')) return;
   cargas = cargas.filter(c => c.id !== id);
-  saveCargas();
+  await saveCargas();
   renderCargas();
 }
 
@@ -1894,7 +2116,7 @@ function abrirEdicaoCarga(id) {
 function fecharCargaModal() {
   document.getElementById('editCargaModal').classList.remove('open');
 }
-function salvarEdicaoCarga() {
+async function salvarEdicaoCarga() {
   const id  = parseInt(document.getElementById('editCargaId').value);
   const idx = cargas.findIndex(x => x.id === id);
   if (idx === -1) return;
@@ -1924,7 +2146,7 @@ function salvarEdicaoCarga() {
     status:   document.getElementById('ecStatus').value,
     obs:      document.getElementById('ecObs').value.trim(),
   };
-  saveCargas();
+  await saveCargas();
   renderCargas();
   fecharCargaModal();
   showToast('✓ Carga atualizada!');
@@ -2153,6 +2375,143 @@ function exportarPDF(){
   if(!win){showToast('⚠ Permita pop-ups para exportar!');return;}
   showToast('📄 Relatório gerado!');
 }
+
+// ══════════════════════════════════════════════
+//  BACKUP — funções de UI
+// ══════════════════════════════════════════════
+async function abrirBackupModal() {
+  document.getElementById('backupModal').style.display = 'flex';
+  await carregarInfoBackup();
+}
+
+function fecharBackupModal() {
+  document.getElementById('backupModal').style.display = 'none';
+}
+
+async function carregarInfoBackup() {
+  // Meta info
+  try {
+    const meta = await window._fbGetDoc('config', 'backup_meta');
+    const el = document.getElementById('backupMetaInfo');
+    if (meta) {
+      const [y,m,d] = meta.ultimo.split('-');
+      const hoje = new Date().toISOString().split('T')[0];
+      const diff = Math.floor((new Date(hoje) - new Date(meta.ultimo)) / 86400000);
+      const proximo = 10 - diff;
+      el.innerHTML = `
+        <div style="display:flex;gap:20px;flex-wrap:wrap;">
+          <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:3px">Último backup</div>
+            <div style="font-size:15px;font-weight:700;color:var(--text)">${d}/${m}/${y}</div></div>
+          <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:3px">Lançamentos</div>
+            <div style="font-size:15px;font-weight:700;color:var(--ultra)">${meta.total_lancamentos || '—'}</div></div>
+          <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:3px">Cargas</div>
+            <div style="font-size:15px;font-weight:700;color:var(--butano)">${meta.total_cargas || '—'}</div></div>
+          <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:3px">Próximo automático</div>
+            <div style="font-size:15px;font-weight:700;color:${proximo<=2?'var(--success)':'var(--accent)'}">em ${proximo > 0 ? proximo : 0} dia(s)</div></div>
+        </div>`;
+    } else {
+      el.innerHTML = '<span style="color:var(--muted2)">Nenhum backup encontrado ainda.</span>';
+    }
+  } catch(e) { console.error(e); }
+
+  // Lista de backups
+  try {
+    const backups = await window._fbGetBackups();
+    const list = document.getElementById('backupList');
+    if (!backups.length) {
+      list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted2);font-size:12px;">Nenhum backup ainda.</div>';
+      return;
+    }
+    list.innerHTML = backups.map(b => {
+      const [y,m,d] = b.data.split('-');
+      const ts = new Date(b.criadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      return `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
+          <div style="font-size:20px;flex-shrink:0;">🗄️</div>
+          <div style="flex:1;">
+            <div style="font-weight:700;font-size:13px;color:var(--text)">${d}/${m}/${y} <span style="font-size:10px;color:var(--muted);font-weight:400">às ${ts}</span></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${b.lancamentos?.length||0} lançamentos · ${b.cargas?.length||0} cargas</div>
+          </div>
+          <button onclick="baixarBackup('${b.data}')" title="Baixar como JSON"
+            style="background:var(--ultra-light);color:var(--ultra);border:1.5px solid #bfdbfe;padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">
+            ⬇️ JSON
+          </button>
+        </div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function fazerBackupManual() {
+  const btn = document.getElementById('btnBackupManual');
+  btn.textContent = '⏳ Salvando...';
+  btn.disabled = true;
+  try {
+    const hoje = new Date().toISOString().split('T')[0];
+    // Adiciona sufixo de hora para não sobrescrever backup do mesmo dia
+    const label = hoje + '_' + new Date().toTimeString().slice(0,5).replace(':','-');
+    await window._executarBackup(label);
+    showToast('✅ Backup manual criado!');
+    await carregarInfoBackup();
+  } catch(e) {
+    showToast('⚠ Erro ao criar backup!');
+    console.error(e);
+  }
+  btn.textContent = '💾 Fazer Backup Agora';
+  btn.disabled = false;
+}
+
+async function baixarBackup(dataLabel) {
+  try {
+    const backups = await window._fbGetBackups();
+    const backup = backups.find(b => b.data === dataLabel || b.data.startsWith(dataLabel));
+    if (!backup) { showToast('⚠ Backup não encontrado!'); return; }
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `backup_gas_${dataLabel}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('⬇️ Download iniciado!');
+  } catch(e) { showToast('⚠ Erro ao baixar backup!'); console.error(e); }
+}
+
+// Fecha modal clicando fora
+document.getElementById('backupModal').addEventListener('click', function(e){
+  if(e.target===this) fecharBackupModal();
+});
+
 </script>
+
+<!-- ══════════ MODAL BACKUP ══════════ -->
+<div id="backupModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid var(--border);">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:8px;">🗄️ Backup dos Dados</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:18px;">O backup automático é feito a cada <strong>10 dias</strong> ao abrir o sistema. Você também pode criar um backup manual agora.</p>
+
+    <!-- Info último backup -->
+    <div id="backupMetaInfo" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--muted);">
+      Carregando informações...
+    </div>
+
+    <!-- Botão backup manual -->
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+      <button onclick="fazerBackupManual()" id="btnBackupManual" style="background:var(--accent);color:#fff;border:none;padding:10px 22px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;box-shadow:0 2px 8px rgba(224,123,0,.25);transition:all .18s;">
+        💾 Fazer Backup Agora
+      </button>
+      <button onclick="fecharBackupModal()" style="background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:10px 20px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
+        ✕ Fechar
+      </button>
+    </div>
+
+    <!-- Lista de backups -->
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:.8px;color:var(--text);margin-bottom:10px;">📋 Backups Disponíveis</div>
+    <div id="backupList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;">
+      <div style="text-align:center;padding:20px;color:var(--muted2);font-size:12px;">Carregando...</div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
