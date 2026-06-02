@@ -472,15 +472,64 @@ td{padding:9px 12px;vertical-align:middle;}
 .site-footer strong{color:#fff;}
 
 /* ── CONTROLE DE CARGAS ── */
-.carga-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
-.carga-sum-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px 11px;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow);}
-.cs-icon{font-size:18px;flex-shrink:0;line-height:1;}
-.cs-info{display:flex;flex-direction:column;gap:1px;}
-.cs-label{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);}
-.cs-value{font-family:'Bebas Neue',sans-serif;font-size:17px;color:#0f766e;letter-spacing:.5px;line-height:1.1;}
+.carga-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.carga-sum-card{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:14px 16px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  position:relative;
+  overflow:hidden;
+  transition:transform .15s, box-shadow .15s;
+}
+.carga-sum-card:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.10);}
+.carga-sum-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:4px 0 0 4px;}
+.carga-sum-card.card-teal::before{background:linear-gradient(180deg,#0f766e,#14b8a6);}
+.carga-sum-card.card-orange::before{background:linear-gradient(180deg,#e07b00,#fb923c);}
+.carga-sum-card.card-blue::before{background:linear-gradient(180deg,#1d4ed8,#60a5fa);}
+.carga-sum-card.card-green::before{background:linear-gradient(180deg,#15803d,#4ade80);}
+.carga-sum-card.card-red::before{background:linear-gradient(180deg,#dc2626,#f87171);}
+.carga-sum-card.card-purple::before{background:linear-gradient(180deg,#7c3aed,#a78bfa);}
+.carga-sum-card.card-yellow::before{background:linear-gradient(180deg,#b45309,#fbbf24);}
+.carga-sum-card.card-sky::before{background:linear-gradient(180deg,#0284c7,#38bdf8);}
+.cs-icon-wrap{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
+.card-teal   .cs-icon-wrap{background:#ccfbf1;}
+.card-orange .cs-icon-wrap{background:#fff3e0;}
+.card-blue   .cs-icon-wrap{background:#eff6ff;}
+.card-green  .cs-icon-wrap{background:#f0fdf4;}
+.card-red    .cs-icon-wrap{background:#fef2f2;}
+.card-purple .cs-icon-wrap{background:#f5f3ff;}
+.card-yellow .cs-icon-wrap{background:#fffbeb;}
+.card-sky    .cs-icon-wrap{background:#e0f2fe;}
+.cs-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}
+.cs-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);white-space:nowrap;}
+.cs-value{font-family:'Bebas Neue',sans-serif;font-size:19px;color:#0f766e;letter-spacing:.5px;line-height:1.15;}
 .cs-value.orange{color:var(--accent);}
 .cs-value.red{color:var(--danger);}
 .cs-value.blue{color:var(--ultra);}
+
+/* ── Cartão de próximas a vencer ── */
+.card-proximas{grid-column:1/-1;background:#fff;border:1px solid #fde68a;border-radius:14px;padding:16px 18px;box-shadow:0 2px 8px rgba(224,123,0,.1);position:relative;overflow:hidden;}
+.card-proximas::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:4px 0 0 4px;background:linear-gradient(180deg,#b45309,#fbbf24);}
+.proximas-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.proximas-title{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:.8px;color:#b45309;}
+.proximas-badge{background:#fef9c3;color:#854d0e;border:1px solid #fde68a;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;}
+.proximas-list{display:flex;flex-direction:column;gap:6px;}
+.proxima-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;font-size:12px;}
+.proxima-venc{font-weight:700;font-family:'Bebas Neue',sans-serif;font-size:15px;min-width:72px;color:#b45309;}
+.proxima-venc.hoje{color:var(--danger);}
+.proxima-venc.amanha{color:#d97706;}
+.proxima-empresa{font-weight:700;color:var(--text);flex:1;}
+.proxima-valor{font-weight:700;color:var(--success);white-space:nowrap;}
+.proxima-dias{font-size:10px;padding:2px 7px;border-radius:6px;font-weight:700;white-space:nowrap;}
+.proxima-dias.urgente{background:#fee2e2;color:var(--danger);}
+.proxima-dias.atencao{background:#fef9c3;color:#854d0e;}
+.proxima-dias.ok{background:#f0fdf4;color:var(--success);}
+.proximas-empty{text-align:center;color:var(--muted2);font-size:12px;padding:8px 0;}
 
 .carga-form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:14px;}
 .carga-form-grid-wide{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;}
@@ -560,8 +609,6 @@ td{padding:9px 12px;vertical-align:middle;}
     <button class="tab-btn" onclick="showTab('cargas',this)">🚛 Cargas</button>
     <button class="tab-btn" onclick="showTab('config',this)">⚙️ Config</button>
   </div>
-  <button onclick="abrirBackupModal()" title="Backup dos dados" style="background:transparent;border:1.5px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;font-size:16px;color:var(--muted);transition:all .18s;flex-shrink:0;" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='transparent'">🗄️</button>
-</div>
 </header>
 
 <!-- ==================== LANÇAMENTO ==================== -->
@@ -983,6 +1030,18 @@ td{padding:9px 12px;vertical-align:middle;}
     <div style="margin-top:18px;display:flex;gap:12px;align-items:center;">
       <button class="btn-primary" onclick="saveConfig()">💾 Salvar Configurações</button>
       <span id="configMsg" style="font-size:13px;font-weight:700;color:var(--success)"></span>
+    </div>
+  </div>
+
+  <!-- Backup card no final da aba config -->
+  <div class="card" style="border:1.5px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff 0%,#fff 60%);">
+    <div class="section-title" style="color:var(--ultra);">🗄️ Backup dos Dados</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">O backup automático é feito a cada <strong>10 dias</strong> ao abrir o sistema. Crie um backup manual sempre que precisar.</p>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <button onclick="abrirBackupModal()" style="background:var(--ultra);color:#fff;border:none;padding:10px 24px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;box-shadow:0 2px 8px rgba(29,78,216,.25);transition:all .18s;display:flex;align-items:center;gap:7px;"
+        onmouseover="this.style.background='#1e40af'" onmouseout="this.style.background='var(--ultra)'">
+        🗄️ Abrir Central de Backup
+      </button>
     </div>
   </div>
 </div>
@@ -2176,14 +2235,55 @@ function renderCargas() {
   const totalPagar   = f.filter(c => c.status !== 'PAGO').reduce((a, c) => a + (c.liquido || c.valor), 0);
   const totalVencido = f.filter(c => c.status === 'VENCIDO').reduce((a, c) => a + (c.liquido || c.valor), 0);
 
+  // ── Próximas a vencer (cargas A VENCER + PRORROGADO com vencimento futuro/próximo) ──
+  const hoje = new Date().toISOString().split('T')[0];
+  const proximas = cargas
+    .filter(c => (c.status === 'A VENCER' || c.status === 'PRORROGADO') && c.venc)
+    .sort((a, b) => a.venc.localeCompare(b.venc))
+    .slice(0, 5);
+
+  function diasParaVenc(vencStr) {
+    const hoje2 = new Date(); hoje2.setHours(0,0,0,0);
+    const vd = new Date(vencStr + 'T12:00:00');
+    return Math.round((vd - hoje2) / 86400000);
+  }
+  function fmtDateShort(d) { const [y,m,dd]=d.split('-'); return `${dd}/${m}`; }
+
+  const proximasHtml = proximas.length === 0
+    ? `<div class="proximas-empty">✅ Nenhuma carga pendente de vencimento</div>`
+    : proximas.map(c => {
+        const dias = diasParaVenc(c.venc);
+        let vencClass = 'ok', diasClass = 'ok', diasLabel = `em ${dias}d`;
+        if (dias < 0)      { vencClass = 'hoje'; diasClass = 'urgente'; diasLabel = `${Math.abs(dias)}d atrás`; }
+        else if (dias === 0){ vencClass = 'hoje'; diasClass = 'urgente'; diasLabel = 'HOJE'; }
+        else if (dias <= 2) { vencClass = 'amanha'; diasClass = 'urgente'; diasLabel = `em ${dias}d`; }
+        else if (dias <= 5) { vencClass = 'amanha'; diasClass = 'atencao'; diasLabel = `em ${dias}d`; }
+        return `<div class="proxima-item">
+          <span class="proxima-venc ${vencClass}">${fmtDateShort(c.venc)}</span>
+          <span class="proxima-empresa">${c.empresa || '—'} <span style="font-weight:400;color:var(--muted);font-size:11px">${c.produto || ''} ${c.nf ? '· NF '+c.nf : ''}</span></span>
+          <span class="proxima-valor">${fmtVal(c.liquido || c.valor)}</span>
+          <span class="proxima-dias ${diasClass}">${diasLabel}</span>
+        </div>`;
+      }).join('');
+
+  const qtdAvencer = cargas.filter(c => c.status === 'A VENCER' || c.status === 'PRORROGADO').length;
+
   document.getElementById('cargaSummary').innerHTML = `
-    <div class="carga-sum-card"><div class="cs-icon">🚛</div><div class="cs-info"><div class="cs-label">Nº de Cargas</div><div class="cs-value orange">${f.length}</div></div></div>
-    <div class="carga-sum-card"><div class="cs-icon">💰</div><div class="cs-info"><div class="cs-label">Valor Total</div><div class="cs-value">${fmtVal(totalValor)}</div></div></div>
-    <div class="carga-sum-card"><div class="cs-icon">🧾</div><div class="cs-info"><div class="cs-label">Valor Líquido</div><div class="cs-value">${fmtVal(totalLiquido)}</div></div></div>
-    <div class="carga-sum-card"><div class="cs-icon">✅</div><div class="cs-info"><div class="cs-label">Total Pago</div><div class="cs-value" style="color:var(--success)">${fmtVal(totalPago)}</div></div></div>
-    <div class="carga-sum-card"><div class="cs-icon">⏳</div><div class="cs-info"><div class="cs-label">A Pagar</div><div class="cs-value orange">${fmtVal(totalPagar)}</div></div></div>
-    <div class="carga-sum-card"><div class="cs-icon">🚚</div><div class="cs-info"><div class="cs-label">Total Frete</div><div class="cs-value blue">${fmtVal(totalFrete)}</div></div></div>
-    <div class="carga-sum-card"><div class="cs-icon">❌</div><div class="cs-info"><div class="cs-label">Vencidas</div><div class="cs-value red">${fmtVal(totalVencido)}</div></div></div>
+    <div class="carga-sum-card card-orange"><div class="cs-icon-wrap">🚛</div><div class="cs-info"><div class="cs-label">Nº de Cargas</div><div class="cs-value orange">${f.length}</div></div></div>
+    <div class="carga-sum-card card-teal"><div class="cs-icon-wrap">💰</div><div class="cs-info"><div class="cs-label">Valor Total</div><div class="cs-value">${fmtVal(totalValor)}</div></div></div>
+    <div class="carga-sum-card card-sky"><div class="cs-icon-wrap">🧾</div><div class="cs-info"><div class="cs-label">Valor Líquido</div><div class="cs-value blue">${fmtVal(totalLiquido)}</div></div></div>
+    <div class="carga-sum-card card-green"><div class="cs-icon-wrap">✅</div><div class="cs-info"><div class="cs-label">Total Pago</div><div class="cs-value" style="color:var(--success)">${fmtVal(totalPago)}</div></div></div>
+    <div class="carga-sum-card card-yellow"><div class="cs-icon-wrap">⏳</div><div class="cs-info"><div class="cs-label">A Pagar</div><div class="cs-value orange">${fmtVal(totalPagar)}</div></div></div>
+    <div class="carga-sum-card card-blue"><div class="cs-icon-wrap">🚚</div><div class="cs-info"><div class="cs-label">Total Frete</div><div class="cs-value blue">${fmtVal(totalFrete)}</div></div></div>
+    <div class="carga-sum-card card-red"><div class="cs-icon-wrap">❌</div><div class="cs-info"><div class="cs-label">Vencidas</div><div class="cs-value red">${fmtVal(totalVencido)}</div></div></div>
+    <div class="card-proximas">
+      <div class="proximas-header">
+        <span style="font-size:20px">📅</span>
+        <span class="proximas-title">Próximas a Vencer</span>
+        <span class="proximas-badge">${qtdAvencer} pendente${qtdAvencer !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="proximas-list">${proximasHtml}</div>
+    </div>
   `;
 
   // ── Tabela ──
