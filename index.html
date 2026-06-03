@@ -258,17 +258,25 @@ header{
 
 /* ── INPUTS ── */
 .form-group{display:flex;flex-direction:column;gap:5px;}
-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);}
+label{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);}
 input,select{background:var(--surface2);border:1.5px solid var(--border);color:var(--text);padding:9px 11px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border .18s,box-shadow .18s;width:100%;}
 input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,123,0,.12);}
 input[readonly]{background:var(--surface3);cursor:default;color:var(--success);font-weight:700;}
 select option{background:#fff;}
+/* ── CARD NOVA CARGA ── */
+.card-nova-carga{background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);border:2px solid #f59e0b;box-shadow:0 2px 12px rgba(224,123,0,.20);}
 
 /* ── LINHAS ── */
 .header-row{display:grid;grid-template-columns:90px 140px 150px 1fr;gap:8px;padding:0 12px;margin-bottom:4px;}
 .header-row label{text-align:center;}
 .linha-row{display:grid;grid-template-columns:90px 140px 150px 1fr;gap:8px;align-items:center;margin-bottom:8px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;transition:border .18s;}
 .linha-row:focus-within{border-color:var(--accent);}
+.carga-item-row{display:grid;grid-template-columns:110px 1fr 32px;gap:8px;align-items:center;margin-bottom:8px;padding:9px 4px 9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;transition:border .18s;}
+.carga-item-row:focus-within{border-color:var(--accent);}
+.btn-rm-linha{background:var(--danger-light);color:var(--danger);border:1.5px solid #fca5a5;border-radius:7px;width:30px;height:30px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;padding:0;}
+.btn-rm-linha:hover{background:#fee2e2;border-color:var(--danger);}
+.btn-add-linha{background:var(--success-light);color:var(--success);border:1.5px solid #bbf7d0;border-radius:9px;padding:8px 18px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;}
+.btn-add-linha:hover{background:#dcfce7;border-color:var(--success);}
 
 /* ── BRAND TOGGLE ── */
 .brand-toggle{display:flex;gap:6px;}
@@ -518,8 +526,8 @@ td{padding:9px 12px;vertical-align:middle;}
 .proximas-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
 .proximas-title{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:.8px;color:#b45309;}
 .proximas-badge{background:#fef9c3;color:#854d0e;border:1px solid #fde68a;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700;}
-.proximas-list{display:flex;flex-direction:column;gap:6px;}
-.proxima-item{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;font-size:12px;}
+.proximas-list{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.proxima-item{display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;font-size:12px;}
 .proxima-venc{font-weight:700;font-family:'Bebas Neue',sans-serif;font-size:15px;min-width:72px;color:#b45309;}
 .proxima-venc.hoje{color:var(--danger);}
 .proxima-venc.amanha{color:#d97706;}
@@ -596,6 +604,7 @@ td{padding:9px 12px;vertical-align:middle;}
   .pr-cards-grid{grid-template-columns:1fr;}
   .tab-btn{padding:6px 10px;font-size:11px;}
   .charts-grid{grid-template-columns:1fr;}
+  .proximas-list{grid-template-columns:1fr;}
 }
 </style>
 </head>
@@ -772,32 +781,14 @@ td{padding:9px 12px;vertical-align:middle;}
 <!-- ==================== CONTROLE DE CARGAS ==================== -->
 <div id="tab-cargas" class="page">
 
-  <!-- Resumo -->
-  <div class="carga-summary" id="cargaSummary"></div>
-
   <!-- Formulário de novo lançamento de carga -->
-  <div class="card">
-    <div class="section-title">🚛 Nova Carga
-      <button class="btn-frete-config" onclick="abrirFreteConfig()" style="margin-left:auto;background:var(--ultra-light);color:var(--ultra);border:1.5px solid #bfdbfe;padding:5px 13px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.4px;text-transform:uppercase;transition:all .18s;" title="Configurar valores de frete por produto">⚙️ Config. Frete</button>
-    </div>
+  <div class="card card-nova-carga">
+    <div class="section-title">🚛 Nova Carga</div>
 
     <div class="carga-form-grid">
       <div class="form-group">
         <label>Data da Carga</label>
         <input type="date" id="cData" onchange="calcVencimentoAuto()" />
-      </div>
-      <div class="form-group">
-        <label>Produto</label>
-        <select id="cProduto" onchange="calcFreteAuto()">
-          <option value="">— Selecione —</option>
-          <option>P 05</option>
-          <option>P 13</option>
-          <option>P 20</option>
-          <option>P 45</option>
-          <option>P 05 + P 13</option>
-          <option>P 13 + P 45</option>
-          <option>Mix (vários)</option>
-        </select>
       </div>
       <div class="form-group">
         <label>NF (Nota Fiscal)</label>
@@ -832,13 +823,21 @@ td{padding:9px 12px;vertical-align:middle;}
       </div>
     </div>
 
+    <!-- Itens da Carga -->
+    <div class="section-title" style="font-size:14px;margin-bottom:8px;">🛢️ Itens da Carga</div>
+    <div style="display:grid;grid-template-columns:110px 1fr 32px;gap:8px;padding:0 4px;margin-bottom:4px;">
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);text-align:center">Quantidade</label>
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);text-align:center">Produto</label>
+      <label></label>
+    </div>
+    <div id="cItensContainer"></div>
+    <div style="margin-bottom:14px;">
+      <button class="btn-add-linha" onclick="addItemCarga()">＋ Adicionar Produto</button>
+    </div>
+
     <div class="carga-form-grid">
       <div class="form-group">
-        <label>Quantidade (botijões)</label>
-        <input type="number" id="cQtd" min="0" placeholder="0" oninput="calcFreteAuto()" />
-      </div>
-      <div class="form-group">
-        <label>Valor da Carga (R$)</label>
+        <label>Valor da Carga (R$) <span style="font-size:9px;color:var(--muted2);font-weight:400">(opcional)</span></label>
         <input type="number" id="cValor" min="0" step="0.01" placeholder="0,00" oninput="calcCargaLiquido()" />
       </div>
       <div class="form-group">
@@ -883,6 +882,9 @@ td{padding:9px 12px;vertical-align:middle;}
     </div>
   </div>
 
+  <!-- Resumo -->
+  <div class="carga-summary" id="cargaSummary"></div>
+
   <!-- Filtros -->
   <div class="card">
     <div class="section-title">🔍 Filtros</div>
@@ -894,7 +896,6 @@ td{padding:9px 12px;vertical-align:middle;}
         <select id="cfProduto" onchange="renderCargas()">
           <option value="">Todos</option>
           <option>P 05</option><option>P 13</option><option>P 20</option><option>P 45</option>
-          <option>P 05 + P 13</option><option>P 13 + P 45</option><option>Mix (vários)</option>
         </select>
       </div>
       <div class="form-group"><label>Status</label>
@@ -948,13 +949,18 @@ td{padding:9px 12px;vertical-align:middle;}
     <input type="hidden" id="editCargaId" />
     <div class="carga-form-3">
       <div class="form-group"><label>Data da Carga</label><input type="date" id="ecData" /></div>
-      <div class="form-group"><label>Produto</label>
-        <select id="ecProduto">
-          <option>P 05</option><option>P 13</option><option>P 20</option><option>P 45</option>
-          <option>P 05 + P 13</option><option>P 13 + P 45</option><option>Mix (vários)</option>
-        </select>
-      </div>
       <div class="form-group"><label>NF</label><input type="text" id="ecNF" /></div>
+    </div>
+    <!-- Itens da Carga (edição) -->
+    <div style="margin-bottom:8px;">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:6px;">🛢️ Itens da Carga</div>
+      <div style="display:grid;grid-template-columns:110px 1fr 32px;gap:8px;padding:0 4px;margin-bottom:4px;">
+        <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);text-align:center">Quantidade</label>
+        <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);text-align:center">Produto</label>
+        <label></label>
+      </div>
+      <div id="ecItensContainer"></div>
+      <button class="btn-add-linha" onclick="addItemEditCarga()" style="margin-top:4px;">＋ Adicionar Produto</button>
     </div>
     <div class="carga-form-3">
       <div class="form-group"><label>Empresa</label>
@@ -983,16 +989,13 @@ td{padding:9px 12px;vertical-align:middle;}
       </div>
     </div>
     <div class="carga-form-3">
-      <div class="form-group"><label>Qtd (botijões)</label><input type="number" id="ecQtd" min="0" oninput="calcEditFreteAuto()" /></div>
-      <div class="form-group"><label>Valor Carga (R$)</label><input type="number" id="ecValor" min="0" step="0.01" oninput="calcEditCargaLiquido()" /></div>
+      <div class="form-group"><label>Valor Carga (R$) <span style="font-size:9px;color:var(--muted2);font-weight:400">(opcional)</span></label><input type="number" id="ecValor" min="0" step="0.01" oninput="calcEditCargaLiquido()" /></div>
       <div class="form-group"><label>Desconto (R$)</label><input type="number" id="ecDesconto" min="0" step="0.01" oninput="calcEditCargaLiquido()" /></div>
+      <div class="form-group"><label>Líquido</label><input type="text" id="ecLiquido" readonly /></div>
     </div>
     <div class="carga-form-3">
-      <div class="form-group"><label>Líquido</label><input type="text" id="ecLiquido" readonly /></div>
       <div class="form-group"><label>Frete (R$)</label><input type="number" id="ecFrete" min="0" step="0.01" /></div>
       <div class="form-group"><label>Vencimento</label><input type="date" id="ecVenc" /></div>
-    </div>
-    <div class="carga-form-2" style="margin-bottom:12px;">
       <div class="form-group"><label>Status</label>
         <select id="ecStatus">
           <option value="A VENCER">⏳ A Vencer</option>
@@ -1000,6 +1003,8 @@ td{padding:9px 12px;vertical-align:middle;}
           <option value="VENCIDO">❌ Vencido</option>
         </select>
       </div>
+    </div>
+    <div class="carga-form-2" style="margin-bottom:12px;">
       <div class="form-group"><label>Observação</label><input type="text" id="ecObs" /></div>
     </div>
     <div class="modal-actions">
@@ -1030,6 +1035,18 @@ td{padding:9px 12px;vertical-align:middle;}
     <div style="margin-top:18px;display:flex;gap:12px;align-items:center;">
       <button class="btn-primary" onclick="saveConfig()">💾 Salvar Configurações</button>
       <span id="configMsg" style="font-size:13px;font-weight:700;color:var(--success)"></span>
+    </div>
+  </div>
+
+  <!-- Config Frete -->
+  <div class="card" style="border:1.5px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff 0%,#fff 60%);">
+    <div class="section-title" style="color:var(--ultra);">🚚 Configuração de Frete</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Configure o valor do frete por botijão para cada produto. O frete é calculado automaticamente ao lançar uma carga.</p>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <button onclick="abrirFreteConfig()" style="background:var(--ultra);color:#fff;border:none;padding:10px 24px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;box-shadow:0 2px 8px rgba(29,78,216,.25);transition:all .18s;display:flex;align-items:center;gap:7px;"
+        onmouseover="this.style.background='#1e40af'" onmouseout="this.style.background='var(--ultra)'">
+        ⚙️ Configurar Frete por Produto
+      </button>
     </div>
   </div>
 
@@ -1851,11 +1868,81 @@ const EMPRESAS_VENC = [
   { nome: 'LIROMILS', diasPadrao: 5 },
 ];
 
-const PRODUTOS_FRETE = ['P 05','P 13','P 20','P 45','P 05 + P 13','P 13 + P 45','Mix (vários)'];
+const PRODUTOS_FRETE = ['P 05','P 13','P 20','P 45'];
+const PRODUTOS_CARGA_OPTS = ['P 05','P 13','P 20','P 45'];
+
+// ── ITENS DA CARGA (formulário novo) ──
+let numItensCarga = 1;
+
+function _buildItemCargaDOM(containerId, i, qtd, prod) {
+  const c = document.getElementById(containerId);
+  const d = document.createElement('div');
+  d.className = 'carga-item-row'; d.id = containerId + '_item_' + i;
+  d.innerHTML = `
+    <input type="number" id="${containerId}_qtd_${i}" min="0" placeholder="0" value="${qtd||''}" oninput="calcFreteAuto()" />
+    <select id="${containerId}_prod_${i}" onchange="calcFreteAuto()">
+      <option value="">— Produto —</option>
+      ${PRODUTOS_CARGA_OPTS.map(p=>`<option value="${p}"${prod===p?' selected':''}>${p}</option>`).join('')}
+    </select>
+    <button class="btn-rm-linha" onclick="removeItemCarga('${containerId}',${i})" title="Remover">✕</button>`;
+  c.appendChild(d);
+}
+
+function buildItensCarga(containerId, itens) {
+  const c = document.getElementById(containerId);
+  c.innerHTML = '';
+  const lista = itens && itens.length ? itens : [{}];
+  if (containerId === 'cItensContainer') numItensCarga = 0;
+  lista.forEach((item, i) => {
+    _buildItemCargaDOM(containerId, i, item.qtd, item.produto);
+    if (containerId === 'cItensContainer') numItensCarga++;
+  });
+}
+
+function addItemCarga() {
+  _buildItemCargaDOM('cItensContainer', numItensCarga, '', '');
+  numItensCarga++;
+}
+
+function removeItemCarga(containerId, i) {
+  const isNew = containerId === 'cItensContainer';
+  const totalAtual = isNew ? numItensCarga : document.querySelectorAll(`#${containerId} .carga-item-row`).length;
+  if (totalAtual <= 1) { showToast('Deve haver ao menos 1 item.'); return; }
+  // Recolhe dados exceto o removido
+  const total = isNew ? numItensCarga : totalAtual;
+  const dados = [];
+  for (let j = 0; j < total; j++) {
+    if (j === i) continue;
+    const qEl = document.getElementById(`${containerId}_qtd_${j}`);
+    const pEl = document.getElementById(`${containerId}_prod_${j}`);
+    if (qEl && pEl) dados.push({ qtd: qEl.value, produto: pEl.value });
+  }
+  buildItensCarga(containerId, dados.map(d => ({ qtd: parseFloat(d.qtd)||0, produto: d.produto })));
+  if (isNew) numItensCarga = dados.length;
+  calcFreteAuto();
+}
+
+function addItemEditCarga() {
+  const total = document.querySelectorAll('#ecItensContainer .carga-item-row').length;
+  _buildItemCargaDOM('ecItensContainer', total, '', '');
+}
+
+function getItensCarga(containerId) {
+  const itens = [];
+  let i = 0;
+  while (document.getElementById(`${containerId}_qtd_${i}`) !== null) {
+    const qtd = parseFloat(document.getElementById(`${containerId}_qtd_${i}`).value) || 0;
+    const produto = document.getElementById(`${containerId}_prod_${i}`).value || '';
+    if (qtd > 0 || produto) itens.push({ qtd, produto });
+    i++;
+  }
+  return itens;
+}
 
 // Configuração de modais de cargas — chamada dentro do _appInit (após Firebase carregar)
 function initCargasUI() {
   document.getElementById('cData').value = new Date().toISOString().split('T')[0];
+  buildItensCarga('cItensContainer', [{}]);
   calcVencimentoAuto();
   renderCargas();
   document.getElementById('editCargaModal').addEventListener('click', function(e){
@@ -1901,21 +1988,29 @@ function calcVencimentoAuto() {
 
 // ── FRETE AUTOMÁTICO ──
 function calcFreteAuto() {
-  const produto = document.getElementById('cProduto').value;
-  const qtd = parseFloat(document.getElementById('cQtd').value) || 0;
-  const valorUnit = freteConfig[produto] || 0;
-  if (valorUnit > 0 && qtd > 0) {
-    document.getElementById('cFrete').value = (valorUnit * qtd).toFixed(2);
+  let totalFrete = 0;
+  let i = 0;
+  while (document.getElementById(`cItensContainer_qtd_${i}`) !== null) {
+    const produto = document.getElementById(`cItensContainer_prod_${i}`).value;
+    const qtd = parseFloat(document.getElementById(`cItensContainer_qtd_${i}`).value) || 0;
+    const valorUnit = freteConfig[produto] || 0;
+    if (valorUnit > 0 && qtd > 0) totalFrete += valorUnit * qtd;
+    i++;
   }
+  if (totalFrete > 0) document.getElementById('cFrete').value = totalFrete.toFixed(2);
 }
 
 function calcEditFreteAuto() {
-  const produto = document.getElementById('ecProduto').value;
-  const qtd = parseFloat(document.getElementById('ecQtd').value) || 0;
-  const valorUnit = freteConfig[produto] || 0;
-  if (valorUnit > 0 && qtd > 0) {
-    document.getElementById('ecFrete').value = (valorUnit * qtd).toFixed(2);
+  let totalFrete = 0;
+  let i = 0;
+  while (document.getElementById(`ecItensContainer_qtd_${i}`) !== null) {
+    const produto = document.getElementById(`ecItensContainer_prod_${i}`).value;
+    const qtd = parseFloat(document.getElementById(`ecItensContainer_qtd_${i}`).value) || 0;
+    const valorUnit = freteConfig[produto] || 0;
+    if (valorUnit > 0 && qtd > 0) totalFrete += valorUnit * qtd;
+    i++;
   }
+  if (totalFrete > 0) document.getElementById('ecFrete').value = totalFrete.toFixed(2);
 }
 
 // ── MODAL CONFIG FRETE ──
@@ -2094,27 +2189,36 @@ function calcEditCargaLiquido() {
 // Adicionar nova carga
 async function addCarga() {
   const err = document.getElementById('cargaErr');
-  const data     = document.getElementById('cData').value;
-  const produto  = document.getElementById('cProduto').value;
-  const empresa  = document.getElementById('cEmpresa').value;
-  const valor    = parseFloat(document.getElementById('cValor').value) || 0;
+  const data    = document.getElementById('cData').value;
+  const empresa = document.getElementById('cEmpresa').value;
 
   if (!data)    { err.textContent = '⚠ Informe a data da carga.'; return; }
-  if (!produto) { err.textContent = '⚠ Selecione o produto.'; return; }
   if (!empresa) { err.textContent = '⚠ Informe a empresa.'; return; }
-  if (!valor)   { err.textContent = '⚠ Informe o valor da carga.'; return; }
+
+  const itens = getItensCarga('cItensContainer');
+  const itensValidos = itens.filter(it => it.qtd > 0 && it.produto);
+  if (!itensValidos.length) { err.textContent = '⚠ Adicione ao menos 1 item com quantidade e produto.'; return; }
+
   err.textContent = '';
 
+  const valor   = parseFloat(document.getElementById('cValor').value) || 0;
   const desconto = parseFloat(document.getElementById('cDesconto').value) || 0;
+  // qtd total e produto principal para compatibilidade/exibição
+  const qtdTotal = itensValidos.reduce((a, it) => a + it.qtd, 0);
+  const produtoLabel = itensValidos.length === 1
+    ? itensValidos[0].produto
+    : itensValidos.map(it => `${it.qtd} ${it.produto}`).join(' + ');
+
   const carga = {
     id:        Date.now(),
     data,
-    produto,
+    produto:   produtoLabel,
+    itens:     itensValidos,
     nf:        document.getElementById('cNF').value.trim(),
     empresa,
     transp:    document.getElementById('cTransp').value,
     caminhao:  document.getElementById('cCaminhao').value,
-    qtd:       parseFloat(document.getElementById('cQtd').value) || 0,
+    qtd:       qtdTotal,
     valor,
     desconto,
     liquido:   valor - desconto,
@@ -2130,15 +2234,16 @@ async function addCarga() {
   showToast('✅ Carga registrada!');
 
   // Limpa formulário
-  ['cNF','cQtd','cValor','cDesconto','cLiquido','cFrete','cObs'].forEach(id => {
+  ['cValor','cDesconto','cLiquido','cFrete','cObs','cNF'].forEach(id => {
     document.getElementById(id).value = '';
   });
-  document.getElementById('cProduto').value = '';
   document.getElementById('cEmpresa').value = '';
   document.getElementById('cTransp').value = 'IVG TRANSPORTES';
   document.getElementById('cCaminhao').value = '';
   document.getElementById('cStatus').value = 'A VENCER';
   document.getElementById('cData').value = new Date().toISOString().split('T')[0];
+  buildItensCarga('cItensContainer', [{}]);
+  numItensCarga = 1;
   calcVencimentoAuto();
 }
 
@@ -2156,15 +2261,18 @@ function abrirEdicaoCarga(id) {
   if (!c) return;
   document.getElementById('editCargaId').value   = id;
   document.getElementById('ecData').value         = c.data;
-  document.getElementById('ecProduto').value       = c.produto;
   document.getElementById('ecNF').value            = c.nf || '';
   document.getElementById('ecEmpresa').value       = c.empresa;
   document.getElementById('ecTransp').value        = c.transp || 'IVG TRANSPORTES';
   document.getElementById('ecCaminhao').value      = c.caminhao || '';
-  document.getElementById('ecQtd').value           = c.qtd || '';
-  document.getElementById('ecValor').value         = c.valor;
+  // Itens: usa array itens se existir, senão cria a partir de produto/qtd antigos
+  const itens = c.itens && c.itens.length
+    ? c.itens
+    : [{ qtd: c.qtd || 0, produto: c.produto || '' }];
+  buildItensCarga('ecItensContainer', itens);
+  document.getElementById('ecValor').value         = c.valor || '';
   document.getElementById('ecDesconto').value      = c.desconto || '';
-  document.getElementById('ecLiquido').value       = 'R$ ' + fmtNum(c.liquido || c.valor);
+  document.getElementById('ecLiquido').value       = c.valor ? 'R$ ' + fmtNum(c.liquido || c.valor) : '';
   document.getElementById('ecFrete').value         = c.frete || '';
   document.getElementById('ecVenc').value          = c.venc || '';
   document.getElementById('ecStatus').value        = c.status;
@@ -2182,21 +2290,31 @@ async function salvarEdicaoCarga() {
   const err = document.getElementById('editCargaErr');
   const data    = document.getElementById('ecData').value;
   const empresa = document.getElementById('ecEmpresa').value;
-  const valor   = parseFloat(document.getElementById('ecValor').value) || 0;
   if (!data)    { err.textContent = '⚠ Informe a data.'; return; }
   if (!empresa) { err.textContent = '⚠ Informe a empresa.'; return; }
-  if (!valor)   { err.textContent = '⚠ Informe o valor.'; return; }
+
+  const itens = getItensCarga('ecItensContainer');
+  const itensValidos = itens.filter(it => it.qtd > 0 && it.produto);
+  if (!itensValidos.length) { err.textContent = '⚠ Adicione ao menos 1 item com quantidade e produto.'; return; }
+
   err.textContent = '';
+  const valor   = parseFloat(document.getElementById('ecValor').value) || 0;
   const desconto = parseFloat(document.getElementById('ecDesconto').value) || 0;
+  const qtdTotal = itensValidos.reduce((a, it) => a + it.qtd, 0);
+  const produtoLabel = itensValidos.length === 1
+    ? itensValidos[0].produto
+    : itensValidos.map(it => `${it.qtd} ${it.produto}`).join(' + ');
+
   cargas[idx] = {
     ...cargas[idx],
     data,
-    produto:  document.getElementById('ecProduto').value,
+    produto:  produtoLabel,
+    itens:    itensValidos,
     nf:       document.getElementById('ecNF').value.trim(),
     empresa,
     transp:   document.getElementById('ecTransp').value,
     caminhao: document.getElementById('ecCaminhao').value,
-    qtd:      parseFloat(document.getElementById('ecQtd').value) || 0,
+    qtd:      qtdTotal,
     valor,
     desconto,
     liquido:  valor - desconto,
@@ -2259,10 +2377,13 @@ function renderCargas() {
         else if (dias <= 2) { vencClass = 'amanha'; diasClass = 'urgente'; diasLabel = `em ${dias}d`; }
         else if (dias <= 5) { vencClass = 'amanha'; diasClass = 'atencao'; diasLabel = `em ${dias}d`; }
         return `<div class="proxima-item">
-          <span class="proxima-venc ${vencClass}">${fmtDateShort(c.venc)}</span>
-          <span class="proxima-empresa">${c.empresa || '—'} <span style="font-weight:400;color:var(--muted);font-size:11px">${c.produto || ''} ${c.nf ? '· NF '+c.nf : ''}</span></span>
-          <span class="proxima-valor">${fmtVal(c.liquido || c.valor)}</span>
-          <span class="proxima-dias ${diasClass}">${diasLabel}</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="proxima-venc ${vencClass}">${fmtDateShort(c.venc)}</span>
+            <span class="proxima-dias ${diasClass}">${diasLabel}</span>
+          </div>
+          <span class="proxima-empresa">${c.empresa || '—'}</span>
+          <span style="font-weight:400;color:var(--muted);font-size:11px">${c.produto||''} ${c.nf ? '· NF '+c.nf : ''}</span>
+          <span class="proxima-valor">${c.valor>0?fmtVal(c.liquido || c.valor):'—'}</span>
         </div>`;
       }).join('');
 
@@ -2303,17 +2424,21 @@ function renderCargas() {
     const caminhaoLabel = c.caminhao ? `🚛 ${c.caminhao}` : '-';
     const vencDisplay = c.venc ? fmtDate(c.venc) : '-';
     const vencStyle = c.status === 'PRORROGADO' ? 'color:var(--ultra);font-weight:700' : 'color:var(--muted)';
+    // Monta display de itens
+    const itensDisplay = c.itens && c.itens.length > 1
+      ? c.itens.map(it => `<div style="font-size:11px;white-space:nowrap"><strong>${it.qtd}</strong> × ${it.produto}</div>`).join('')
+      : `<span style="font-weight:600">${c.produto || '—'}</span>`;
     return `<tr>
       <td>${fmtDate(c.data)}</td>
-      <td style="font-weight:600">${c.produto}</td>
+      <td>${itensDisplay}</td>
       <td style="color:var(--muted);font-size:11px">${c.nf || '-'}</td>
       <td style="font-weight:700">${c.empresa}</td>
       <td style="color:var(--muted)">${c.transp || '-'}</td>
       <td style="color:var(--muted);font-size:11px">${caminhaoLabel}</td>
       <td style="text-align:center;font-family:'Bebas Neue',sans-serif;font-size:18px">${c.qtd || '-'}</td>
-      <td class="td-valor">${fmtVal(c.valor)}</td>
+      <td class="td-valor">${c.valor > 0 ? fmtVal(c.valor) : '-'}</td>
       <td style="color:var(--danger)">${c.desconto ? fmtVal(c.desconto) : '-'}</td>
-      <td class="td-liquido">${fmtVal(c.liquido || c.valor)}</td>
+      <td class="td-liquido">${c.valor > 0 ? fmtVal(c.liquido || c.valor) : '-'}</td>
       <td class="td-frete">${c.frete ? fmtVal(c.frete) : '-'}</td>
       <td style="${vencStyle}">${vencDisplay}</td>
       <td>
