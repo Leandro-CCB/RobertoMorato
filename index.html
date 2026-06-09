@@ -1075,13 +1075,13 @@ td{padding:9px 12px;vertical-align:middle;}
     <div id="freteConfigGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;"></div>
 
     <div style="border-top:1.5px solid var(--border);padding-top:16px;margin-bottom:16px;">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:.8px;color:var(--ultra);margin-bottom:6px;">🏢 Dias Úteis de Vencimento por Empresa</div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Configure quantos dias úteis cada empresa tem para o vencimento do boleto após a data da carga.</p>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:.8px;color:var(--ultra);margin-bottom:6px;">🏢 Dias Corridos de Vencimento por Empresa</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Configure quantos dias corridos cada empresa tem para o vencimento do boleto após a data da carga. Se cair no fim de semana, o vencimento avança para a próxima segunda-feira.</p>
       <table class="empresa-dias-table">
         <thead>
           <tr>
             <th>Empresa</th>
-            <th style="text-align:center">Dias Úteis</th>
+            <th style="text-align:center">Dias Corridos</th>
             <th style="text-align:center">Exemplo (hoje)</th>
           </tr>
         </thead>
@@ -1996,15 +1996,14 @@ async function saveCargas() {
   } catch(e) { console.error('Erro ao salvar cargas:', e); }
 }
 
-// ── DIAS ÚTEIS ──
+// ── DIAS CORRIDOS ──
 function addDiasUteis(dataStr, dias) {
+  // Dias CORRIDOS: soma direto; se cair no fim de semana, avança para segunda-feira
   const d = new Date(dataStr + 'T12:00:00');
-  let count = 0;
-  while (count < dias) {
-    d.setDate(d.getDate() + 1);
-    const dow = d.getDay();
-    if (dow !== 0 && dow !== 6) count++; // pula sábado(6) e domingo(0)
-  }
+  d.setDate(d.getDate() + dias);
+  const dow = d.getDay();
+  if (dow === 6) d.setDate(d.getDate() + 2); // sábado → segunda
+  if (dow === 0) d.setDate(d.getDate() + 1); // domingo → segunda
   return d.toISOString().split('T')[0];
 }
 
