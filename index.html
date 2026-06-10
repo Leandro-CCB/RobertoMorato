@@ -124,18 +124,20 @@
   async function carregarDados() {
     showLoadingOverlay(true);
     try {
-      const [lancs, cargas, cfgPrecos, cfgFrete, cfgDias] = await Promise.all([
+      const [lancs, cargas, cfgPrecos, cfgFrete, cfgDias, cfgPRs] = await Promise.all([
         fsGetCollection('lancamentos'),
         fsGetCollection('cargas'),
         fsGetDoc('config', 'precos'),
         fsGetDoc('config', 'frete'),
         fsGetDoc('config', 'empresa_dias'),
+        fsGetDoc('config', 'prs'),
       ]);
       window._lancamentos       = lancs;
       window._cargas            = cargas;
       window._configPrecos      = cfgPrecos      || {};
       window._freteConfig       = cfgFrete       || {};
       window._empresaDiasConfig = cfgDias        || {};
+      window._prsFirebase       = (cfgPRs && cfgPRs.lista && cfgPRs.lista.length) ? cfgPRs.lista : null;
     } catch(e) {
       console.error('Erro ao carregar dados:', e);
       alert('⚠️ Não foi possível conectar ao Firebase.\nVerifique sua conexão com a internet.');
@@ -151,6 +153,7 @@
       fsGetDoc('config', 'precos'),
       fsGetDoc('config', 'frete'),
       fsGetDoc('config', 'empresa_dias'),
+        fsGetDoc('config', 'prs'),
     ]);
     const backup = {
       data: label,
@@ -186,6 +189,7 @@
 
   window._saveLancamentos = () => fsSaveCollection('lancamentos', window._lancamentos || [], l => l.id);
   window._saveCargas      = () => fsSaveCollection('cargas',      window._cargas      || [], c => c.id);
+  window._savePRs         = (list) => fsSetDoc('config', 'prs', { lista: list });
 
   window._executarBackup  = executarBackup;
   window._fbGetBackups    = async () => {
@@ -1259,6 +1263,11 @@ window._appInit = async function() {
   cargas       = window._cargas       || [];
   freteConfig  = window._freteConfig  || {};
   empresaDiasConfig = window._empresaDiasConfig || {};
+  // Carrega lista de PRs do Firebase (se existir), sobrepondo o array hardcoded
+  if (window._prsFirebase) {
+    PRS.length = 0;
+    window._prsFirebase.forEach(p => PRS.push(p));
+  }
   document.getElementById('fData').value = new Date().toISOString().split('T')[0];
   ['fPr','rFiltPr','editPr'].forEach(id => {
     const sel = document.getElementById(id);
@@ -2042,8 +2051,9 @@ async function excluirPR(pr){
   if(idx===-1) return;
   PRS.splice(idx,1);
   delete configPrecos[pr];
-  // Salva no Firebase
+  // Salva no Firebase (preços e lista de PRs)
   try { await window._fbSetDoc('config', 'precos', configPrecos); } catch(e) {}
+  try { await window._savePRs([...PRS]); } catch(e) { console.error('Erro ao salvar PRs:', e); }
   // Atualiza todos os selects
   ['fPr','rFiltPr','editPr'].forEach(id=>{
     const sel=document.getElementById(id);
@@ -2141,7 +2151,7 @@ async function salvarEdicao(){
 }
 
 // ── ADICIONAR NOVO PR ──
-function adicionarNovoPR(){
+async function adicionarNovoPR(){
   const input=document.getElementById('newPrInput');
   const nome=input.value.trim().toUpperCase();
   const msg=document.getElementById('newPrMsg');
@@ -2149,6 +2159,8 @@ function adicionarNovoPR(){
   if(PRS.includes(nome)){msg.style.color='var(--danger)';msg.textContent='⚠ PR já existe na lista.';return;}
   PRS.push(nome);
   PRS.sort();
+  // Salva lista de PRs no Firebase
+  try { await window._savePRs([...PRS]); } catch(e) { console.error('Erro ao salvar PRs:', e); }
   // atualiza selects de PR
   ['fPr','rFiltPr'].forEach(id=>{
     const sel=document.getElementById(id);
