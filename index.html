@@ -681,13 +681,16 @@ td{padding:9px 12px;vertical-align:middle;}
       <div class="pay-col"><label>📒 Fiado</label><input type="number" id="pFiado" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
       <div class="pay-col"><label>🔥 Gás do Povo</label><input type="number" id="pGasPovo" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
     </div>
-    <div style="margin-top:8px;font-size:12px;color:var(--muted)">
+    <div style="margin-top:8px;font-size:12px;color:var(--muted);display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
       Total informado no pagamento: <span id="pagTotal" style="color:var(--accent);font-weight:700">R$ 0,00</span>
+      <span id="pagSobra" style="display:none;font-size:12px;font-weight:700;padding:3px 10px;border-radius:6px;"></span>
     </div>
 
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px;">
-      <button class="btn-primary" onclick="addLancamento()">✚ Registrar Venda</button>
+      <button class="btn-primary" id="btnRegistrar" onclick="addLancamento()">✚ Registrar Venda</button>
+      <button id="btnCancelarEdicao" style="display:none;background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:10px 20px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;" onclick="cancelarEdicaoForm()">✕ Cancelar Edição</button>
       <span id="formError" style="color:var(--danger);font-size:13px;font-weight:600"></span>
+      <span id="formEditLabel" style="display:none;color:var(--accent);font-size:12px;font-weight:700;background:var(--accent-light);padding:4px 10px;border-radius:6px;">✏️ Modo edição</span>
     </div>
   </div>
 
@@ -730,8 +733,9 @@ td{padding:9px 12px;vertical-align:middle;}
 <!-- Modal de detalhes do grupo de lançamentos -->
 <div id="grupoLancModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:700;align-items:center;justify-content:center;padding:16px;">
   <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:860px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid var(--border);">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent);margin-bottom:4px;display:flex;align-items:center;gap:8px;">
-      📋 Lançamentos do Dia
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent);flex:1;">📋 Lançamentos do Dia</div>
+      <button id="btnEditarGrupo" onclick="carregarEdicaoNoForm(_grupoAtualData,_grupoAtualPr);" style="background:var(--accent);color:#fff;border:none;padding:8px 18px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;">✏️ Editar Venda</button>
     </div>
     <div id="grupoLancSubtitulo" style="font-size:13px;color:var(--muted);margin-bottom:16px;"></div>
     <div class="table-wrap">
@@ -748,6 +752,52 @@ td{padding:9px 12px;vertical-align:middle;}
     </div>
     <div style="margin-top:16px;display:flex;justify-content:flex-end;">
       <button onclick="fecharGrupoLanc()" style="background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:10px 24px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">✕ Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal EDITAR GRUPO (todas as linhas da venda) -->
+<div id="editGrupoModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:800;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:700px;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2);border:1px solid var(--border);">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent);margin-bottom:4px;">✏️ Editar Venda Completa</div>
+    <div id="editGrupoSubtitulo" style="font-size:13px;color:var(--muted);margin-bottom:16px;"></div>
+
+    <!-- Data e PR (compartilhados por todas as linhas) -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div class="form-group"><label>📅 Data</label><input type="date" id="egData" /></div>
+      <div class="form-group"><label>👤 PR (Vendedor)</label><select id="egPr"></select></div>
+    </div>
+
+    <!-- Linhas de produtos -->
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:6px;">🛢️ Linhas de Produto</div>
+    <div style="display:grid;grid-template-columns:80px 120px 110px 1fr 32px;gap:6px;padding:0 4px;margin-bottom:4px;">
+      <label style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted2);text-align:center">Qtd</label>
+      <label style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted2);text-align:center">Vlr Unit. (R$)</label>
+      <label style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted2);text-align:center">Total</label>
+      <label style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted2);text-align:center">Marca</label>
+      <label></label>
+    </div>
+    <div id="egLinhasContainer"></div>
+    <button onclick="egAdicionarLinha()" style="margin-top:6px;margin-bottom:16px;background:var(--success-light);color:var(--success);border:1.5px solid #bbf7d0;border-radius:9px;padding:7px 16px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">＋ Adicionar Linha</button>
+
+    <!-- Pagamento -->
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px;">💳 Pagamento</div>
+    <div class="modal-pay-grid" style="margin-bottom:16px;">
+      <div class="pay-col"><label>💵 Espécie</label><input type="number" id="egEspecie" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
+      <div class="pay-col"><label>💳 Débito</label><input type="number" id="egDebito" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
+      <div class="pay-col"><label>💳 Crédito</label><input type="number" id="egCredito" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
+      <div class="pay-col"><label>📱 QR Code</label><input type="number" id="egQrCode" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
+      <div class="pay-col"><label>⚡ Pix</label><input type="number" id="egPix" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
+      <div class="pay-col"><label>🪙 Moeda</label><input type="number" id="egMoeda" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
+      <div class="pay-col"><label>📒 Fiado</label><input type="number" id="egFiado" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
+      <div class="pay-col"><label>🔥 Gás do Povo</label><input type="number" id="egGasPovo" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:16px;">Total Pago: <span id="egPagTotal">R$ 0,00</span></div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <button onclick="salvarEdicaoGrupo()" style="background:var(--accent);color:#fff;border:none;padding:11px 28px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(224,123,0,.25);">💾 Salvar Alterações</button>
+      <button onclick="fecharEditGrupoModal()" style="background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:11px 22px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">✕ Cancelar</button>
+      <span id="egErr" style="color:var(--danger);font-size:13px;font-weight:600;"></span>
     </div>
   </div>
 </div>
@@ -1263,6 +1313,20 @@ window._appInit = async function() {
   cargas       = window._cargas       || [];
   freteConfig  = window._freteConfig  || {};
   empresaDiasConfig = window._empresaDiasConfig || {};
+
+  // ── Remove duplicatas por id (dados corrompidos no Firebase) ──
+  const _vistoIds = new Set();
+  const _antes = lancamentos.length;
+  lancamentos = lancamentos.filter(l => {
+    if (_vistoIds.has(l.id)) return false;
+    _vistoIds.add(l.id);
+    return true;
+  });
+  if (lancamentos.length < _antes) {
+    console.warn(`[dedup] Removidas ${_antes - lancamentos.length} entradas duplicadas por id. Salvando...`);
+    window._lancamentos = lancamentos;
+    window._saveLancamentos().then(() => console.log('[dedup] Firebase limpo!'));
+  }
   // Carrega lista de PRs do Firebase (se existir), sobrepondo o array hardcoded
   if (window._prsFirebase) {
     PRS.length = 0;
@@ -1403,15 +1467,123 @@ function calcLinhaTotais(){
   document.getElementById('lTotalQtd').textContent=q;
   document.getElementById('lTotalVal').textContent='R$ '+fmtNum(v);
   document.getElementById('lTotalLinhas').textContent=n;
+  calcPagTotal(); // atualiza sobra/falta ao mudar linhas
 }
 
 // ── PAGAMENTO ──
 function calcPagTotal(){
   let t=0; PAY_IDS.forEach(id=>t+=parseFloat(document.getElementById(id).value)||0);
   document.getElementById('pagTotal').textContent='R$ '+fmtNum(t);
+  // Calcula sobra/troco vs total da venda
+  const totalVendaEl=document.getElementById('lTotalVal');
+  const totalVenda=totalVendaEl?parseFloat(totalVendaEl.textContent.replace(/[^\d,]/g,'').replace(',','.'))||0:0;
+  const sobraEl=document.getElementById('pagSobra');
+  if(sobraEl && t>0 && totalVenda>0){
+    const diff=Math.round((t-totalVenda)*100)/100;
+    if(diff>0){
+      sobraEl.style.display='';
+      sobraEl.style.background='#dcfce7';
+      sobraEl.style.color='#15803d';
+      sobraEl.textContent='💰 Sobra: R$ '+fmtNum(diff);
+    } else if(diff<0){
+      sobraEl.style.display='';
+      sobraEl.style.background='#fef2f2';
+      sobraEl.style.color='#dc2626';
+      sobraEl.textContent='⚠ Falta: R$ '+fmtNum(Math.abs(diff));
+    } else {
+      sobraEl.style.display='none';
+    }
+  } else if(sobraEl){
+    sobraEl.style.display='none';
+  }
 }
 
-// ── REGISTRAR ──
+// ── MODO EDIÇÃO NO FORMULÁRIO ──
+let _editFormData=null, _editFormPr=null; // quando não-null, estamos editando
+
+function carregarEdicaoNoForm(data, pr){
+  const itens=lancamentos.filter(l=>l.data===data&&l.pr===pr);
+  if(!itens.length) return;
+
+  // Muda para aba lançamento
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-lancamento').classList.add('active');
+  document.querySelector('.tab-btn').classList.add('active');
+
+  // Fecha modais se abertos
+  document.getElementById('grupoLancModal').style.display='none';
+
+  // Preenche data e PR
+  document.getElementById('fData').value=data;
+  document.getElementById('fPr').value=pr;
+
+  // Filtra: se houver linhas COM vendaId, usa só o grupo mais recente (maior vendaId)
+  // Isso evita misturar lançamentos antigos (sem vendaId) com novos do mesmo dia/PR
+  const comVendaId = itens.filter(l => l.vendaId != null);
+  let itensFiltrados;
+  if (comVendaId.length > 0) {
+    const maxVendaId = Math.max(...comVendaId.map(l => Number(l.vendaId)));
+    itensFiltrados = itens.filter(l => Number(l.vendaId) === maxVendaId);
+  } else {
+    // Todos sem vendaId — usa o de maior id
+    const maxId = Math.max(...itens.map(l => Number(l.id)));
+    itensFiltrados = itens.filter(l => Number(l.id) === maxId);
+  }
+  const vistoIds2=new Set();
+  const itensDedupe=itensFiltrados.filter(l=>{ if(vistoIds2.has(l.id)) return false; vistoIds2.add(l.id); return true; });
+  const cont=document.getElementById('linhas-container');
+  cont.innerHTML='';
+  _numLinhas=0;
+  itensDedupe.forEach((l,i)=>{
+    const el=_criarLinhaEl(i);
+    cont.appendChild(el);
+    _numLinhas++;
+    document.getElementById(`l${i}_qtd`).value=l.qtd;
+    document.getElementById(`l${i}_preco`).value=l.preco;
+    document.getElementById(`l${i}_ultra`).classList.toggle('active',l.marca==='Ultragaz');
+    document.getElementById(`l${i}_butano`).classList.toggle('active',l.marca==='Butano');
+    calcLinha(i);
+  });
+
+  // Preenche pagamento — busca em todas as linhas, pega a primeira com algum valor
+  let pagRef={};
+  for(const l of itens){
+    const p=l.pag||{};
+    const temValor=PAY_FIELDS.some(f=>p[f]>0);
+    if(temValor){pagRef=p;break;}
+  }
+  PAY_IDS.forEach((id,idx)=>{
+    const val=pagRef[PAY_FIELDS[idx]];
+    document.getElementById(id).value=(val&&val>0)?val:'';
+  });
+  calcPagTotal();
+
+  // Ativa modo edição
+  _editFormData=data; _editFormPr=pr;
+  document.getElementById('btnRegistrar').textContent='💾 Salvar Alterações';
+  document.getElementById('btnCancelarEdicao').style.display='';
+  document.getElementById('formEditLabel').style.display='';
+  document.getElementById('formError').textContent='';
+
+  // Rola até o formulário
+  document.getElementById('tab-lancamento').scrollIntoView({behavior:'smooth'});
+  document.querySelector('.card').scrollIntoView({behavior:'smooth'});
+}
+
+function cancelarEdicaoForm(){
+  _editFormData=null; _editFormPr=null;
+  document.getElementById('btnRegistrar').textContent='✚ Registrar Venda';
+  document.getElementById('btnCancelarEdicao').style.display='none';
+  document.getElementById('formEditLabel').style.display='none';
+  buildLinhas();
+  PAY_IDS.forEach(id=>document.getElementById(id).value='');
+  calcPagTotal();
+  document.getElementById('fPr').value='';
+  document.getElementById('formError').textContent='';
+}
+
+// ── REGISTRAR / SALVAR ──
 async function addLancamento(){
   const data=document.getElementById('fData').value;
   const pr  =document.getElementById('fPr').value;
@@ -1424,27 +1596,55 @@ async function addLancamento(){
     const q=parseFloat(document.getElementById(`l${i}_qtd`).value)||0;
     const p=parseFloat(document.getElementById(`l${i}_preco`).value)||0;
     const m=getLinhaBrand(i);
-    if(q>0&&p>0&&m) linhas.push({qtd:q,preco:p,total:q*p,marca:m});
+    if(q>0&&m) linhas.push({qtd:q,preco:p,total:q*p,marca:m});
   }
   if(!linhas.length){err.textContent='⚠ Preencha ao menos 1 linha (qtd + preço + marca).';return;}
   const pag={};
   PAY_IDS.forEach((id,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(id).value)||0);
-  const now=Date.now();
-  const vendaId=now; // ID único que agrupa todas as linhas desta venda
-  // Pagamento salvo APENAS na primeira linha; demais ficam com pag zerado
-  linhas.forEach((l,idx)=>lancamentos.push({
-    id:now+idx, vendaId, data, pr, ...l,
-    pag: idx===0 ? pag : Object.fromEntries(PAY_FIELDS.map(f=>[f,0]))
-  }));
-  await save(); renderTable(); renderTotals();
-  showToast(`✓ ${linhas.length} linha(s) registrada(s)!`);
-  buildLinhas(); // reset: volta para 3 linhas limpas
-  PAY_IDS.forEach(id=>document.getElementById(id).value='');
-  document.getElementById('pagTotal').textContent='R$ 0,00';
-  ['lTotalQtd','lTotalLinhas'].forEach(id=>document.getElementById(id).textContent='0');
-  document.getElementById('lTotalVal').textContent='R$ 0,00';
-  // Zera o campo PR para nova seleção
-  document.getElementById('fPr').value='';
+
+  if(_editFormData!==null){
+    // ── MODO EDIÇÃO: substitui lançamentos do grupo ──
+    const oldItens=lancamentos.filter(l=>l.data===_editFormData&&l.pr===_editFormPr);
+    const vendaIdBase=oldItens.length?oldItens[0].vendaId||oldItens[0].id:Date.now();
+    lancamentos=lancamentos.filter(l=>!(l.data===_editFormData&&l.pr===_editFormPr));
+    const now=Date.now();
+    linhas.forEach((l,idx)=>{
+      const id=oldItens[idx]?oldItens[idx].id:(now+idx);
+      lancamentos.push({id,vendaId:vendaIdBase,data,pr,...l,
+        pag:idx===0?pag:Object.fromEntries(PAY_FIELDS.map(f=>[f,0]))});
+    });
+    await save(); renderTable(); renderTotals();
+    showToast('✓ Venda atualizada!');
+    cancelarEdicaoForm();
+  } else {
+    // ── MODO NOVO — verifica duplicata ──
+    const jaExiste=lancamentos.filter(l=>l.data===data&&l.pr===pr);
+    if(jaExiste.length>0){
+      // Compara linhas existentes com as novas
+      const existLinhas=jaExiste.map(l=>l.qtd+'|'+l.preco+'|'+l.marca).sort().join(';');
+      const novasLinhasKey=linhas.map(l=>l.qtd+'|'+l.preco+'|'+l.marca).sort().join(';');
+      if(existLinhas===novasLinhasKey){
+        if(!confirm(`⚠️ Já existe um lançamento para ${pr} em ${fmtDate(data)} com exatamente as mesmas linhas e valores.\n\nDeseja registrar mesmo assim?`)) return;
+      } else {
+        // Mesmo dia/PR mas linhas diferentes — avisa mais suavemente
+        if(!confirm(`ℹ️ ${pr} já possui lançamento em ${fmtDate(data)}.\n\nDeseja adicionar mais uma venda neste mesmo dia?`)) return;
+      }
+    }
+    const now=Date.now();
+    const vendaId=now;
+    linhas.forEach((l,idx)=>lancamentos.push({
+      id:now+idx, vendaId, data, pr, ...l,
+      pag: idx===0 ? pag : Object.fromEntries(PAY_FIELDS.map(f=>[f,0]))
+    }));
+    await save(); renderTable(); renderTotals();
+    showToast(`✓ ${linhas.length} linha(s) registrada(s)!`);
+    buildLinhas();
+    PAY_IDS.forEach(id=>document.getElementById(id).value='');
+    document.getElementById('pagTotal').textContent='R$ 0,00';
+    ['lTotalQtd','lTotalLinhas'].forEach(id=>document.getElementById(id).textContent='0');
+    document.getElementById('lTotalVal').textContent='R$ 0,00';
+    document.getElementById('fPr').value='';
+  }
 }
 
 // ── DELETE ──
@@ -1606,9 +1806,9 @@ function renderTable(){
     // Key para o botão (escapado para JSON)
     const keyEsc=JSON.stringify(g.data+'__'+g.pr).replace(/'/g,"\'");
 
-    return `<tr style="cursor:pointer;" onclick="abrirGrupoLanc('${g.data}','${g.pr}')">
+  return `<tr style="cursor:pointer;" onclick="abrirGrupoLanc('${g.data}','${g.pr}')">
       <td>${fmtDate(g.data)}</td>
-      <td style="font-weight:700">${g.pr}</td>
+      <td style="font-weight:700;white-space:nowrap">${g.pr} <button class="btn-sm-edit" title="Editar venda" onclick="event.stopPropagation();event.preventDefault();carregarEdicaoNoForm('${g.data}','${g.pr}');return false;" style="vertical-align:middle;margin-left:4px;">✏️</button></td>
       <td style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--text)">${qtdTotal}</td>
       <td style="font-weight:700;color:var(--success)">${fmtVal(valorTotal)}</td>
       <td>${marcaBadges}</td>
@@ -1621,15 +1821,15 @@ function renderTable(){
       <td style="color:var(--danger);font-weight:${totalFiado>0?'700':'400'}">${totalFiado>0?fmtVal(totalFiado):'-'}</td>
       <td style="color:var(--muted)">${pagGasPovo>0?fmtVal(pagGasPovo):'-'}</td>
       <td style="font-weight:700;color:var(--accent)">${totalPago>0?fmtVal(totalPago):'-'}</td>
-      <td style="white-space:nowrap">
-        <button class="btn-sm-edit" title="Ver detalhes / editar" onclick="event.stopPropagation();abrirGrupoLanc('${g.data}','${g.pr}')">✏️</button>
-      </td>
+      <td></td>
     </tr>`;
   }).join('');
 }
 
 // ── MODAL GRUPO ──
+let _grupoAtualData='', _grupoAtualPr='';
 function abrirGrupoLanc(data, pr){
+  _grupoAtualData=data; _grupoAtualPr=pr;
   const itens=lancamentos.filter(l=>l.data===data&&l.pr===pr);
   document.getElementById('grupoLancSubtitulo').textContent=`${fmtDate(data)} — ${pr} — ${itens.length} linha(s)`;
 
@@ -1648,13 +1848,21 @@ function abrirGrupoLanc(data, pr){
       ${PAY_FIELDS.map(p=>`<td style="color:${p==='Fiado'?'var(--danger)':'var(--muted)'}">${pagExibir&&pagExibir[p]>0?fmtVal(pagExibir[p]):'-'}</td>`).join('')}
       <td style="font-weight:700;color:var(--accent)">${totalPago!=null?fmtVal(totalPago):'-'}</td>
       <td style="white-space:nowrap">
-        <button class="btn-sm-edit" onclick="fecharGrupoLanc();abrirEdicao(${l.id})">✏️</button>
         <button class="btn-sm-del" onclick="deleteLancGrupo(${l.id},'${data}','${pr}')">✕</button>
       </td>
     </tr>`;
   }).join('');
 
   document.getElementById('grupoLancModal').style.display='flex';
+}
+
+function abrirGrupoLancEditar(data, pr){
+  fecharGrupoLanc();
+  abrirEdicaoGrupoComDados(data, pr);
+}
+
+function abrirEdicaoGrupo(){
+  abrirEdicaoGrupoComDados(_grupoAtualData, _grupoAtualPr);
 }
 
 async function deleteLancGrupo(id,data,pr){
@@ -2148,6 +2356,164 @@ async function salvarEdicao(){
   await save(); renderTable(); renderTotals();
   fecharModal();
   showToast('✓ Lançamento atualizado!');
+}
+
+// ── EDIÇÃO EM GRUPO ──
+let _egLinhasCount=0;
+const EG_PAY_IDS=['egEspecie','egDebito','egCredito','egQrCode','egPix','egMoeda','egFiado','egGasPovo'];
+
+function abrirEdicaoGrupoComDados(data, pr){
+  const itens=lancamentos.filter(l=>l.data===data&&l.pr===pr);
+  if(!itens.length) return;
+
+  // Preenche data e PR
+  document.getElementById('egData').value=data;
+  const egSel=document.getElementById('egPr');
+  egSel.innerHTML='';
+  PRS.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;egSel.appendChild(o);});
+  egSel.value=pr;
+
+  // RESET COMPLETO do container e contador antes de preencher
+  _egLinhasCount=0;
+  const cont=document.getElementById('egLinhasContainer');
+  cont.innerHTML='';
+  itens.forEach(l=>{ _egAdicionarLinhaComDados(l.id, l.qtd, l.preco, l.marca); });
+
+  // Pagamento — pega da primeira linha única por vendaId
+  const vistos=new Set();
+  let pagRef={};
+  itens.forEach(l=>{
+    const vid=l.vendaId!=null?l.vendaId:l.id;
+    if(!vistos.has(vid)){vistos.add(vid);pagRef=l.pag||{};}
+  });
+  EG_PAY_IDS.forEach((eid,idx)=>{
+    const val=pagRef[PAY_FIELDS[idx]];
+    document.getElementById(eid).value=(val&&val>0)?val:'';
+  });
+  egCalcPagTotal();
+
+  document.getElementById('egErr').textContent='';
+  document.getElementById('editGrupoSubtitulo').textContent=`${fmtDate(data)} — ${pr} — ${itens.length} linha(s)`;
+  document.getElementById('editGrupoModal').style.display='flex';
+}
+
+function _egAdicionarLinhaComDados(origId, qtd, preco, marca){
+  const i=_egLinhasCount++;
+  const d=document.createElement('div');
+  d.id='eg_linha_'+i;
+  d.dataset.origId=origId||'';
+  // Armazena marca como data-attribute para leitura confiável
+  d.dataset.marca=marca||'Ultragaz';
+  d.style.cssText='display:grid;grid-template-columns:80px 120px 110px 1fr 32px;gap:6px;align-items:center;margin-bottom:8px;padding:9px 10px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;';
+  const isUltra=(marca==='Ultragaz');
+  d.innerHTML=`
+    <input type="number" id="eg_qtd_${i}" min="0" placeholder="0" value="${qtd||''}" oninput="egCalcLinhaTotal(${i})" style="background:#fff;border:1.5px solid var(--border);color:var(--text);padding:7px 9px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:14px;width:100%;" />
+    <input type="number" id="eg_preco_${i}" min="0" step="0.01" placeholder="0,00" value="${preco||''}" oninput="egCalcLinhaTotal(${i})" style="background:#fff;border:1.5px solid var(--border);color:var(--text);padding:7px 9px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:14px;width:100%;" />
+    <input type="text" id="eg_total_${i}" readonly placeholder="R$ 0,00" style="background:var(--surface3);border:1.5px solid var(--border);color:var(--success);font-weight:700;padding:7px 9px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;width:100%;" />
+    <div style="display:flex;gap:4px;">
+      <button id="eg_ultra_${i}" onclick="egSelectBrand(${i},'Ultragaz')" class="eg-brand-btn${isUltra?' eg-ultra-active':''}" style="flex:1;padding:7px 4px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:2px solid ${isUltra?'#1d4ed8':'var(--border)'};background:${isUltra?'#eff6ff':'#fff'};color:${isUltra?'#1d4ed8':'var(--muted)'};">🔵 Ultra</button>
+      <button id="eg_butano_${i}" onclick="egSelectBrand(${i},'Butano')" class="eg-brand-btn${!isUltra?' eg-butano-active':''}" style="flex:1;padding:7px 4px;border-radius:7px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:2px solid ${!isUltra?'#15803d':'var(--border)'};background:${!isUltra?'#f0fdf4':'#fff'};color:${!isUltra?'#15803d':'var(--muted)'};">🟢 But</button>
+    </div>
+    <button onclick="egRemoverLinha(${i})" style="background:#fef2f2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:7px;width:30px;height:30px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>`;
+  document.getElementById('egLinhasContainer').appendChild(d);
+  egCalcLinhaTotal(i);
+}
+
+function egAdicionarLinha(){
+  _egAdicionarLinhaComDados(null,'','','Ultragaz');
+}
+
+function egRemoverLinha(i){
+  const total=document.querySelectorAll('#egLinhasContainer > div').length;
+  if(total<=1){showToast('⚠ Mínimo de 1 linha!');return;}
+  const el=document.getElementById('eg_linha_'+i);
+  if(el) el.remove();
+}
+
+function egSelectBrand(i, marca){
+  const ub=document.getElementById('eg_ultra_'+i);
+  const bb=document.getElementById('eg_butano_'+i);
+  const linha=document.getElementById('eg_linha_'+i);
+  if(!ub||!bb||!linha) return;
+  // Salva no data-attribute (fonte de verdade)
+  linha.dataset.marca=marca;
+  if(marca==='Ultragaz'){
+    ub.style.cssText='flex:1;padding:7px 4px;border-radius:7px;font-family:DM Sans,sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:2px solid #1d4ed8;background:#eff6ff;color:#1d4ed8;';
+    bb.style.cssText='flex:1;padding:7px 4px;border-radius:7px;font-family:DM Sans,sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:2px solid #dde1ec;background:#fff;color:#6b7280;';
+  } else {
+    bb.style.cssText='flex:1;padding:7px 4px;border-radius:7px;font-family:DM Sans,sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:2px solid #15803d;background:#f0fdf4;color:#15803d;';
+    ub.style.cssText='flex:1;padding:7px 4px;border-radius:7px;font-family:DM Sans,sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:2px solid #dde1ec;background:#fff;color:#6b7280;';
+  }
+}
+
+function egGetBrand(i){
+  // Lê do data-attribute — sempre confiável
+  const linha=document.getElementById('eg_linha_'+i);
+  return linha?linha.dataset.marca||'Ultragaz':'Ultragaz';
+}
+
+function egCalcLinhaTotal(i){
+  const q=parseFloat(document.getElementById('eg_qtd_'+i)?.value)||0;
+  const p=parseFloat(document.getElementById('eg_preco_'+i)?.value)||0;
+  const t=q*p;
+  const el=document.getElementById('eg_total_'+i);
+  if(el) el.value=t>0?'R$ '+fmtNum(t):'';
+}
+
+function egCalcPagTotal(){
+  let t=0; EG_PAY_IDS.forEach(id=>t+=parseFloat(document.getElementById(id)?.value)||0);
+  document.getElementById('egPagTotal').textContent='R$ '+fmtNum(t);
+}
+
+function fecharEditGrupoModal(){
+  document.getElementById('editGrupoModal').style.display='none';
+}
+
+async function salvarEdicaoGrupo(){
+  const data=document.getElementById('egData').value;
+  const pr=document.getElementById('egPr').value;
+  const err=document.getElementById('egErr');
+  if(!data){err.textContent='⚠ Informe a data.';return;}
+  if(!pr){err.textContent='⚠ Selecione o PR.';return;}
+  err.textContent='';
+
+  // Coleta linhas visíveis
+  const linhaEls=document.querySelectorAll('#egLinhasContainer > div');
+  const novasLinhas=[];
+  for(const el of linhaEls){
+    const i=el.id.replace('eg_linha_','');
+    const qtd=parseFloat(document.getElementById('eg_qtd_'+i)?.value)||0;
+    const preco=parseFloat(document.getElementById('eg_preco_'+i)?.value)||0;
+    const marca=egGetBrand(i);
+    if(qtd>0&&marca){
+      novasLinhas.push({origId:el.dataset.origId?parseInt(el.dataset.origId):null,qtd,preco,total:qtd*preco,marca});
+    }
+  }
+  if(!novasLinhas.length){err.textContent='⚠ Preencha ao menos 1 linha válida.';return;}
+
+  // Pagamento
+  const pag={};
+  EG_PAY_IDS.forEach((eid,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(eid)?.value)||0);
+
+  // Remove todos os lançamentos antigos deste data+PR
+  const oldItens=lancamentos.filter(l=>l.data===_grupoAtualData&&l.pr===_grupoAtualPr);
+  const vendaIdBase=oldItens.length?oldItens[0].vendaId||oldItens[0].id:Date.now();
+  lancamentos=lancamentos.filter(l=>!(l.data===_grupoAtualData&&l.pr===_grupoAtualPr));
+
+  // Recria com os novos dados
+  const now=Date.now();
+  novasLinhas.forEach((l,idx)=>{
+    const id=l.origId&&idx<oldItens.length?oldItens[idx].id:(now+idx);
+    lancamentos.push({
+      id, vendaId:vendaIdBase, data, pr, qtd:l.qtd, preco:l.preco, total:l.total, marca:l.marca,
+      pag: idx===0 ? pag : Object.fromEntries(PAY_FIELDS.map(f=>[f,0]))
+    });
+  });
+
+  _grupoAtualData=data; _grupoAtualPr=pr;
+  await save(); renderTable(); renderTotals();
+  fecharEditGrupoModal();
+  showToast('✓ Venda atualizada com sucesso!');
 }
 
 // ── ADICIONAR NOVO PR ──
@@ -3275,6 +3641,8 @@ document.addEventListener('DOMContentLoaded', function(){
   if(bm) bm.addEventListener('click', function(e){if(e.target===this)fecharBackupModal();});
   const gm=document.getElementById('grupoLancModal');
   if(gm) gm.addEventListener('click', function(e){if(e.target===this)fecharGrupoLanc();});
+  const egm=document.getElementById('editGrupoModal');
+  if(egm) egm.addEventListener('click', function(e){if(e.target===this)fecharEditGrupoModal();});
 });
 
 </script>
