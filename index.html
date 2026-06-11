@@ -680,6 +680,7 @@ td{padding:9px 12px;vertical-align:middle;}
       <div class="pay-col"><label>🪙 Moeda</label><input type="number" id="pMoeda" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
       <div class="pay-col"><label>📒 Fiado</label><input type="number" id="pFiado" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
       <div class="pay-col"><label>🔥 Gás do Povo</label><input type="number" id="pGasPovo" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
+      <div class="pay-col"><label>🏦 Sobras Anteriores</label><input type="number" id="pSobrasAnt" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
     </div>
     <div style="margin-top:8px;font-size:12px;color:var(--muted);display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
       Total informado no pagamento: <span id="pagTotal" style="color:var(--accent);font-weight:700">R$ 0,00</span>
@@ -719,11 +720,11 @@ td{padding:9px 12px;vertical-align:middle;}
         <thead>
           <tr>
             <th>Data</th><th>PR</th><th>Qtd P13</th><th>Total Vendas</th>
-            <th>Marcas</th><th>Espécie</th><th>Débito</th><th>Crédito</th><th>QR Code</th><th>Pix</th><th>Moeda</th><th>Fiado</th><th>Gás do Povo</th><th>Total Pago</th><th></th>
+            <th>Marcas</th><th>Espécie</th><th>Débito</th><th>Crédito</th><th>QR Code</th><th>Pix</th><th>Moeda</th><th>Fiado</th><th>Gás do Povo</th><th>Sobras Ant.</th><th>Total Pago</th><th></th>
           </tr>
         </thead>
         <tbody id="tbodyLanc">
-          <tr><td colspan="14" class="empty">Nenhum lançamento ainda.</td></tr>
+          <tr><td colspan="15" class="empty">Nenhum lançamento ainda.</td></tr>
         </tbody>
       </table>
     </div>
@@ -791,6 +792,7 @@ td{padding:9px 12px;vertical-align:middle;}
       <div class="pay-col"><label>🪙 Moeda</label><input type="number" id="egMoeda" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
       <div class="pay-col"><label>📒 Fiado</label><input type="number" id="egFiado" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
       <div class="pay-col"><label>🔥 Gás do Povo</label><input type="number" id="egGasPovo" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
+      <div class="pay-col"><label>🏦 Sobras Anteriores</label><input type="number" id="egSobrasAnt" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
     </div>
     <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:16px;">Total Pago: <span id="egPagTotal">R$ 0,00</span></div>
 
@@ -816,6 +818,7 @@ td{padding:9px 12px;vertical-align:middle;}
         </select>
       </div>
       <div class="form-group"><label>Mês</label><select id="rFiltMes" onchange="renderResumo()"><option value="">Todos os meses</option></select></div>
+      <div class="form-group"><label>📅 Dia</label><input type="date" id="rFiltDia" onchange="renderResumo()" /></div>
       <div style="display:flex;align-items:flex-end;">
         <button class="btn-pdf" onclick="exportarPDF()">📄 Exportar PDF</button>
       </div>
@@ -868,11 +871,11 @@ td{padding:9px 12px;vertical-align:middle;}
           <tr>
             <th>Data</th><th>PR</th><th>Qtd</th><th>Vlr Unit.</th><th>Total Item</th>
             <th>Marca</th><th>Espécie</th><th>Débito</th><th>Crédito</th>
-            <th>QR Code</th><th>Pix</th><th>Moeda</th><th>Fiado</th><th>Total Pago</th>
+            <th>QR Code</th><th>Pix</th><th>Moeda</th><th>Fiado</th><th>Sobras Ant.</th><th>Total Pago</th>
           </tr>
         </thead>
         <tbody id="tbodyResumo">
-          <tr><td colspan="14" class="empty">Nenhum dado.</td></tr>
+          <tr><td colspan="15" class="empty">Nenhum dado.</td></tr>
         </tbody>
       </table>
     </div>
@@ -1278,6 +1281,7 @@ td{padding:9px 12px;vertical-align:middle;}
       <div class="pay-col"><label>🪙 Moeda</label><input type="number" id="ePMoeda" min="0" step="0.01" placeholder="0,00" /></div>
       <div class="pay-col"><label>📒 Fiado</label><input type="number" id="ePFiado" min="0" step="0.01" placeholder="0,00" /></div>
       <div class="pay-col"><label>🔥 Gás do Povo</label><input type="number" id="ePGasPovo" min="0" step="0.01" placeholder="0,00" /></div>
+      <div class="pay-col"><label>🏦 Sobras Anteriores</label><input type="number" id="ePSobrasAnt" min="0" step="0.01" placeholder="0,00" /></div>
     </div>
     <div class="modal-actions">
       <button class="btn-primary" onclick="salvarEdicao()">💾 Salvar Alterações</button>
@@ -1297,9 +1301,9 @@ const PRS = [
   'SANTOS','SENEVAIDO','SEU PEDRO','SIQUERA'
 ].sort();
 
-const PAY_FIELDS = ['Espécie','Débito','Crédito','QR Code','Pix','Moeda','Fiado','Gás do Povo'];
-const PAY_IDS    = ['pEspecie','pDebito','pCredito','pQrCode','pPix','pMoeda','pFiado','pGasPovo'];
-const PAY_EMOJIS = {'Espécie':'💵','Débito':'💳','Crédito':'💳','QR Code':'📱','Pix':'⚡','Moeda':'🪙','Fiado':'📒','Gás do Povo':'🔥'};
+const PAY_FIELDS = ['Espécie','Débito','Crédito','QR Code','Pix','Moeda','Fiado','Gás do Povo','Sobras Anteriores'];
+const PAY_IDS    = ['pEspecie','pDebito','pCredito','pQrCode','pPix','pMoeda','pFiado','pGasPovo','pSobrasAnt'];
+const PAY_EMOJIS = {'Espécie':'💵','Débito':'💳','Crédito':'💳','QR Code':'📱','Pix':'⚡','Moeda':'🪙','Fiado':'📒','Gás do Povo':'🔥','Sobras Anteriores':'🏦'};
 
 // Variáveis de estado — preenchidas pelo módulo Firebase antes de _appInit
 let lancamentos  = [];
@@ -1782,7 +1786,7 @@ function renderTable(){
 
     // Paga: soma pagamentos únicos por vendaId
     const vistosV=new Set();
-    let totalPago=0,totalFiado=0,pagEspecie=0,pagDebito=0,pagCredito=0,pagQrCode=0,pagPix=0,pagMoeda=0,pagGasPovo=0;
+    let totalPago=0,totalFiado=0,pagEspecie=0,pagDebito=0,pagCredito=0,pagQrCode=0,pagPix=0,pagMoeda=0,pagGasPovo=0,pagSobrasAnt=0;
     g.itens.forEach(l=>{
       const vid=l.vendaId!=null?l.vendaId:l.id;
       if(!vistosV.has(vid)){
@@ -1796,6 +1800,7 @@ function renderTable(){
         pagPix+=(l.pag&&l.pag['Pix']||0);
         pagMoeda+=(l.pag&&l.pag['Moeda']||0);
         pagGasPovo+=(l.pag&&l.pag['Gás do Povo']||0);
+        pagSobrasAnt+=(l.pag&&l.pag['Sobras Anteriores']||0);
       }
     });
 
@@ -1820,6 +1825,7 @@ function renderTable(){
       <td style="color:var(--muted)">${pagMoeda>0?fmtVal(pagMoeda):'-'}</td>
       <td style="color:var(--danger);font-weight:${totalFiado>0?'700':'400'}">${totalFiado>0?fmtVal(totalFiado):'-'}</td>
       <td style="color:var(--muted)">${pagGasPovo>0?fmtVal(pagGasPovo):'-'}</td>
+      <td style="color:var(--muted)">${pagSobrasAnt>0?fmtVal(pagSobrasAnt):'-'}</td>
       <td style="font-weight:700;color:var(--accent)">${totalPago>0?fmtVal(totalPago):'-'}</td>
       <td></td>
     </tr>`;
@@ -2095,9 +2101,11 @@ function renderResumo(){
   const pr   =document.getElementById('rFiltPr').value;
   const marca=document.getElementById('rFiltMarca').value;
   const mes  =document.getElementById('rFiltMes').value;
+  const dia  =document.getElementById('rFiltDia')?.value||'';
   if(pr)    f=f.filter(l=>l.pr===pr);
   if(marca) f=f.filter(l=>l.marca===marca);
-  if(mes)   f=f.filter(l=>l.data.startsWith(mes));
+  if(dia)   f=f.filter(l=>l.data===dia);
+  else if(mes) f=f.filter(l=>l.data.startsWith(mes));
 
   // ── Totais globais ──
   document.getElementById('summaryCards').innerHTML=`
@@ -2294,7 +2302,7 @@ function showToast(msg){
 }
 
 // ── EDIÇÃO ──
-const EDIT_PAY_IDS=['ePEspecie','ePDebito','ePCredito','ePQrCode','ePPix','ePMoeda','ePFiado','ePGasPovo'];
+const EDIT_PAY_IDS=['ePEspecie','ePDebito','ePCredito','ePQrCode','ePPix','ePMoeda','ePFiado','ePGasPovo','ePSobrasAnt'];
 
 function abrirEdicao(id){
   const l=lancamentos.find(x=>x.id===id);
@@ -2360,7 +2368,7 @@ async function salvarEdicao(){
 
 // ── EDIÇÃO EM GRUPO ──
 let _egLinhasCount=0;
-const EG_PAY_IDS=['egEspecie','egDebito','egCredito','egQrCode','egPix','egMoeda','egFiado','egGasPovo'];
+const EG_PAY_IDS=['egEspecie','egDebito','egCredito','egQrCode','egPix','egMoeda','egFiado','egGasPovo','egSobrasAnt'];
 
 function abrirEdicaoGrupoComDados(data, pr){
   const itens=lancamentos.filter(l=>l.data===data&&l.pr===pr);
@@ -3376,17 +3384,20 @@ function exportarPDF(){
   const pr=document.getElementById('rFiltPr').value;
   const marca=document.getElementById('rFiltMarca').value;
   const mesVal=document.getElementById('rFiltMes').value;
+  const diaVal=document.getElementById('rFiltDia')?.value||'';
 
   let f=[...lancamentos];
-  if(pr) f=f.filter(l=>l.pr===pr);
-  if(marca) f=f.filter(l=>l.marca===marca);
-  if(mesVal) f=f.filter(l=>l.data.startsWith(mesVal));
+  if(pr)     f=f.filter(l=>l.pr===pr);
+  if(marca)  f=f.filter(l=>l.marca===marca);
+  if(diaVal) f=f.filter(l=>l.data===diaVal);
+  else if(mesVal) f=f.filter(l=>l.data.startsWith(mesVal));
 
   if(!f.length){showToast('\u26a0 Nenhum dado para exportar!');return;}
 
-  // Labels de filtro
-  let mesLabel='Todos os meses';
-  if(mesVal){const[y,mo]=mesVal.split('-');mesLabel=`${MESES_PT[parseInt(mo,10)-1]} ${y}`;}
+  // Labels
+  let periodoLabel='Todos os meses';
+  if(diaVal){const[y,mo,d]=diaVal.split('-');periodoLabel=`${d}/${mo}/${y}`;}
+  else if(mesVal){const[y,mo]=mesVal.split('-');periodoLabel=`${MESES_PT[parseInt(mo,10)-1]} ${y}`;}
   const prLabel=pr||'Todos os PRs';
   const marcaLabel=marca||'Todas as marcas';
 
@@ -3398,68 +3409,85 @@ function exportarPDF(){
   const qtdButano=f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.qtd,0);
   const valButano=f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.total,0);
 
-  // Número de colunas de pagamento = PAY_FIELDS.length + 1 (Total Pago)
-  const nPay=PAY_FIELDS.length+1; // colunas de pagamento
-  const nCols=5+nPay; // PR+Qtd+VlrUnit+TotalItem+Marca + pagamentos
+  // Agrupa por data+PR (igual à tela)
+  const grupos={};
+  f.forEach(l=>{
+    const key=l.data+'__'+l.pr;
+    if(!grupos[key]) grupos[key]={data:l.data,pr:l.pr,itens:[]};
+    grupos[key].itens.push(l);
+  });
+  const gruposArr=Object.values(grupos).sort((a,b)=>{
+    if(b.data!==a.data) return b.data.localeCompare(a.data);
+    return a.pr.localeCompare(b.pr);
+  });
 
-  // Gera bloco de linhas para uma marca — 1 linha por lançamento, sem agrupamento
+  // Soma pagamentos sem duplicar por vendaId
+  function somarPag(lista){
+    const vistos=new Set(); const soma={};
+    PAY_FIELDS.forEach(p=>soma[p]=0);
+    lista.forEach(l=>{
+      const vid=l.vendaId!=null?l.vendaId:l.id;
+      if(!vistos.has(vid)){vistos.add(vid);PAY_FIELDS.forEach(p=>soma[p]+=(l.pag&&l.pag[p]||0));}
+    });
+    return soma;
+  }
+
+  const nCols=4+PAY_FIELDS.length+1; // PR+Qtd+Data+TotalVenda + pags + TotalPago
+
+  // Gera 1 linha por grupo PR+Data (agrupado), sem badges — filtrado pela marca
+  function linhaGrupo(g,marcaNome){
+    const itensMarca=g.itens.filter(l=>l.marca===marcaNome);
+    if(!itensMarca.length) return '';
+    const qtdT=itensMarca.reduce((a,l)=>a+l.qtd,0);
+    const valT=itensMarca.reduce((a,l)=>a+l.total,0);
+    const pag=somarPag(itensMarca);
+    const totPago=PAY_FIELDS.reduce((a,p)=>a+pag[p],0);
+    return `<tr>
+      <td style="font-weight:700">${g.pr}</td>
+      <td style="text-align:center;font-family:'Bebas Neue',sans-serif;font-size:16px">${qtdT}</td>
+      <td style="text-align:center;color:#6b7280">${g.data.split('-').reverse().join('/')}</td>
+      <td style="text-align:right;font-weight:700;color:#16a34a">R$ ${fmtNum(valT)}</td>
+      ${PAY_FIELDS.map(p=>`<td style="text-align:right;color:${p==='Fiado'?'#dc2626':'#6b7280'}">${pag[p]>0?'R$ '+fmtNum(pag[p]):'-'}</td>`).join('')}
+      <td style="text-align:right;font-weight:700">${totPago>0?'R$ '+fmtNum(totPago):'-'}</td>
+    </tr>`;
+  }
+
+  // Bloco por marca
   function blocoMarca(marcaNome,corHeader,corBg){
-    const itens=[...f].filter(l=>l.marca===marcaNome)
-      .sort((a,b)=>{const pc=a.pr.localeCompare(b.pr);return pc!==0?pc:b.data.localeCompare(a.data);});
-    if(!itens.length) return '';
-
-    const qtdM=itens.reduce((a,l)=>a+l.qtd,0);
-    const totalItemM=itens.reduce((a,l)=>a+l.total,0);
-    const pagM={};
-    PAY_FIELDS.forEach(p=>pagM[p]=itens.reduce((a,l)=>a+(l.pag&&l.pag[p]||0),0));
-    const totalPagoM=PAY_FIELDS.reduce((a,p)=>a+pagM[p],0);
-
-    const linhas=itens.map(l=>{
-      const totPag=sumPag(l.pag);
-      return `<tr>
-        <td style="font-weight:600">${l.pr}</td>
-        <td style="text-align:center">${l.qtd}</td>
-        <td style="text-align:right;color:#6b7280">${l.data.split('-').reverse().join('/')}</td>
-        <td style="text-align:right;font-weight:700;color:#16a34a">R$ ${fmtNum(l.total)}</td>
-        <td style="text-align:center"></td>
-        ${PAY_FIELDS.map(p=>`<td style="text-align:right;color:${p==='Fiado'?'#dc2626':'#6b7280'}">${l.pag&&l.pag[p]>0?'R$ '+fmtNum(l.pag[p]):'-'}</td>`).join('')}
-        <td style="text-align:right;font-weight:700">${totPag>0?'R$ '+fmtNum(totPag):'-'}</td>
-      </tr>`;
-    }).join('');
-
-    const subtotalRow=`<tr style="background:${corBg};font-weight:700;border-top:2px solid ${corHeader}">
+    const gs=gruposArr.filter(g=>g.itens.some(l=>l.marca===marcaNome));
+    if(!gs.length) return '';
+    const itensMarca=f.filter(l=>l.marca===marcaNome);
+    const qtdM=itensMarca.reduce((a,l)=>a+l.qtd,0);
+    const valM=itensMarca.reduce((a,l)=>a+l.total,0);
+    const pagM=somarPag(itensMarca);
+    const totPagoM=PAY_FIELDS.reduce((a,p)=>a+pagM[p],0);
+    const linhas=gs.map(g=>linhaGrupo(g,marcaNome)).join('');
+    const subtotal=`<tr style="background:${corBg};font-weight:700;border-top:2px solid ${corHeader}">
       <td style="font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:${corHeader}">Subtotal ${marcaNome}</td>
       <td style="text-align:center;color:${corHeader}">${qtdM}</td>
       <td></td>
-      <td style="text-align:right;color:${corHeader}">R$ ${fmtNum(totalItemM)}</td>
-      <td></td>
+      <td style="text-align:right;color:${corHeader}">R$ ${fmtNum(valM)}</td>
       ${PAY_FIELDS.map(p=>`<td style="text-align:right;color:${p==='Fiado'?'#dc2626':corHeader}">${pagM[p]>0?'R$ '+fmtNum(pagM[p]):'-'}</td>`).join('')}
-      <td style="text-align:right;color:${corHeader}">R$ ${fmtNum(totalPagoM)}</td>
+      <td style="text-align:right;color:${corHeader}">R$ ${fmtNum(totPagoM)}</td>
     </tr>`;
-
     return `<tr><td colspan="${nCols}" style="padding:10px 8px 4px;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.8px;color:${corHeader};background:${corBg};border-top:2px solid ${corHeader}">
       ${marcaNome==='Ultragaz'?'🔵':'🟢'} ${marcaNome.toUpperCase()}
-    </td></tr>${linhas}${subtotalRow}`;
+    </td></tr>${linhas}${subtotal}`;
   }
 
-  const blocoUltra=blocoMarca('Ultragaz','#1d4ed8','#eff6ff');
-  const blocoButano=blocoMarca('Butano','#15803d','#f0fdf4');
-
-  // Totais gerais — soma direta de todos os lançamentos
-  const pagGeral={};
-  PAY_FIELDS.forEach(p=>pagGeral[p]=f.reduce((a,l)=>a+(l.pag&&l.pag[p]||0),0));
-  const totalPagoGeral=PAY_FIELDS.reduce((a,p)=>a+pagGeral[p],0);
-
+  const pagGeral=somarPag(f);
+  const totPagoGeral=PAY_FIELDS.reduce((a,p)=>a+pagGeral[p],0);
   const totalGeralRow=`<tr style="background:#fff3e0;font-weight:700;border-top:3px solid #e07b00">
-    <td colspan="3" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e07b00">TOTAL GERAL</td>
-    <td style="text-align:right;color:#e07b00">R$ ${fmtNum(totalVal)}</td>
+    <td style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e07b00">TOTAL GERAL</td>
+    <td style="text-align:center;color:#e07b00">${totalQtd}</td>
     <td></td>
+    <td style="text-align:right;color:#e07b00">R$ ${fmtNum(totalVal)}</td>
     ${PAY_FIELDS.map(p=>`<td style="text-align:right;color:${p==='Fiado'?'#dc2626':'#e07b00'}">${pagGeral[p]>0?'R$ '+fmtNum(pagGeral[p]):'-'}</td>`).join('')}
-    <td style="text-align:right;color:#e07b00">R$ ${fmtNum(totalPagoGeral)}</td>
+    <td style="text-align:right;color:#e07b00">R$ ${fmtNum(totPagoGeral)}</td>
   </tr>`;
 
   const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-  <title>Relat\u00f3rio PR \u2013 ${mesLabel}</title>
+  <title>Relat\u00f3rio PR \u2013 ${periodoLabel}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&display=swap');
     *{box-sizing:border-box;margin:0;padding:0;}
@@ -3492,11 +3520,11 @@ function exportarPDF(){
     </div>
     <div class="report-meta">
       <div>Gerado em: ${new Date().toLocaleDateString('pt-BR')} \u00e0s ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
-      <div style="margin-top:4px">${f.length} lan\u00e7amento(s)</div>
+      <div style="margin-top:4px">${gruposArr.length} grupo(s) \u00b7 ${f.length} lan\u00e7amento(s)</div>
     </div>
   </div>
   <div class="filtros">
-    <div class="filtro-item"><span class="filtro-label">Per\u00edodo:</span>${mesLabel}</div>
+    <div class="filtro-item"><span class="filtro-label">${diaVal?'Dia':'Per\u00edodo'}:</span>${periodoLabel}</div>
     <div class="filtro-item"><span class="filtro-label">PR:</span>${prLabel}</div>
     <div class="filtro-item"><span class="filtro-label">Marca:</span>${marcaLabel}</div>
   </div>
@@ -3511,12 +3539,12 @@ function exportarPDF(){
   <div class="section-title">\uD83D\uDCCB Detalhamento por Marca</div>
   <table>
     <thead><tr>
-      <th>PR</th><th style="text-align:center">Qtd</th><th>Data</th><th>Total Venda</th><th style="text-align:center">Marca</th>
+      <th>PR</th><th style="text-align:center">Qtd</th><th style="text-align:center">Data</th><th>Total Venda</th>
       ${PAY_FIELDS.map(p=>`<th>${p}</th>`).join('')}<th>Total Pago</th>
     </tr></thead>
     <tbody>
-      ${blocoUltra}
-      ${blocoButano}
+      ${blocoMarca('Ultragaz','#1d4ed8','#eff6ff')}
+      ${blocoMarca('Butano','#15803d','#f0fdf4')}
       ${totalGeralRow}
     </tbody>
   </table>
