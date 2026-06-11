@@ -648,6 +648,7 @@ td{padding:9px 12px;vertical-align:middle;}
         <select id="fPr" onchange="onPrChange()">
           <option value="">— Selecione o PR —</option>
         </select>
+        <div id="prSobraInfo" style="display:none;margin-top:6px;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;display:none;align-items:center;gap:7px;"></div>
       </div>
     </div>
 
@@ -1448,6 +1449,30 @@ function onPrChange() {
     if(document.getElementById(`l${i}_ultra`).classList.contains('active')) selectLinhaBrand(i,'Ultragaz');
     if(document.getElementById(`l${i}_butano`).classList.contains('active')) selectLinhaBrand(i,'Butano');
   }
+  // Exibe sobra acumulada do PR selecionado
+  const pr = document.getElementById('fPr').value;
+  const infoEl = document.getElementById('prSobraInfo');
+  if (pr && infoEl) {
+    const saldos = calcSobrasPorPR();
+    const sobra = saldos[pr] || 0;
+    if (sobra > 0.009) {
+      infoEl.style.display = 'flex';
+      infoEl.style.background = '#dcfce7';
+      infoEl.style.border = '1.5px solid #bbf7d0';
+      infoEl.style.color = '#15803d';
+      infoEl.innerHTML = `💰 <span>Sobra disponível: <strong>R$ ${fmtNum(sobra)}</strong></span>`;
+    } else if (sobra < -0.009) {
+      infoEl.style.display = 'flex';
+      infoEl.style.background = '#fef2f2';
+      infoEl.style.border = '1.5px solid #fca5a5';
+      infoEl.style.color = '#dc2626';
+      infoEl.innerHTML = `⚠️ <span>Pendência: <strong>R$ ${fmtNum(Math.abs(sobra))}</strong></span>`;
+    } else {
+      infoEl.style.display = 'none';
+    }
+  } else if (infoEl) {
+    infoEl.style.display = 'none';
+  }
 }
 function calcLinha(i) {
   const qtd=parseFloat(document.getElementById(`l${i}_qtd`).value)||0;
@@ -1671,6 +1696,34 @@ function fmtNum(v){return v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?
 function fmtVal(v){return 'R$ '+fmtNum(v);}
 function fmtDate(d){const[y,m,dd]=d.split('-');return`${dd}/${m}/${y}`;}
 function sumPag(pag){return Object.values(pag||{}).reduce((a,b)=>a+b,0);}
+
+// ── SOBRAS POR PR ──
+// Para cada venda (vendaId único): sobra gerada = totalPago − totalVenda.
+// Sobras Anteriores utilizadas debitam do saldo acumulado do PR.
+function calcSobrasPorPR() {
+  const saldo = {};
+  const vendas = {};
+  lancamentos.forEach(l => {
+    const vid = l.vendaId != null ? l.vendaId : l.id;
+    if (!vendas[vid]) vendas[vid] = { pr: l.pr, totalVenda: 0, pag: null };
+    vendas[vid].totalVenda += l.total;
+    if (!vendas[vid].pag) {
+      const temPag = PAY_FIELDS.some(p => l.pag && l.pag[p] > 0);
+      if (temPag) vendas[vid].pag = l.pag;
+    }
+  });
+  Object.values(vendas).forEach(v => {
+    const pr = v.pr;
+    if (!saldo[pr]) saldo[pr] = 0;
+    const totalPago = sumPag(v.pag);
+    const sobrasUsadas = (v.pag && v.pag["Sobras Anteriores"]) || 0;
+    const gerada = Math.round((totalPago - v.totalVenda) * 100) / 100;
+    saldo[pr] += gerada;
+    saldo[pr] -= sobrasUsadas;
+  });
+  Object.keys(saldo).forEach(p => { saldo[p] = Math.round(saldo[p] * 100) / 100; });
+  return saldo;
+}
 
 // ── DIAGNÓSTICO (acesse pelo console do navegador: diagnosticoPag()) ──
 window.diagnosticoPag=function(){
@@ -2141,6 +2194,7 @@ function renderResumo(){
   if(!prsAtivos.length){
     grid.innerHTML='<div class="empty" style="grid-column:1/-1">Nenhum PR com dados para os filtros selecionados.</div>';
   } else {
+    const sobrasSaldos = calcSobrasPorPR(); // saldo acumulado de sobras por PR
     grid.innerHTML=prsAtivos.map(pr=>{
       const itens=f.filter(l=>l.pr===pr);
       const qtdUltra=itens.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.qtd,0);
@@ -2162,6 +2216,27 @@ function renderResumo(){
         </div>`).join('');
 
       const initials=pr.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+      // Sobra acumulada deste PR (de todos os lançamentos, não só do período filtrado)
+      const sobraAcum = sobrasSaldos[pr] || 0;
+      let sobraHtml = '';
+      if (sobraAcum > 0.009) {
+        sobraHtml = `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#dcfce7;border:1.5px solid #bbf7d0;border-radius:10px;">
+          <span style="font-size:16px">💰</span>
+          <div style="flex:1">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#15803d">Sobra Acumulada</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#15803d;line-height:1.1">${fmtVal(sobraAcum)}</div>
+          </div>
+        </div>`;
+      } else if (sobraAcum < -0.009) {
+        sobraHtml = `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;">
+          <span style="font-size:16px">⚠️</span>
+          <div style="flex:1">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#dc2626">Pendência</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#dc2626;line-height:1.1">${fmtVal(Math.abs(sobraAcum))}</div>
+          </div>
+        </div>`;
+      }
 
       return`
         <div class="pr-card">
@@ -2193,6 +2268,7 @@ function renderResumo(){
                 </div>
               </div>
             </div>
+            ${sobraHtml}
             ${pagRows?`<div class="pr-pagamentos">
               <div class="pr-pag-title">💳 Formas de Pagamento</div>
               <div class="pr-pag-rows">${pagRows}</div>
@@ -3434,7 +3510,7 @@ function exportarPDF(){
 
   const nCols=4+PAY_FIELDS.length+1; // PR+Qtd+Data+TotalVenda + pags + TotalPago
 
-  // Gera 1 linha por grupo PR+Data (agrupado), sem badges — filtrado pela marca
+  // Gera 1 linha por grupo PR+Data (agrupado), sem badges
   function linhaGrupo(g,marcaNome){
     const itensMarca=g.itens.filter(l=>l.marca===marcaNome);
     if(!itensMarca.length) return '';
