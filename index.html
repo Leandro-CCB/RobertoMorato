@@ -479,6 +479,10 @@ td{padding:9px 12px;vertical-align:middle;}
 .rank-bar-wrap{width:100%;background:var(--border);border-radius:4px;height:5px;margin-top:4px;}
 .rank-bar{height:5px;border-radius:4px;background:linear-gradient(90deg,var(--accent),#f5c97a);}
 
+/* ── TABELA MARGEM COMPACTA ── */
+#margemTable thead th{padding:7px 10px;font-size:9px;}
+#margemTable tbody td{padding:7px 10px;font-size:11px;}
+
 /* ── FOOTER ── */
 .site-footer{background:#1a1f36;color:#9ca3af;text-align:center;padding:16px 20px;font-size:12px;margin-top:32px;}
 .site-footer strong{color:#fff;}
@@ -620,6 +624,7 @@ td{padding:9px 12px;vertical-align:middle;}
     <button class="tab-btn active" onclick="showTab('lancamento',this)">📋 Lançamento</button>
     <button class="tab-btn" onclick="showTab('resumo',this)">📊 Resumo</button>
     <button class="tab-btn" onclick="showTab('cargas',this)">🚛 Cargas</button>
+    <button class="tab-btn" onclick="showTab('margem',this)">📈 Margem</button>
     <button class="tab-btn" onclick="showTab('config',this)">⚙️ Config</button>
   </div>
 </header>
@@ -1122,6 +1127,86 @@ td{padding:9px 12px;vertical-align:middle;}
       <span id="editCargaErr" style="color:var(--danger);font-size:13px;font-weight:600;align-self:center;"></span>
     </div>
   </div>
+</div>
+
+<!-- ==================== MARGEM ==================== -->
+<div id="tab-margem" class="page">
+
+  <!-- Cabeçalho explicativo -->
+  <div class="card" style="background:linear-gradient(135deg,#fffbf2 0%,#fff4e0 100%);border:1.5px solid #f5c97a;">
+    <div class="section-title">📈 Análise de Margem por PR</div>
+    <p style="font-size:13px;color:var(--muted);line-height:1.6;">
+      Informe o <strong>custo de compra</strong> (matéria-prima) por botijão de cada marca. O sistema calcula automaticamente a margem de cada PR: <em>preço médio praticado − custo</em>, multiplicado pela quantidade vendida.
+    </p>
+  </div>
+
+  <!-- Filtros + Custos -->
+  <div class="card">
+    <div class="section-title">⚙️ Parâmetros de Custo</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;align-items:end;">
+      <div class="form-group">
+        <label>📅 Período — Mês</label>
+        <select id="mFiltMes" onchange="renderMargem()"><option value="">Todos os meses</option></select>
+      </div>
+      <div class="form-group">
+        <label>📅 Dia específico</label>
+        <input type="date" id="mFiltDia" onchange="renderMargem()" />
+      </div>
+      <div class="form-group">
+        <label>👤 PR</label>
+        <select id="mFiltPr" onchange="renderMargem()"><option value="">Todos os PRs</option></select>
+      </div>
+      <div class="form-group">
+        <label style="color:var(--ultra);">🔵 Custo Ultragaz (R$/bot.)</label>
+        <input type="number" id="mCustoUltra" min="0" step="0.01" placeholder="Ex: 85,00" oninput="renderMargem()" style="border-color:#bfdbfe;background:#eff6ff;" />
+      </div>
+      <div class="form-group">
+        <label style="color:var(--butano);">🟢 Custo Butano (R$/bot.)</label>
+        <input type="number" id="mCustoButano" min="0" step="0.01" placeholder="Ex: 75,00" oninput="renderMargem()" style="border-color:#bbf7d0;background:#f0fdf4;" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Cards de visão geral -->
+  <div id="margemResumoCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:20px;"></div>
+
+  <!-- Tabela por PR -->
+  <div class="card">
+    <div class="section-title">💰 Margem por PR</div>
+    <div class="table-wrap" style="overflow-x:auto;">
+      <table id="margemTable" style="font-size:11px;min-width:900px;">
+        <thead>
+          <tr>
+            <th style="min-width:90px;position:sticky;left:0;background:var(--surface3);z-index:2;">PR</th>
+            <!-- Ultragaz -->
+            <th style="text-align:right;background:#eff6ff;color:var(--ultra);white-space:nowrap">Qtd 🔵</th>
+            <th style="text-align:right;background:#eff6ff;color:var(--ultra);white-space:nowrap">P. Médio</th>
+            <th style="text-align:right;background:#eff6ff;color:var(--ultra);white-space:nowrap">M. Unit.</th>
+            <th style="text-align:right;background:#eff6ff;color:var(--ultra);white-space:nowrap">M. Total</th>
+            <!-- Butano -->
+            <th style="text-align:right;background:#f0fdf4;color:var(--butano);white-space:nowrap">Qtd 🟢</th>
+            <th style="text-align:right;background:#f0fdf4;color:var(--butano);white-space:nowrap">P. Médio</th>
+            <th style="text-align:right;background:#f0fdf4;color:var(--butano);white-space:nowrap">M. Unit.</th>
+            <th style="text-align:right;background:#f0fdf4;color:var(--butano);white-space:nowrap">M. Total</th>
+            <!-- Totais -->
+            <th style="text-align:right;white-space:nowrap">Total Bot.</th>
+            <th style="text-align:right;white-space:nowrap">Margem R$</th>
+            <th style="text-align:right;white-space:nowrap">% Mg.</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyMargem">
+          <tr><td colspan="12" class="empty">Informe os custos e aguarde o cálculo.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Gráfico de barras -->
+  <div class="chart-full" style="margin-bottom:20px;">
+    <div class="section-title" style="font-size:14px;margin-bottom:12px;">📊 Margem Total por PR (R$)</div>
+    <div class="chart-full-wrap"><canvas id="chartMargem" style="max-height:280px;"></canvas></div>
+  </div>
+
 </div>
 
 <!-- ==================== CONFIG ==================== -->
@@ -2169,7 +2254,8 @@ function renderResumo(){
     <div class="summary-card"><div class="s-label">Butano Qtd</div><div class="s-value bgreen">${f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.qtd,0)}</div></div>
     <div class="summary-card"><div class="s-label">Butano Valor</div><div class="s-value bgreen" style="font-size:18px">${fmtVal(f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.total,0))}</div></div>
     <div class="summary-card"><div class="s-label">Total Fiado</div><div class="s-value red">${fmtVal(f.reduce((a,b)=>a+(b.pag&&b.pag['Fiado']||0),0))}</div></div>
-    <div class="summary-card"><div class="s-label">Nº Lançamentos</div><div class="s-value">${f.length}</div></div>`;
+    <div class="summary-card"><div class="s-label">Preço Médio Ultra</div><div class="s-value blue" style="font-size:18px">${(()=>{const itens=f.filter(l=>l.marca==='Ultragaz');const qtd=itens.reduce((a,b)=>a+b.qtd,0);const val=itens.reduce((a,b)=>a+b.total,0);return qtd>0?fmtVal(val/qtd):'—';})()}</div></div>
+    <div class="summary-card"><div class="s-label">Preço Médio Butano</div><div class="s-value bgreen" style="font-size:18px">${(()=>{const itens=f.filter(l=>l.marca==='Butano');const qtd=itens.reduce((a,b)=>a+b.qtd,0);const val=itens.reduce((a,b)=>a+b.total,0);return qtd>0?fmtVal(val/qtd):'—';})()}</div></div>`;
 
   // ── Breakdown pagamentos ──
   // Para pagamentos: apenas 1ª linha de cada venda (vendaId) para não duplicar
@@ -2368,6 +2454,7 @@ function showTab(name,btn){
   btn.classList.add('active');
   if(name==='resumo') renderResumo();
   if(name==='cargas') renderCargas();
+  if(name==='margem') renderMargem();
 }
 
 // ── TOAST ──
@@ -3739,7 +3826,174 @@ async function baixarBackup(dataLabel) {
   } catch(e) { showToast('⚠ Erro ao baixar backup!'); console.error(e); }
 }
 
-// Fecha modal clicando fora — aguarda DOM estar pronto
+
+// ══════════════════════════════════════════════
+//  MARGEM — lógica completa
+// ══════════════════════════════════════════════
+let chartMargemInst = null;
+
+function buildMargemMesOptions() {
+  const sel = document.getElementById('mFiltMes');
+  if (!sel) return;
+  const meses = new Set(lancamentos.map(l => l.data.slice(0,7)));
+  const sorted = [...meses].sort().reverse();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Todos os meses</option>';
+  sorted.forEach(m => {
+    const [y, mo] = m.split('-');
+    const o = document.createElement('option');
+    o.value = m;
+    o.textContent = `${MESES_PT[parseInt(mo,10)-1]} ${y}`;
+    if (m === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function populateMargemFiltPr() {
+  const sel = document.getElementById('mFiltPr');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Todos os PRs</option>';
+  [...PRS].sort().forEach(p => {
+    const o = document.createElement('option');
+    o.value = p; o.textContent = p;
+    sel.appendChild(o);
+  });
+  if (cur) sel.value = cur;
+}
+
+function renderMargem() {
+  buildMargemMesOptions();
+  populateMargemFiltPr();
+
+  const mes       = document.getElementById('mFiltMes')?.value || '';
+  const dia       = document.getElementById('mFiltDia')?.value || '';
+  const prFilt    = document.getElementById('mFiltPr')?.value || '';
+  const custoU    = parseFloat(document.getElementById('mCustoUltra')?.value) || 0;
+  const custoB    = parseFloat(document.getElementById('mCustoButano')?.value) || 0;
+
+  let f = [...lancamentos];
+  if (dia)       f = f.filter(l => l.data === dia);
+  else if (mes)  f = f.filter(l => l.data.startsWith(mes));
+  if (prFilt)    f = f.filter(l => l.pr === prFilt);
+
+  const prsAtivos = [...new Set(f.map(l => l.pr))].sort();
+
+  // ── Dados por PR ──
+  const dados = prsAtivos.map(pr => {
+    const itens = f.filter(l => l.pr === pr);
+    const ultraItens  = itens.filter(l => l.marca === 'Ultragaz');
+    const butanoItens = itens.filter(l => l.marca === 'Butano');
+
+    const qtdU  = ultraItens.reduce((a,b) => a + b.qtd,   0);
+    const valU  = ultraItens.reduce((a,b) => a + b.total, 0);
+    const qtdB  = butanoItens.reduce((a,b) => a + b.qtd,   0);
+    const valB  = butanoItens.reduce((a,b) => a + b.total, 0);
+
+    const pmU   = qtdU > 0 ? valU / qtdU : 0;
+    const pmB   = qtdB > 0 ? valB / qtdB : 0;
+
+    const mUnitU  = custoU > 0 ? pmU - custoU : 0;
+    const mUnitB  = custoB > 0 ? pmB - custoB : 0;
+    const mTotU   = mUnitU * qtdU;
+    const mTotB   = mUnitB * qtdB;
+    const mTotal  = mTotU + mTotB;
+    const totalVenda = valU + valB;
+    const pctMargem = totalVenda > 0 ? (mTotal / totalVenda) * 100 : 0;
+    const totalQtd  = qtdU + qtdB;
+
+    return { pr, qtdU, valU, pmU, mUnitU, mTotU, qtdB, valB, pmB, mUnitB, mTotB, mTotal, totalVenda, pctMargem, totalQtd };
+  });
+
+  // ── Cards de visão geral ──
+  const totalMargem   = dados.reduce((a,b) => a + b.mTotal, 0);
+  const totalBotijoes = dados.reduce((a,b) => a + b.totalQtd, 0);
+  const totalVendasG  = dados.reduce((a,b) => a + b.totalVenda, 0);
+  const margemMedia   = totalVendasG > 0 ? (totalMargem / totalVendasG) * 100 : 0;
+  const melhorPR      = dados.length ? dados.reduce((a,b) => b.mTotal > a.mTotal ? b : a) : null;
+
+  const resumoEl = document.getElementById('margemResumoCards');
+  if (custoU === 0 && custoB === 0) {
+    resumoEl.innerHTML = `
+      <div class="summary-card" style="grid-column:1/-1;text-align:center;color:var(--muted2);font-size:13px;padding:24px;">
+        ⬆️ Informe o custo de pelo menos uma marca para visualizar as margens.
+      </div>`;
+  } else {
+    resumoEl.innerHTML = `
+      <div class="summary-card"><div class="s-label">💰 Margem Total</div><div class="s-value ${totalMargem>=0?'green':'red'}" style="font-size:20px">${fmtVal(totalMargem)}</div></div>
+      <div class="summary-card"><div class="s-label">📦 Total Botijões</div><div class="s-value">${totalBotijoes}</div></div>
+      <div class="summary-card"><div class="s-label">📊 % Margem Média</div><div class="s-value ${margemMedia>=0?'green':'red'}" style="font-size:20px">${margemMedia.toFixed(1).replace('.',',')}%</div></div>
+      ${melhorPR ? `<div class="summary-card" style="border:1.5px solid #f5c97a;background:linear-gradient(135deg,#fffbf2,#fff4e0)"><div class="s-label">🏆 Melhor PR</div><div style="font-size:15px;font-weight:700;color:var(--accent);margin-top:4px">${melhorPR.pr}</div><div style="font-size:12px;font-weight:700;color:var(--success);margin-top:2px">${fmtVal(melhorPR.mTotal)}</div></div>` : ''}
+      ${custoU>0?`<div class="summary-card" style="border:1.5px solid #bfdbfe;background:#eff6ff"><div class="s-label">🔵 Custo Ultra</div><div class="s-value blue" style="font-size:20px">${fmtVal(custoU)}<span style="font-size:11px;color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:500">/bot</span></div></div>`:''}
+      ${custoB>0?`<div class="summary-card" style="border:1.5px solid #bbf7d0;background:#f0fdf4"><div class="s-label">🟢 Custo Butano</div><div class="s-value bgreen" style="font-size:20px">${fmtVal(custoB)}<span style="font-size:11px;color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:500">/bot</span></div></div>`:''}
+    `;
+  }
+
+  // ── Tabela ──
+  const tbody = document.getElementById('tbodyMargem');
+  if (!dados.length) {
+    tbody.innerHTML = '<tr><td colspan="12" class="empty">Nenhum dado para o filtro selecionado.</td></tr>';
+  } else if (custoU === 0 && custoB === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" class="empty">Informe o custo de pelo menos uma marca para calcular as margens.</td></tr>';
+  } else {
+    // Ordena por margem total desc
+    const sorted = [...dados].sort((a,b) => b.mTotal - a.mTotal);
+    tbody.innerHTML = sorted.map((d, i) => {
+      const cor = d.mTotal >= 0 ? 'var(--success)' : 'var(--danger)';
+      const pctColor = d.pctMargem >= 0 ? 'var(--success)' : 'var(--danger)';
+      const medalha = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+      const tdR = 'style="text-align:right;padding:7px 10px;"';
+      const tdL = 'style="padding:7px 10px;position:sticky;left:0;background:#fff;z-index:1;font-weight:700;white-space:nowrap;"';
+      return `<tr>
+        <td ${tdL}>${medalha} ${d.pr}</td>
+        <td ${tdR} style="text-align:right;padding:7px 10px;background:#f8faff;font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--ultra)">${d.qtdU}</td>
+        <td ${tdR} style="text-align:right;padding:7px 10px;background:#f8faff;color:var(--ultra)">${d.qtdU>0?fmtVal(d.pmU):'—'}</td>
+        <td ${tdR} style="text-align:right;padding:7px 10px;background:#f8faff;font-weight:700;color:${custoU>0&&d.qtdU>0?(d.mUnitU>=0?'var(--success)':'var(--danger)'):'var(--muted2)'}">${custoU>0&&d.qtdU>0?fmtVal(d.mUnitU):'—'}</td>
+        <td ${tdR} style="text-align:right;padding:7px 10px;background:#f0f9f4;font-weight:700;color:${custoU>0&&d.qtdU>0?(d.mTotU>=0?'var(--success)':'var(--danger)'):'var(--muted2)'}">${custoU>0&&d.qtdU>0?fmtVal(d.mTotU):'—'}</td>
+        <td ${tdR} style="text-align:right;padding:7px 10px;background:#f4fdf6;font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--butano)">${d.qtdB}</td>
+        <td ${tdR} style="text-align:right;padding:7px 10px;background:#f4fdf6;color:var(--butano)">${d.qtdB>0?fmtVal(d.pmB):'—'}</td>
+        <td ${tdR} style="text-align:right;padding:7px 10px;background:#f4fdf6;font-weight:700;color:${custoB>0&&d.qtdB>0?(d.mUnitB>=0?'var(--success)':'var(--danger)'):'var(--muted2)'}">${custoB>0&&d.qtdB>0?fmtVal(d.mUnitB):'—'}</td>
+        <td ${tdR} style="text-align:right;padding:7px 10px;background:#ebfbf0;font-weight:700;color:${custoB>0&&d.qtdB>0?(d.mTotB>=0?'var(--success)':'var(--danger)'):'var(--muted2)'}">${custoB>0&&d.qtdB>0?fmtVal(d.mTotB):'—'}</td>
+        <td ${tdR} style="text-align:right;padding:7px 10px;font-family:'Bebas Neue',sans-serif;font-size:16px">${d.totalQtd}</td>
+        <td ${tdR} style="text-align:right;padding:7px 10px;font-weight:700;font-size:13px;color:${cor}">${fmtVal(d.mTotal)}</td>
+        <td ${tdR} style="text-align:right;padding:7px 10px;font-weight:700;color:${pctColor}">${d.pctMargem.toFixed(1).replace('.',',')}%</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Gráfico ──
+  if (chartMargemInst) { chartMargemInst.destroy(); chartMargemInst = null; }
+  const ctx = document.getElementById('chartMargem');
+  if (dados.length && (custoU > 0 || custoB > 0)) {
+    const sortedG = [...dados].sort((a,b) => b.mTotal - a.mTotal);
+    chartMargemInst = new Chart(ctx, {
+      type: 'bar',
+      plugins: [ChartDataLabels],
+      data: {
+        labels: sortedG.map(d => d.pr),
+        datasets: [
+          { label: 'Margem Ultra (R$)', data: sortedG.map(d => custoU>0?+d.mTotU.toFixed(2):0), backgroundColor: 'rgba(29,78,216,.75)', borderRadius: 6, borderSkipped: false },
+          { label: 'Margem Butano (R$)', data: sortedG.map(d => custoB>0?+d.mTotB.toFixed(2):0), backgroundColor: 'rgba(21,128,61,.75)', borderRadius: 6, borderSkipped: false },
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position:'top', labels:{ font:{size:11}, usePointStyle:true } },
+          datalabels: { display: false },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtVal(ctx.parsed.y)}` } }
+        },
+        scales: {
+          x: { stacked: false, grid:{display:false}, ticks:{font:{size:11,weight:'600'},color:'#374151'} },
+          y: { beginAtZero:true, grid:{color:'#f0f2f7'}, ticks:{callback: v => 'R$ '+fmtNum(v), font:{size:10}} }
+        }
+      }
+    });
+  }
+
+}
+
+
 document.addEventListener('DOMContentLoaded', function(){
   const bm=document.getElementById('backupModal');
   if(bm) bm.addEventListener('click', function(e){if(e.target===this)fecharBackupModal();});
