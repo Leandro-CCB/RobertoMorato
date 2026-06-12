@@ -1149,8 +1149,12 @@ td{padding:9px 12px;vertical-align:middle;}
         <select id="mFiltMes" onchange="renderMargem()"><option value="">Todos os meses</option></select>
       </div>
       <div class="form-group">
-        <label>📅 Dia específico</label>
-        <input type="date" id="mFiltDia" onchange="renderMargem()" />
+        <label>📅 Data Inicial</label>
+        <input type="date" id="mFiltDataIni" onchange="renderMargem()" />
+      </div>
+      <div class="form-group">
+        <label>📅 Data Final</label>
+        <input type="date" id="mFiltDataFim" onchange="renderMargem()" />
       </div>
       <div class="form-group">
         <label>👤 PR</label>
@@ -1163,6 +1167,10 @@ td{padding:9px 12px;vertical-align:middle;}
       <div class="form-group">
         <label style="color:var(--butano);">🟢 Custo Butano (R$/bot.)</label>
         <input type="number" id="mCustoButano" min="0" step="0.01" placeholder="Ex: 75,00" oninput="renderMargem()" style="border-color:#bbf7d0;background:#f0fdf4;" />
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end;grid-column:span 1;">
+        <button onclick="limparFiltrosMargem()" style="background:var(--surface3);color:var(--muted);border:1.5px solid var(--border);padding:9px 16px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;height:40px;">✕ Limpar Período</button>
+        <button class="btn-pdf" onclick="exportarPDFMargem()" style="padding:9px 16px;font-size:12px;white-space:nowrap;height:40px;display:flex;align-items:center;gap:6px;">📄 Exportar PDF</button>
       </div>
     </div>
   </div>
@@ -3862,19 +3870,251 @@ function populateMargemFiltPr() {
   if (cur) sel.value = cur;
 }
 
+function limparFiltrosMargem() {
+  const ini = document.getElementById('mFiltDataIni');
+  const fim = document.getElementById('mFiltDataFim');
+  const mes = document.getElementById('mFiltMes');
+  if (ini) ini.value = '';
+  if (fim) fim.value = '';
+  if (mes) mes.value = '';
+  renderMargem();
+}
+
+
+// ── EXPORTAR PDF — MARGEM POR PR ──
+function exportarPDFMargem() {
+  const mes     = document.getElementById('mFiltMes')?.value || '';
+  const dataIni = document.getElementById('mFiltDataIni')?.value || '';
+  const dataFim = document.getElementById('mFiltDataFim')?.value || '';
+  const prFilt  = document.getElementById('mFiltPr')?.value || '';
+  const custoU  = parseFloat(document.getElementById('mCustoUltra')?.value) || 0;
+  const custoB  = parseFloat(document.getElementById('mCustoButano')?.value) || 0;
+
+  if (custoU === 0 && custoB === 0) {
+    showToast('⚠ Informe o custo de pelo menos uma marca!');
+    return;
+  }
+
+  let f = [...lancamentos];
+  if (dataIni || dataFim) {
+    if (dataIni) f = f.filter(l => l.data >= dataIni);
+    if (dataFim) f = f.filter(l => l.data <= dataFim);
+  } else if (mes) {
+    f = f.filter(l => l.data.startsWith(mes));
+  }
+  if (prFilt) f = f.filter(l => l.pr === prFilt);
+
+  if (!f.length) { showToast('⚠ Nenhum dado para exportar!'); return; }
+
+  const prsAtivos = [...new Set(f.map(l => l.pr))].sort();
+
+  const dados = prsAtivos.map(pr => {
+    const itens = f.filter(l => l.pr === pr);
+    const ultraItens  = itens.filter(l => l.marca === 'Ultragaz');
+    const butanoItens = itens.filter(l => l.marca === 'Butano');
+
+    const qtdU = ultraItens.reduce((a,b) => a + b.qtd,   0);
+    const valU = ultraItens.reduce((a,b) => a + b.total, 0);
+    const qtdB = butanoItens.reduce((a,b) => a + b.qtd,   0);
+    const valB = butanoItens.reduce((a,b) => a + b.total, 0);
+
+    const pmU = qtdU > 0 ? valU / qtdU : 0;
+    const pmB = qtdB > 0 ? valB / qtdB : 0;
+
+    const mUnitU = custoU > 0 ? pmU - custoU : 0;
+    const mUnitB = custoB > 0 ? pmB - custoB : 0;
+    const mTotU  = mUnitU * qtdU;
+    const mTotB  = mUnitB * qtdB;
+    const mTotal = mTotU + mTotB;
+    const totalVenda = valU + valB;
+    const pctMargem = totalVenda > 0 ? (mTotal / totalVenda) * 100 : 0;
+    const totalQtd = qtdU + qtdB;
+
+    return { pr, qtdU, valU, pmU, mUnitU, mTotU, qtdB, valB, pmB, mUnitB, mTotB, mTotal, totalVenda, pctMargem, totalQtd };
+  }).sort((a,b) => b.mTotal - a.mTotal);
+
+  // Labels de filtro
+  let periodoLabel = 'Todos os lançamentos';
+  if (dataIni || dataFim) {
+    const ini = dataIni ? fmtDate(dataIni) : '—';
+    const fim = dataFim ? fmtDate(dataFim) : '—';
+    periodoLabel = `${ini} até ${fim}`;
+  } else if (mes) {
+    const [y, mo] = mes.split('-');
+    periodoLabel = `${MESES_PT[parseInt(mo,10)-1]} ${y}`;
+  }
+  const prLabel = prFilt || 'Todos os PRs';
+
+  // Totais gerais
+  const totalMargem   = dados.reduce((a,b) => a + b.mTotal, 0);
+  const totalBotijoes = dados.reduce((a,b) => a + b.totalQtd, 0);
+  const totalVendasG  = dados.reduce((a,b) => a + b.totalVenda, 0);
+  const margemMedia   = totalVendasG > 0 ? (totalMargem / totalVendasG) * 100 : 0;
+  const melhorPR      = dados.length ? dados[0] : null;
+
+  const totQtdU  = dados.reduce((a,b) => a + b.qtdU, 0);
+  const totQtdB  = dados.reduce((a,b) => a + b.qtdB, 0);
+  const totMTotU = dados.reduce((a,b) => a + b.mTotU, 0);
+  const totMTotB = dados.reduce((a,b) => a + b.mTotB, 0);
+
+  const fmtSinal = v => (v >= 0 ? '' : '-') + 'R$ ' + fmtNum(Math.abs(v));
+  const corVal = v => v >= 0 ? '#15803d' : '#dc2626';
+
+  const rows = dados.map((d, i) => {
+    const medalha = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+    return `<tr>
+      <td style="font-weight:700">${medalha} ${d.pr}</td>
+      <td style="text-align:center;font-weight:700;color:#1d4ed8">${d.qtdU || '-'}</td>
+      <td style="text-align:right;color:#1d4ed8">${d.qtdU>0?'R$ '+fmtNum(d.pmU):'-'}</td>
+      <td style="text-align:right;color:${custoU>0&&d.qtdU>0?corVal(d.mUnitU):'#9ca3af'}">${custoU>0&&d.qtdU>0?fmtSinal(d.mUnitU):'-'}</td>
+      <td style="text-align:right;font-weight:700;color:${custoU>0&&d.qtdU>0?corVal(d.mTotU):'#9ca3af'}">${custoU>0&&d.qtdU>0?fmtSinal(d.mTotU):'-'}</td>
+      <td style="text-align:center;font-weight:700;color:#15803d">${d.qtdB || '-'}</td>
+      <td style="text-align:right;color:#15803d">${d.qtdB>0?'R$ '+fmtNum(d.pmB):'-'}</td>
+      <td style="text-align:right;color:${custoB>0&&d.qtdB>0?corVal(d.mUnitB):'#9ca3af'}">${custoB>0&&d.qtdB>0?fmtSinal(d.mUnitB):'-'}</td>
+      <td style="text-align:right;font-weight:700;color:${custoB>0&&d.qtdB>0?corVal(d.mTotB):'#9ca3af'}">${custoB>0&&d.qtdB>0?fmtSinal(d.mTotB):'-'}</td>
+      <td style="text-align:center;font-weight:700">${d.totalQtd}</td>
+      <td style="text-align:right;font-weight:700;color:${corVal(d.mTotal)}">${fmtSinal(d.mTotal)}</td>
+      <td style="text-align:right;font-weight:700;color:${corVal(d.pctMargem)}">${d.pctMargem.toFixed(1).replace('.',',')}%</td>
+    </tr>`;
+  }).join('');
+
+  const totaisRow = `<tr style="background:#fff3e0;font-weight:700;border-top:2px solid #e07b00">
+    <td style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e07b00">TOTAL GERAL</td>
+    <td style="text-align:center;color:#1d4ed8">${totQtdU || '-'}</td>
+    <td></td><td></td>
+    <td style="text-align:right;color:${corVal(totMTotU)}">${custoU>0?fmtSinal(totMTotU):'-'}</td>
+    <td style="text-align:center;color:#15803d">${totQtdB || '-'}</td>
+    <td></td><td></td>
+    <td style="text-align:right;color:${corVal(totMTotB)}">${custoB>0?fmtSinal(totMTotB):'-'}</td>
+    <td style="text-align:center;color:#e07b00">${totalBotijoes}</td>
+    <td style="text-align:right;color:${corVal(totalMargem)}">${fmtSinal(totalMargem)}</td>
+    <td style="text-align:right;color:${corVal(margemMedia)}">${margemMedia.toFixed(1).replace('.',',')}%</td>
+  </tr>`;
+
+  const geradoEm = new Date().toLocaleString('pt-BR');
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+  <title>Relatório de Margem por PR — Grupo Bertoni</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:#f0f2f7;color:#1a1f36;padding:24px;}
+    .report-wrap{max-width:1200px;margin:0 auto;background:#fff;border-radius:16px;padding:28px 32px;box-shadow:0 4px 24px rgba(0,0,0,.10);}
+    .report-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;padding-bottom:16px;border-bottom:2px solid #e07b00;}
+    .report-logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#e07b00;}
+    .report-logo span{color:#1a1f36;font-size:14px;letter-spacing:1px;display:block;font-family:'DM Sans',sans-serif;font-weight:600;margin-top:2px;}
+    .report-meta{text-align:right;font-size:11px;color:#6b7280;}
+    .report-meta strong{color:#1a1f36;}
+    .filtros-box{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:18px;padding:12px 16px;background:#f7f8fc;border:1px solid #dde1ec;border-radius:10px;}
+    .f-item{display:flex;flex-direction:column;gap:2px;}
+    .f-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#6b7280;}
+    .f-val{font-size:13px;font-weight:700;color:#1a1f36;}
+    .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
+    .sum-box{background:#f7f8fc;border:1px solid #dde1ec;border-radius:10px;padding:12px 14px;}
+    .sum-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#6b7280;margin-bottom:4px;}
+    .sum-val{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.5px;}
+    .sum-val.green{color:#15803d;} .sum-val.red{color:#dc2626;} .sum-val.orange{color:#e07b00;}
+    .sum-val.blue{color:#1d4ed8;} .sum-val.bgreen{color:#15803d;}
+    table{width:100%;border-collapse:collapse;font-size:11px;}
+    thead tr:first-child th{background:#1a1f36;color:#fff;padding:8px 7px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;text-align:center;}
+    thead tr:last-child th{padding:6px 7px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:right;border:1px solid #dde1ec;white-space:nowrap;}
+    thead tr:last-child th:first-child{text-align:left;background:#f0f2f7;color:#6b7280;}
+    th.th-ultra{background:#eff6ff;color:#1d4ed8;}
+    th.th-butano{background:#f0fdf4;color:#15803d;}
+    td{padding:7px 8px;border:1px solid #dde1ec;vertical-align:middle;background:#fff;}
+    tr:nth-child(even) td{background:#f7f8fc;}
+    .footer{margin-top:28px;text-align:center;font-size:11px;color:#6b7280;border-top:1px solid #dde1ec;padding-top:12px;}
+    .no-print{margin-top:20px;text-align:center;}
+    @media print{
+      body{background:#fff;padding:0;}
+      .report-wrap{box-shadow:none;padding:0;}
+      .no-print{display:none;}
+    }
+  </style>
+  </head><body>
+  <div class="report-wrap">
+    <div class="report-header">
+      <div>
+        <div class="report-logo">🔥 Grupo Bertoni <span>Análise de Margem por PR</span></div>
+      </div>
+      <div class="report-meta">
+        <div>Gerado em: <strong>${geradoEm}</strong></div>
+        <div style="margin-top:4px">PRs no relatório: <strong>${dados.length}</strong></div>
+      </div>
+    </div>
+
+    <div class="filtros-box">
+      <div class="f-item"><div class="f-lbl">Período</div><div class="f-val">${periodoLabel}</div></div>
+      <div class="f-item"><div class="f-lbl">PR</div><div class="f-val">${prLabel}</div></div>
+      <div class="f-item"><div class="f-lbl">Custo Ultragaz</div><div class="f-val">${custoU>0?fmtVal(custoU)+'/bot':'—'}</div></div>
+      <div class="f-item"><div class="f-lbl">Custo Butano</div><div class="f-val">${custoB>0?fmtVal(custoB)+'/bot':'—'}</div></div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="sum-box"><div class="sum-lbl">💰 Margem Total</div><div class="sum-val ${totalMargem>=0?'green':'red'}">${fmtSinal(totalMargem)}</div></div>
+      <div class="sum-box"><div class="sum-lbl">📦 Total Botijões</div><div class="sum-val orange">${totalBotijoes}</div></div>
+      <div class="sum-box"><div class="sum-lbl">📊 % Margem Média</div><div class="sum-val ${margemMedia>=0?'green':'red'}">${margemMedia.toFixed(1).replace('.',',')}%</div></div>
+      <div class="sum-box"><div class="sum-lbl">🏆 Melhor PR</div><div class="sum-val orange" style="font-size:15px">${melhorPR ? melhorPR.pr : '—'}</div></div>
+    </div>
+
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:#e07b00;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+      📈 Margem por PR
+      <div style="flex:1;height:1px;background:#dde1ec;margin-left:8px;"></div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th class="th-ultra" colspan="4">🔵 Ultragaz</th>
+          <th class="th-butano" colspan="4">🟢 Butano</th>
+          <th colspan="3"></th>
+        </tr>
+        <tr>
+          <th>PR</th>
+          <th class="th-ultra">Qtd</th><th class="th-ultra">P. Médio</th><th class="th-ultra">M. Unit.</th><th class="th-ultra">M. Total</th>
+          <th class="th-butano">Qtd</th><th class="th-butano">P. Médio</th><th class="th-butano">M. Unit.</th><th class="th-butano">M. Total</th>
+          <th style="text-align:center">Total Bot.</th><th>Margem R$</th><th>% Mg.</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>${totaisRow}</tfoot>
+    </table>
+
+    <div class="footer"><strong style="color:#374151">Análise de Margem por PR — Grupo Bertoni</strong> — Desenvolvido por <strong style="color:#374151">Leandro Machado</strong></div>
+    <div class="no-print" style="margin-top:20px;text-align:center">
+      <button onclick="window.print()" style="background:#e07b00;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px">🖨️ Imprimir / Salvar PDF</button>
+      <button onclick="window.close()" style="background:#f0f2f7;color:#374151;border:1px solid #dde1ec;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✕ Fechar</button>
+    </div>
+  </div>
+  </body></html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const win  = window.open(url, '_blank');
+  if (!win) { showToast('⚠ Permita pop-ups para exportar!'); return; }
+  showToast('📄 Relatório de margem gerado!');
+}
+
+
+
 function renderMargem() {
   buildMargemMesOptions();
   populateMargemFiltPr();
 
   const mes       = document.getElementById('mFiltMes')?.value || '';
-  const dia       = document.getElementById('mFiltDia')?.value || '';
+  const dataIni   = document.getElementById('mFiltDataIni')?.value || '';
+  const dataFim   = document.getElementById('mFiltDataFim')?.value || '';
   const prFilt    = document.getElementById('mFiltPr')?.value || '';
   const custoU    = parseFloat(document.getElementById('mCustoUltra')?.value) || 0;
   const custoB    = parseFloat(document.getElementById('mCustoButano')?.value) || 0;
 
   let f = [...lancamentos];
-  if (dia)       f = f.filter(l => l.data === dia);
-  else if (mes)  f = f.filter(l => l.data.startsWith(mes));
+  if (dataIni || dataFim) {
+    if (dataIni) f = f.filter(l => l.data >= dataIni);
+    if (dataFim) f = f.filter(l => l.data <= dataFim);
+  } else if (mes) {
+    f = f.filter(l => l.data.startsWith(mes));
+  }
   if (prFilt)    f = f.filter(l => l.pr === prFilt);
 
   const prsAtivos = [...new Set(f.map(l => l.pr))].sort();
