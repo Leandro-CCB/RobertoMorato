@@ -1725,10 +1725,12 @@ async function addLancamento(){
   PAY_IDS.forEach((id,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(id).value)||0);
 
   if(_editFormData!==null){
-    // ── MODO EDIÇÃO: substitui lançamentos do grupo ──
+    // ── MODO EDIÇÃO: substitui apenas o grupo (vendaId) que foi carregado ──
     const oldItens=lancamentos.filter(l=>l.data===_editFormData&&l.pr===_editFormPr);
-    const vendaIdBase=oldItens.length?oldItens[0].vendaId||oldItens[0].id:Date.now();
-    lancamentos=lancamentos.filter(l=>!(l.data===_editFormData&&l.pr===_editFormPr));
+    const comVendaId=oldItens.filter(l=>l.vendaId!=null);
+    const maxVendaId=comVendaId.length?Math.max(...comVendaId.map(l=>Number(l.vendaId))):null;
+    const vendaIdBase=maxVendaId||(oldItens.length?oldItens[0].vendaId||oldItens[0].id:Date.now());
+    lancamentos=lancamentos.filter(l=>!(l.data===_editFormData&&l.pr===_editFormPr&&Number(l.vendaId!=null?l.vendaId:l.id)===Number(vendaIdBase)));
     const now=Date.now();
     linhas.forEach((l,idx)=>{
       const id=oldItens[idx]?oldItens[idx].id:(now+idx);
@@ -1862,6 +1864,57 @@ window.corrigirPagDuplicado=async function(){
   renderTable();renderTotals();
   console.log('✅ Corrigidos '+n+' lançamento(s) e salvos no Firebase!');
   showToast('✅ '+n+' pagamento(s) duplicado(s) corrigido(s)!');
+};
+
+// ── DIAGNÓSTICO DE VENDAS DUPLICADAS (QTD) ──
+// Detecta vendaIds diferentes para o mesmo PR+Data com linhas idênticas (qtd+preco+marca)
+window.diagnosticoQtd=function(){
+  // Agrupa lançamentos por vendaId
+  const porVenda={};
+  lancamentos.forEach(l=>{
+    const vid=l.vendaId!=null?l.vendaId:l.id;
+    if(!porVenda[vid]) porVenda[vid]={pr:l.pr,data:l.data,itens:[]};
+    porVenda[vid].itens.push(l);
+  });
+
+  // Cria chave de assinatura por venda (PR+Data+linhas ordenadas)
+  const assinaturas={};
+  Object.entries(porVenda).forEach(([vid,v])=>{
+    const linhasKey=v.itens.map(l=>l.qtd+'|'+l.preco+'|'+l.marca).sort().join(';');
+    const key=v.pr+'|'+v.data+'|'+linhasKey;
+    if(!assinaturas[key]) assinaturas[key]=[];
+    assinaturas[key].push({vendaId:Number(vid),pr:v.pr,data:v.data,qtdTotal:v.itens.reduce((a,b)=>a+b.qtd,0),itens:v.itens});
+  });
+
+  const duplicados=Object.entries(assinaturas).filter(([k,v])=>v.length>1);
+  if(!duplicados.length){console.log('✅ Nenhuma venda duplicada encontrada!');return[];}
+  console.log('⚠️ VENDAS DUPLICADAS:',duplicados.length,'grupo(s)');
+  duplicados.forEach(([key,vendas])=>{
+    console.log('Grupo:',key);
+    console.table(vendas.map(v=>({vendaId:v.vendaId,pr:v.pr,data:v.data,qtdTotal:v.qtdTotal})));
+  });
+  return duplicados;
+};
+
+// Remove vendas duplicadas (mantém a mais antiga = menor vendaId)
+window.corrigirVendasDuplicadas=async function(){
+  const duplicados=window.diagnosticoQtd();
+  if(!duplicados||!duplicados.length){console.log('✅ Nada para corrigir!');return;}
+  const idsRemover=new Set();
+  duplicados.forEach(([key,vendas])=>{
+    // Mantém o menor vendaId (mais antigo), remove os demais
+    const sorted=[...vendas].sort((a,b)=>a.vendaId-b.vendaId);
+    sorted.slice(1).forEach(v=>{
+      v.itens.forEach(l=>idsRemover.add(l.id));
+    });
+  });
+  console.log('🗑️ Removendo',idsRemover.size,'linha(s) duplicada(s)...');
+  lancamentos=lancamentos.filter(l=>!idsRemover.has(l.id));
+  window._lancamentos=lancamentos;
+  await window._saveLancamentos();
+  renderTable();renderTotals();
+  console.log('✅ Corrigido! Removidas',idsRemover.size,'linha(s) e salvo no Firebase!');
+  showToast('✅ Vendas duplicadas removidas!');
 };
 
 // Zera pag de um lançamento específico pelo ID
