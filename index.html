@@ -625,6 +625,7 @@ td{padding:9px 12px;vertical-align:middle;}
     <button class="tab-btn" onclick="showTab('resumo',this)">📊 Resumo</button>
     <button class="tab-btn" onclick="showTab('cargas',this)">🚛 Cargas</button>
     <button class="tab-btn" onclick="showTab('margem',this)">📈 Margem</button>
+    <button class="tab-btn" onclick="showTab('fiado',this);renderFiado()">📒 Fiado</button>
     <button class="tab-btn" onclick="showTab('config',this)">⚙️ Config</button>
   </div>
 </header>
@@ -1215,6 +1216,46 @@ td{padding:9px 12px;vertical-align:middle;}
     <div class="chart-full-wrap"><canvas id="chartMargem" style="max-height:280px;"></canvas></div>
   </div>
 
+</div>
+
+
+<!-- ==================== FIADO ==================== -->
+<div id="tab-fiado" class="page">
+
+  <!-- Cards de resumo -->
+  <div id="fiadoResumoCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px;"></div>
+
+  <!-- Cards por PR -->
+  <div id="fiadoPrCards" style="display:flex;flex-direction:column;gap:16px;"></div>
+
+</div>
+
+<!-- Modal registrar pagamento de fiado -->
+<div id="fiadoPagModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:700;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:440px;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid var(--border);">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--danger);margin-bottom:4px;">📒 Registrar Pagamento de Fiado</div>
+    <div id="fiadoPagPrNome" style="font-size:13px;color:var(--muted);margin-bottom:16px;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+      <div class="form-group">
+        <label>Data do Pagamento</label>
+        <input type="date" id="fiadoPagData" />
+      </div>
+      <div class="form-group">
+        <label>Valor Pago (R$)</label>
+        <input type="number" id="fiadoPagValor" min="0" step="0.01" placeholder="0,00" />
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label>Observação (opcional)</label>
+      <input type="text" id="fiadoPagObs" placeholder="Ex: Pagou os 27 do dia 09/06" />
+    </div>
+    <div id="fiadoPagSaldoInfo" style="padding:10px 14px;border-radius:8px;background:var(--danger-light);border:1.5px solid #fca5a5;font-size:13px;font-weight:700;color:var(--danger);margin-bottom:16px;"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="confirmarPagFiado()" style="background:var(--success);color:#fff;border:none;padding:11px 24px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex:1;">✓ Confirmar Pagamento</button>
+      <button onclick="fecharFiadoPagModal()" style="background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:11px 20px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">✕ Cancelar</button>
+    </div>
+    <div id="fiadoPagErr" style="color:var(--danger);font-size:12px;font-weight:600;margin-top:8px;"></div>
+  </div>
 </div>
 
 <!-- ==================== CONFIG ==================== -->
@@ -1931,6 +1972,233 @@ window.zerarPagId=async function(id){
   showToast('✅ Pagamento corrigido!');
 };
 
+
+// ══════════════════════════════════════════════════════════════
+// ── MÓDULO FIADO ──────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+
+// pagamentos de fiado ficam em window._fiadoPagamentos (array)
+// cada item: { id, pr, data, valor, obs }
+
+async function _loadFiadoPag() {
+  if (!window._fiadoPagamentos) {
+    try {
+      const doc = await window._fbGetDoc('config', 'fiado_pagamentos');
+      window._fiadoPagamentos = (doc && doc.lista) ? doc.lista : [];
+    } catch(e) {
+      window._fiadoPagamentos = [];
+    }
+  }
+  return window._fiadoPagamentos;
+}
+
+async function _saveFiadoPag() {
+  await window._fbSetDoc('config', 'fiado_pagamentos', { lista: window._fiadoPagamentos || [] });
+}
+
+// Calcula saldo de fiado por PR
+// Retorna { PR: { totalFiado, totalPago, saldo, historico[] } }
+async function calcFiadoPorPR() {
+  const pags = await _loadFiadoPag();
+
+  // Agrega fiado gerado dos lançamentos (1 linha por vendaId)
+  const fiado = {}; // PR -> array de { data, valor, origem:'lancamento', id }
+  const vistos = new Set();
+  lancamentos.forEach(l => {
+    const vid = l.vendaId != null ? l.vendaId : l.id;
+    if (vistos.has(vid)) return;
+    vistos.add(vid);
+    const vf = (l.pag && l.pag['Fiado']) || 0;
+    if (vf > 0) {
+      if (!fiado[l.pr]) fiado[l.pr] = [];
+      fiado[l.pr].push({ data: l.data, valor: vf, tipo: 'fiado', desc: 'Venda fiado', id: vid });
+    }
+  });
+
+  // Agrega pagamentos registrados
+  pags.forEach(p => {
+    if (!fiado[p.pr]) fiado[p.pr] = [];
+    fiado[p.pr].push({ data: p.data, valor: p.valor, tipo: 'pagamento', desc: p.obs || 'Pagamento recebido', id: p.id });
+  });
+
+  // Monta resultado por PR
+  const resultado = {};
+  Object.keys(fiado).forEach(pr => {
+    const hist = [...fiado[pr]].sort((a,b) => a.data.localeCompare(b.data) || a.id - b.id);
+    let saldo = 0;
+    const historico = hist.map(h => {
+      if (h.tipo === 'fiado') saldo += h.valor;
+      else saldo -= h.valor;
+      return { ...h, saldoApos: saldo };
+    });
+    const totalFiado = hist.filter(h=>h.tipo==='fiado').reduce((a,b)=>a+b.valor,0);
+    const totalPago  = hist.filter(h=>h.tipo==='pagamento').reduce((a,b)=>a+b.valor,0);
+    resultado[pr] = { totalFiado, totalPago, saldo: Math.round(saldo*100)/100, historico };
+  });
+
+  return resultado;
+}
+
+// ── Renderiza a aba FIADO ──
+async function renderFiado() {
+  const resumoEl = document.getElementById('fiadoResumoCards');
+  const cardsEl  = document.getElementById('fiadoPrCards');
+  resumoEl.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px;">Carregando...</div>';
+  cardsEl.innerHTML  = '';
+
+  const dados = await calcFiadoPorPR();
+  const prs   = Object.keys(dados).sort((a,b) => dados[b].saldo - dados[a].saldo);
+
+  // Cards de resumo
+  const totalDevendo  = prs.reduce((a,p)=>a+(dados[p].saldo>0?dados[p].saldo:0),0);
+  const totalPRs      = prs.filter(p=>dados[p].saldo>0).length;
+  const totalGerado   = prs.reduce((a,p)=>a+dados[p].totalFiado,0);
+  const totalRecebido = prs.reduce((a,p)=>a+dados[p].totalPago,0);
+
+  resumoEl.innerHTML = `
+    <div class="summary-card" style="border:1.5px solid #fca5a5;background:var(--danger-light)">
+      <div class="s-label">💸 Total em Aberto</div>
+      <div class="s-value red" style="font-size:22px">${fmtVal(totalDevendo)}</div>
+    </div>
+    <div class="summary-card">
+      <div class="s-label">👤 PRs com Saldo</div>
+      <div class="s-value" style="color:var(--danger)">${totalPRs}</div>
+    </div>
+    <div class="summary-card">
+      <div class="s-label">📒 Total Fiado Gerado</div>
+      <div class="s-value" style="font-size:20px;color:var(--muted)">${fmtVal(totalGerado)}</div>
+    </div>
+    <div class="summary-card" style="border:1.5px solid #bbf7d0;background:var(--butano-light)">
+      <div class="s-label">✅ Total Recebido</div>
+      <div class="s-value green" style="font-size:20px">${fmtVal(totalRecebido)}</div>
+    </div>
+  `;
+
+  if (!prs.length) {
+    cardsEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted2);font-size:13px;">Nenhum fiado registrado ainda. Os valores de fiado aparecem automaticamente a partir dos lançamentos.</div>';
+    return;
+  }
+
+  cardsEl.innerHTML = prs.map(pr => {
+    const d = dados[pr];
+    const semaforo = d.saldo <= 0 ? '🟢' : '🔴';
+    const corSaldo = d.saldo <= 0 ? 'var(--success)' : 'var(--danger)';
+    const bgCard   = d.saldo <= 0 ? '' : 'border:1.5px solid #fca5a5;';
+
+    const historicoHTML = d.historico.map(h => {
+      const isFiado = h.tipo === 'fiado';
+      return `<tr>
+        <td style="padding:6px 10px;font-size:12px;color:var(--muted)">${fmtDate(h.data)}</td>
+        <td style="padding:6px 10px;">
+          <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:${isFiado?'var(--danger-light)':'var(--success-light)'};color:${isFiado?'var(--danger)':'var(--success)'}">
+            ${isFiado?'📒 Fiado':'✅ Pagamento'}
+          </span>
+        </td>
+        <td style="padding:6px 10px;font-size:12px;color:var(--muted)">${h.desc}</td>
+        <td style="padding:6px 10px;font-weight:700;color:${isFiado?'var(--danger)':'var(--success)'}">
+          ${isFiado?'+':'-'}${fmtVal(h.valor)}
+        </td>
+        <td style="padding:6px 10px;font-weight:700;color:${h.saldoApos>0?'var(--danger)':'var(--success)'}">
+          ${fmtVal(h.saldoApos)}
+        </td>
+        ${!isFiado?`<td style="padding:6px 10px;"><button onclick="excluirPagFiado(${h.id})" style="background:transparent;color:var(--muted2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;" title="Excluir pagamento">✕</button></td>`:'<td></td>'}
+      </tr>`;
+    }).join('');
+
+    return `
+    <div class="card" style="${bgCard}">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#f5c97a);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:18px;color:#fff;flex-shrink:0;">${pr.slice(0,2)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:700;color:var(--text)">${semaforo} ${pr}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Fiado gerado: ${fmtVal(d.totalFiado)} &nbsp;|&nbsp; Recebido: ${fmtVal(d.totalPago)}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:2px;">Saldo em aberto</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${corSaldo};line-height:1">${fmtVal(Math.abs(d.saldo))}${d.saldo<0?' (crédito)':''}</div>
+        </div>
+        ${d.saldo > 0 ? `<button onclick="abrirFiadoPagModal('${pr}',${d.saldo})" style="background:var(--success);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(21,128,61,.25);">💵 Registrar Pagamento</button>` : ''}
+      </div>
+
+      <!-- Histórico -->
+      <div style="margin-top:14px;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px;">Histórico</div>
+        <div style="overflow-x:auto;border-radius:8px;border:1px solid var(--border);">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead style="background:var(--surface3);">
+              <tr>
+                <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);white-space:nowrap;">Data</th>
+                <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">Tipo</th>
+                <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">Descrição</th>
+                <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">Valor</th>
+                <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">Saldo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>${historicoHTML}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Modal pagamento ──
+let _fiadoPagPrAtual = '', _fiadoPagSaldoAtual = 0;
+
+function abrirFiadoPagModal(pr, saldo) {
+  _fiadoPagPrAtual = pr;
+  _fiadoPagSaldoAtual = saldo;
+  document.getElementById('fiadoPagPrNome').textContent = pr;
+  document.getElementById('fiadoPagData').value = new Date().toISOString().split('T')[0];
+  document.getElementById('fiadoPagValor').value = '';
+  document.getElementById('fiadoPagObs').value = '';
+  document.getElementById('fiadoPagErr').textContent = '';
+  document.getElementById('fiadoPagSaldoInfo').textContent = `Saldo atual de ${pr}: ${fmtVal(saldo)}`;
+  document.getElementById('fiadoPagModal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('fiadoPagValor').focus(), 100);
+}
+
+function fecharFiadoPagModal() {
+  document.getElementById('fiadoPagModal').style.display = 'none';
+}
+
+async function confirmarPagFiado() {
+  const data  = document.getElementById('fiadoPagData').value;
+  const valor = parseFloat(document.getElementById('fiadoPagValor').value) || 0;
+  const obs   = document.getElementById('fiadoPagObs').value.trim();
+  const err   = document.getElementById('fiadoPagErr');
+  if (!data)    { err.textContent = '⚠ Informe a data.'; return; }
+  if (valor<=0) { err.textContent = '⚠ Informe o valor pago.'; return; }
+  err.textContent = '';
+
+  const pags = await _loadFiadoPag();
+  const novoPag = { id: Date.now(), pr: _fiadoPagPrAtual, data, valor, obs };
+  pags.push(novoPag);
+  window._fiadoPagamentos = pags;
+  await _saveFiadoPag();
+
+  fecharFiadoPagModal();
+  showToast(`✅ Pagamento de ${fmtVal(valor)} registrado para ${_fiadoPagPrAtual}!`);
+  renderFiado();
+}
+
+async function excluirPagFiado(id) {
+  if (!confirm('Remover este pagamento?')) return;
+  const pags = await _loadFiadoPag();
+  window._fiadoPagamentos = pags.filter(p => p.id !== id);
+  await _saveFiadoPag();
+  showToast('✅ Pagamento removido!');
+  renderFiado();
+}
+
+// Fecha modal clicando fora
+document.addEventListener('DOMContentLoaded', function(){
+  const m = document.getElementById('fiadoPagModal');
+  if (m) m.addEventListener('click', function(e){ if(e.target===this) fecharFiadoPagModal(); });
+});
+
+// ── FIM MÓDULO FIADO ──────────────────────────────────────────
 // ── FILTROS LANÇAMENTOS ──
 function limparFiltrosLanc(){
   const d=document.getElementById('lFiltData');
