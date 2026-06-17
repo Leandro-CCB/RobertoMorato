@@ -1681,20 +1681,9 @@ function carregarEdicaoNoForm(data, pr){
   document.getElementById('fData').value=data;
   document.getElementById('fPr').value=pr;
 
-  // Filtra: se houver linhas COM vendaId, usa só o grupo mais recente (maior vendaId)
-  // Isso evita misturar lançamentos antigos (sem vendaId) com novos do mesmo dia/PR
-  const comVendaId = itens.filter(l => l.vendaId != null);
-  let itensFiltrados;
-  if (comVendaId.length > 0) {
-    const maxVendaId = Math.max(...comVendaId.map(l => Number(l.vendaId)));
-    itensFiltrados = itens.filter(l => Number(l.vendaId) === maxVendaId);
-  } else {
-    // Todos sem vendaId — usa o de maior id
-    const maxId = Math.max(...itens.map(l => Number(l.id)));
-    itensFiltrados = itens.filter(l => Number(l.id) === maxId);
-  }
+  // Usa TODAS as linhas do dia/PR, removendo duplicatas de ID
   const vistoIds2=new Set();
-  const itensDedupe=itensFiltrados.filter(l=>{ if(vistoIds2.has(l.id)) return false; vistoIds2.add(l.id); return true; });
+  const itensDedupe=itens.filter(l=>{ if(vistoIds2.has(l.id)) return false; vistoIds2.add(l.id); return true; });
   const cont=document.getElementById('linhas-container');
   cont.innerHTML='';
   _numLinhas=0;
@@ -1766,12 +1755,13 @@ async function addLancamento(){
   PAY_IDS.forEach((id,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(id).value)||0);
 
   if(_editFormData!==null){
-    // ── MODO EDIÇÃO: substitui apenas o grupo (vendaId) que foi carregado ──
+    // ── MODO EDIÇÃO: substitui TODOS os lançamentos do dia/PR ──
     const oldItens=lancamentos.filter(l=>l.data===_editFormData&&l.pr===_editFormPr);
+    // Usa o menor vendaId existente como base (ou gera novo)
     const comVendaId=oldItens.filter(l=>l.vendaId!=null);
-    const maxVendaId=comVendaId.length?Math.max(...comVendaId.map(l=>Number(l.vendaId))):null;
-    const vendaIdBase=maxVendaId||(oldItens.length?oldItens[0].vendaId||oldItens[0].id:Date.now());
-    lancamentos=lancamentos.filter(l=>!(l.data===_editFormData&&l.pr===_editFormPr&&Number(l.vendaId!=null?l.vendaId:l.id)===Number(vendaIdBase)));
+    const vendaIdBase=comVendaId.length?Math.min(...comVendaId.map(l=>Number(l.vendaId))):(oldItens.length?oldItens[0].id:Date.now());
+    // Remove TODOS os lançamentos antigos do dia/PR
+    lancamentos=lancamentos.filter(l=>!(l.data===_editFormData&&l.pr===_editFormPr));
     const now=Date.now();
     linhas.forEach((l,idx)=>{
       const id=oldItens[idx]?oldItens[idx].id:(now+idx);
