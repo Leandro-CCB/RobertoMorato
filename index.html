@@ -3621,6 +3621,21 @@ function renderCargas() {
   const sumDesc    = f.reduce((a, c) => a + (c.desconto || 0), 0);
   const sumLiquido = f.reduce((a, c) => a + (c.liquido || c.valor || 0), 0);
   const sumFrete   = f.reduce((a, c) => a + (c.frete || 0), 0);
+
+  // ── Cálculo de tonelagem lançada ──
+  const PESO_PRODUTO = { 'P 05': 5, 'P 13': 13, 'P 20': 20, 'P 45': 45 };
+  function getPesoKg(produto) { return PESO_PRODUTO[produto] || 0; }
+  const sumKg = f.reduce((a, c) => {
+    if (c.itens && c.itens.length > 0) {
+      return a + c.itens.reduce((s, it) => s + (it.qtd || 0) * getPesoKg(it.produto), 0);
+    }
+    return a + (c.qtd || 0) * getPesoKg(c.produto);
+  }, 0);
+  const sumTon = sumKg / 1000;
+  const tonDisplay = sumTon >= 1
+    ? sumTon.toFixed(2).replace('.', ',') + ' t'
+    : (sumKg).toFixed(0) + ' kg';
+
   if (tfootEl) {
     tfootEl.innerHTML = `<tr style="background:linear-gradient(90deg,#fff3e0,#fef9e7);font-weight:700;border-top:2px solid var(--accent);">
       <td style="text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;padding:10px 8px;" colspan="6">TOTAIS (${f.length} registro${f.length!==1?'s':''})</td>
@@ -3629,7 +3644,11 @@ function renderCargas() {
       <td style="color:var(--danger);font-weight:700">${sumDesc > 0 ? fmtVal(sumDesc) : '-'}</td>
       <td style="font-weight:700;color:var(--success)">${fmtVal(sumLiquido)}</td>
       <td style="color:var(--ultra);font-weight:700">${sumFrete > 0 ? fmtVal(sumFrete) : '-'}</td>
-      <td colspan="4"></td>
+      <td colspan="4">
+        <div style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#1a1f36,#2d3561);color:#fff;padding:5px 12px;border-radius:20px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.8px;box-shadow:0 2px 8px rgba(26,31,54,.35);white-space:nowrap;">
+          ⚖️ ${tonDisplay}
+        </div>
+      </td>
     </tr>`;
   }
 
