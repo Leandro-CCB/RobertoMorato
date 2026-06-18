@@ -174,7 +174,7 @@
   async function verificarEFazerBackup() {
     try {
       const meta  = await fsGetDoc('config', 'backup_meta');
-      const hoje  = new Date().toISOString().split('T')[0];
+      const hoje  = hojeLocal();
       const ultimo = meta ? meta.ultimo : '';
       const diff  = ultimo
         ? Math.floor((new Date(hoje) - new Date(ultimo)) / 86400000)
@@ -634,11 +634,11 @@ td{padding:9px 12px;vertical-align:middle;}
 <div id="tab-lancamento" class="page active">
 
   <div class="totals-bar">
-    <div class="total-card"><div class="t-icon">🛢️</div><div class="t-info"><div class="t-label">Botijões Hoje</div><div class="t-value" id="tqtd">0</div></div></div>
-    <div class="total-card"><div class="t-icon">💰</div><div class="t-info"><div class="t-label">Valor Total Hoje</div><div class="t-value green" id="tval">R$ 0,00</div></div></div>
-    <div class="total-card"><div class="t-icon">🔵</div><div class="t-info"><div class="t-label">Ultragaz Hoje</div><div class="t-value blue" id="tqultra">0</div></div></div>
-    <div class="total-card"><div class="t-icon">🟢</div><div class="t-info"><div class="t-label">Butano Hoje</div><div class="t-value bgreen" id="tqbutano">0</div></div></div>
-    <div class="total-card"><div class="t-icon">📒</div><div class="t-info"><div class="t-label">Fiado Hoje</div><div class="t-value red" id="tfiado">R$ 0,00</div></div></div>
+    <div class="total-card"><div class="t-icon">🛢️</div><div class="t-info"><div class="t-label" id="tlBotijoes" data-base="Botijões">Botijões Hoje</div><div class="t-value" id="tqtd">0</div></div></div>
+    <div class="total-card"><div class="t-icon">💰</div><div class="t-info"><div class="t-label" id="tlValor" data-base="Valor Total">Valor Total Hoje</div><div class="t-value green" id="tval">R$ 0,00</div></div></div>
+    <div class="total-card"><div class="t-icon">🔵</div><div class="t-info"><div class="t-label" id="tlUltra" data-base="Ultragaz">Ultragaz Hoje</div><div class="t-value blue" id="tqultra">0</div></div></div>
+    <div class="total-card"><div class="t-icon">🟢</div><div class="t-info"><div class="t-label" id="tlButano" data-base="Butano">Butano Hoje</div><div class="t-value bgreen" id="tqbutano">0</div></div></div>
+    <div class="total-card"><div class="t-icon">📒</div><div class="t-info"><div class="t-label" id="tlFiado" data-base="Fiado">Fiado Hoje</div><div class="t-value red" id="tfiado">R$ 0,00</div></div></div>
   </div>
 
   <div class="card">
@@ -1232,29 +1232,59 @@ td{padding:9px 12px;vertical-align:middle;}
 
 <!-- Modal registrar pagamento de fiado -->
 <div id="fiadoPagModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:700;align-items:center;justify-content:center;padding:16px;">
-  <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:440px;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid var(--border);">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--danger);margin-bottom:4px;">📒 Registrar Pagamento de Fiado</div>
-    <div id="fiadoPagPrNome" style="font-size:13px;color:var(--muted);margin-bottom:16px;"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid var(--border);">
+    <div id="fiadoPagModalTitle" style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--success);margin-bottom:4px;">💵 Registrar Pagamento de Fiado</div>
+    <div id="fiadoPagPrNome" style="font-size:13px;color:var(--muted);margin-bottom:14px;font-weight:700;"></div>
+
+    <div id="fiadoPagSaldoInfo" style="padding:10px 14px;border-radius:8px;background:var(--danger-light);border:1.5px solid #fca5a5;font-size:13px;font-weight:700;color:var(--danger);margin-bottom:14px;"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
       <div class="form-group">
         <label>Data do Pagamento</label>
         <input type="date" id="fiadoPagData" />
       </div>
       <div class="form-group">
-        <label>Valor Pago (R$)</label>
-        <input type="number" id="fiadoPagValor" min="0" step="0.01" placeholder="0,00" />
+        <label>Observação (opcional)</label>
+        <input type="text" id="fiadoPagObs" placeholder="Ex: Pagou referente ao dia 09/06" />
       </div>
     </div>
-    <div class="form-group" style="margin-bottom:16px;">
-      <label>Observação (opcional)</label>
-      <input type="text" id="fiadoPagObs" placeholder="Ex: Pagou os 27 do dia 09/06" />
+
+    <!-- Formas de pagamento -->
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px;">💳 Formas de Pagamento</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div class="form-group">
+        <label>💵 Espécie</label>
+        <input type="number" id="fpEspecie" min="0" step="0.01" placeholder="0,00" oninput="calcFiadoPagTotal()" />
+      </div>
+      <div class="form-group">
+        <label>⚡ PIX</label>
+        <input type="number" id="fpPix" min="0" step="0.01" placeholder="0,00" oninput="calcFiadoPagTotal()" />
+      </div>
+      <div class="form-group">
+        <label>💳 Débito</label>
+        <input type="number" id="fpDebito" min="0" step="0.01" placeholder="0,00" oninput="calcFiadoPagTotal()" />
+      </div>
+      <div class="form-group">
+        <label>💳 Crédito</label>
+        <input type="number" id="fpCredito" min="0" step="0.01" placeholder="0,00" oninput="calcFiadoPagTotal()" />
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>📱 QR Code</label>
+        <input type="number" id="fpQrcode" min="0" step="0.01" placeholder="0,00" oninput="calcFiadoPagTotal()" />
+      </div>
     </div>
-    <div id="fiadoPagSaldoInfo" style="padding:10px 14px;border-radius:8px;background:var(--danger-light);border:1.5px solid #fca5a5;font-size:13px;font-weight:700;color:var(--danger);margin-bottom:16px;"></div>
+
+    <!-- Total calculado -->
+    <div id="fiadoPagTotalBox" style="display:none;padding:10px 14px;border-radius:8px;background:#f0fdf4;border:1.5px solid #bbf7d0;font-size:14px;font-weight:700;color:var(--success);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+      <span>Total informado:</span>
+      <span id="fiadoPagTotalVal">R$ 0,00</span>
+    </div>
+
+    <div id="fiadoPagErr" style="color:var(--danger);font-size:12px;font-weight:600;margin-bottom:10px;"></div>
     <div style="display:flex;gap:10px;">
       <button onclick="confirmarPagFiado()" style="background:var(--success);color:#fff;border:none;padding:11px 24px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex:1;">✓ Confirmar Pagamento</button>
       <button onclick="fecharFiadoPagModal()" style="background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:11px 20px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">✕ Cancelar</button>
     </div>
-    <div id="fiadoPagErr" style="color:var(--danger);font-size:12px;font-weight:600;margin-top:8px;"></div>
   </div>
 </div>
 
@@ -1440,6 +1470,17 @@ const PAY_FIELDS = ['Espécie','Débito','Crédito','QR Code','Pix','Moeda','Fia
 const PAY_IDS    = ['pEspecie','pDebito','pCredito','pQrCode','pPix','pMoeda','pFiado','pGasPovo','pSobrasAnt'];
 const PAY_EMOJIS = {'Espécie':'💵','Débito':'💳','Crédito':'💳','QR Code':'📱','Pix':'⚡','Moeda':'🪙','Fiado':'📒','Gás do Povo':'🔥','Sobras Anteriores':'🏦'};
 
+// ── DATA LOCAL (sem bug de fuso UTC) ─────────────────────────────────────
+// new Date().toISOString() usa UTC — no Brasil (UTC-3) isso causa a data errada
+// após as 21h. hojeLocal() sempre retorna a data no fuso do navegador do usuário.
+function hojeLocal() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
 // Variáveis de estado — preenchidas pelo módulo Firebase antes de _appInit
 let lancamentos  = [];
 let configPrecos = {};
@@ -1471,7 +1512,7 @@ window._appInit = async function() {
     PRS.length = 0;
     window._prsFirebase.forEach(p => PRS.push(p));
   }
-  document.getElementById('fData').value = new Date().toISOString().split('T')[0];
+  document.getElementById('fData').value = hojeLocal();
   ['fPr','rFiltPr','editPr'].forEach(id => {
     const sel = document.getElementById(id);
     if(id==='fPr') { const ph=document.createElement('option');ph.value='';ph.textContent='— Selecione o PR —';sel.appendChild(ph); }
@@ -2008,7 +2049,7 @@ async function calcFiadoPorPR() {
   // Agrega pagamentos registrados
   pags.forEach(p => {
     if (!fiado[p.pr]) fiado[p.pr] = [];
-    fiado[p.pr].push({ data: p.data, valor: p.valor, tipo: 'pagamento', desc: p.obs || 'Pagamento recebido', id: p.id });
+    fiado[p.pr].push({ data: p.data, valor: p.valor, tipo: 'pagamento', desc: p.obs || 'Pagamento recebido', id: p.id, formasPag: p.formasPag || null });
   });
 
   // Monta resultado por PR
@@ -2077,6 +2118,17 @@ async function renderFiado() {
 
     const historicoHTML = d.historico.map(h => {
       const isFiado = h.tipo === 'fiado';
+      // Monta resumo das formas de pagamento
+      let formasPagHTML = '';
+      if (!isFiado && h.formasPag) {
+        const fp = h.formasPag;
+        const labels = { especie:'💵 Espécie', pix:'⚡ PIX', debito:'💳 Débito', credito:'💳 Crédito', qrcode:'📱 QR Code' };
+        const itens = Object.entries(labels)
+          .filter(([k]) => fp[k] > 0)
+          .map(([k,lbl]) => `<span style="font-size:10px;background:var(--surface3);border:1px solid var(--border);border-radius:5px;padding:1px 6px;white-space:nowrap;">${lbl}: ${fmtVal(fp[k])}</span>`)
+          .join(' ');
+        if (itens) formasPagHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${itens}</div>`;
+      }
       return `<tr>
         <td style="padding:6px 10px;font-size:12px;color:var(--muted)">${fmtDate(h.data)}</td>
         <td style="padding:6px 10px;">
@@ -2084,14 +2136,20 @@ async function renderFiado() {
             ${isFiado?'📒 Fiado':'✅ Pagamento'}
           </span>
         </td>
-        <td style="padding:6px 10px;font-size:12px;color:var(--muted)">${h.desc}</td>
+        <td style="padding:6px 10px;font-size:12px;color:var(--muted)">${h.desc}${formasPagHTML}</td>
         <td style="padding:6px 10px;font-weight:700;color:${isFiado?'var(--danger)':'var(--success)'}">
           ${isFiado?'+':'-'}${fmtVal(h.valor)}
         </td>
         <td style="padding:6px 10px;font-weight:700;color:${h.saldoApos>0?'var(--danger)':'var(--success)'}">
           ${fmtVal(h.saldoApos)}
         </td>
-        ${!isFiado?`<td style="padding:6px 10px;"><button onclick="excluirPagFiado(${h.id})" style="background:transparent;color:var(--muted2);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;" title="Excluir pagamento">✕</button></td>`:'<td></td>'}
+        <td style="padding:6px 10px;">
+          ${!isFiado?`
+            <div style="display:flex;gap:4px;">
+              <button onclick="editarPagFiado(${h.id})" style="background:var(--ultra-light);color:var(--ultra);border:1px solid #bfdbfe;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Editar pagamento">✏️</button>
+              <button onclick="excluirPagFiado(${h.id})" style="background:transparent;color:var(--muted2);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;" title="Excluir pagamento">✕</button>
+            </div>` : ''}
+        </td>
       </tr>`;
     }).join('');
 
@@ -2134,42 +2192,112 @@ async function renderFiado() {
 }
 
 // ── Modal pagamento ──
-let _fiadoPagPrAtual = '', _fiadoPagSaldoAtual = 0;
+let _fiadoPagPrAtual = '', _fiadoPagSaldoAtual = 0, _fiadoPagEditId = null;
+
+const FP_IDS = ['fpEspecie','fpPix','fpDebito','fpCredito','fpQrcode'];
+const FP_FIELDS = ['especie','pix','debito','credito','qrcode'];
+
+function calcFiadoPagTotal() {
+  let t = 0;
+  FP_IDS.forEach(id => t += parseFloat(document.getElementById(id).value)||0);
+  document.getElementById('fiadoPagTotalVal').textContent = fmtVal(t);
+  const box = document.getElementById('fiadoPagTotalBox');
+  box.style.display = t > 0 ? 'flex' : 'none';
+  return t;
+}
+
+function _limparFiadoPagForm() {
+  FP_IDS.forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fiadoPagObs').value = '';
+  document.getElementById('fiadoPagErr').textContent = '';
+  document.getElementById('fiadoPagTotalBox').style.display = 'none';
+  document.getElementById('fiadoPagTotalVal').textContent = 'R$ 0,00';
+}
 
 function abrirFiadoPagModal(pr, saldo) {
   _fiadoPagPrAtual = pr;
   _fiadoPagSaldoAtual = saldo;
+  _fiadoPagEditId = null;
+  document.getElementById('fiadoPagModalTitle').textContent = '💵 Registrar Pagamento de Fiado';
   document.getElementById('fiadoPagPrNome').textContent = pr;
-  document.getElementById('fiadoPagData').value = new Date().toISOString().split('T')[0];
-  document.getElementById('fiadoPagValor').value = '';
-  document.getElementById('fiadoPagObs').value = '';
-  document.getElementById('fiadoPagErr').textContent = '';
-  document.getElementById('fiadoPagSaldoInfo').textContent = `Saldo atual de ${pr}: ${fmtVal(saldo)}`;
+  document.getElementById('fiadoPagData').value = hojeLocal();
+  document.getElementById('fiadoPagSaldoInfo').textContent = `Saldo em aberto de ${pr}: ${fmtVal(saldo)}`;
+  _limparFiadoPagForm();
   document.getElementById('fiadoPagModal').style.display = 'flex';
-  setTimeout(()=>document.getElementById('fiadoPagValor').focus(), 100);
+  setTimeout(()=>document.getElementById('fpEspecie').focus(), 100);
+}
+
+function abrirFiadoPagEditModal(pag) {
+  _fiadoPagPrAtual = pag.pr;
+  _fiadoPagSaldoAtual = 0;
+  _fiadoPagEditId = pag.id;
+  document.getElementById('fiadoPagModalTitle').textContent = '✏️ Editar Pagamento de Fiado';
+  document.getElementById('fiadoPagPrNome').textContent = pag.pr;
+  document.getElementById('fiadoPagData').value = pag.data || '';
+  document.getElementById('fiadoPagObs').value = pag.obs || '';
+  document.getElementById('fiadoPagSaldoInfo').textContent = `Editando pagamento de ${pag.pr}`;
+  document.getElementById('fiadoPagSaldoInfo').style.background = 'var(--ultra-light)';
+  document.getElementById('fiadoPagSaldoInfo').style.borderColor = '#bfdbfe';
+  document.getElementById('fiadoPagSaldoInfo').style.color = 'var(--ultra)';
+  _limparFiadoPagForm();
+  // Preenche formas de pagamento salvas
+  const fp = pag.formasPag || {};
+  FP_FIELDS.forEach((f,i) => {
+    const v = fp[f] || 0;
+    if (v > 0) document.getElementById(FP_IDS[i]).value = v;
+  });
+  // Compatibilidade: se só tem 'valor' antigo, coloca em espécie
+  if (!Object.values(fp).some(v=>v>0) && pag.valor > 0) {
+    document.getElementById('fpEspecie').value = pag.valor;
+  }
+  calcFiadoPagTotal();
+  document.getElementById('fiadoPagErr').textContent = '';
+  document.getElementById('fiadoPagModal').style.display = 'flex';
 }
 
 function fecharFiadoPagModal() {
   document.getElementById('fiadoPagModal').style.display = 'none';
+  document.getElementById('fiadoPagSaldoInfo').style.background = 'var(--danger-light)';
+  document.getElementById('fiadoPagSaldoInfo').style.borderColor = '#fca5a5';
+  document.getElementById('fiadoPagSaldoInfo').style.color = 'var(--danger)';
 }
 
 async function confirmarPagFiado() {
   const data  = document.getElementById('fiadoPagData').value;
-  const valor = parseFloat(document.getElementById('fiadoPagValor').value) || 0;
   const obs   = document.getElementById('fiadoPagObs').value.trim();
   const err   = document.getElementById('fiadoPagErr');
-  if (!data)    { err.textContent = '⚠ Informe a data.'; return; }
-  if (valor<=0) { err.textContent = '⚠ Informe o valor pago.'; return; }
+  if (!data) { err.textContent = '⚠ Informe a data.'; return; }
+
+  const formasPag = {};
+  let total = 0;
+  FP_FIELDS.forEach((f,i) => {
+    const v = parseFloat(document.getElementById(FP_IDS[i]).value)||0;
+    formasPag[f] = v;
+    total += v;
+  });
+  if (total <= 0) { err.textContent = '⚠ Informe pelo menos uma forma de pagamento.'; return; }
   err.textContent = '';
 
   const pags = await _loadFiadoPag();
-  const novoPag = { id: Date.now(), pr: _fiadoPagPrAtual, data, valor, obs };
-  pags.push(novoPag);
-  window._fiadoPagamentos = pags;
-  await _saveFiadoPag();
-
-  fecharFiadoPagModal();
-  showToast(`✅ Pagamento de ${fmtVal(valor)} registrado para ${_fiadoPagPrAtual}!`);
+  if (_fiadoPagEditId !== null) {
+    // Edição
+    const idx = pags.findIndex(p => p.id === _fiadoPagEditId);
+    if (idx !== -1) {
+      pags[idx] = { ...pags[idx], data, obs, formasPag, valor: total };
+    }
+    window._fiadoPagamentos = pags;
+    await _saveFiadoPag();
+    fecharFiadoPagModal();
+    showToast(`✅ Pagamento atualizado!`);
+  } else {
+    // Novo
+    const novoPag = { id: Date.now(), pr: _fiadoPagPrAtual, data, valor: total, obs, formasPag };
+    pags.push(novoPag);
+    window._fiadoPagamentos = pags;
+    await _saveFiadoPag();
+    fecharFiadoPagModal();
+    showToast(`✅ Pagamento de ${fmtVal(total)} registrado para ${_fiadoPagPrAtual}!`);
+  }
   renderFiado();
 }
 
@@ -2180,6 +2308,13 @@ async function excluirPagFiado(id) {
   await _saveFiadoPag();
   showToast('✅ Pagamento removido!');
   renderFiado();
+}
+
+async function editarPagFiado(id) {
+  const pags = await _loadFiadoPag();
+  const pag = pags.find(p => p.id === id);
+  if (!pag) return;
+  abrirFiadoPagEditModal(pag);
 }
 
 // Fecha modal clicando fora
@@ -2222,7 +2357,7 @@ function renderTable(){
   if(filtData) lista=lista.filter(l=>l.data===filtData);
   if(filtPr) lista=lista.filter(l=>l.pr===filtPr);
 
-  if(!lista.length){tb.innerHTML='<tr><td colspan="14" class="empty">Nenhum lançamento para os filtros selecionados.</td></tr>';return;}
+  if(!lista.length){tb.innerHTML='<tr><td colspan="14" class="empty">Nenhum lançamento para os filtros selecionados.</td></tr>';renderTotals();return;}
 
   // Agrupa por data+PR (ordem: data desc, PR asc)
   const grupos={};
@@ -2287,6 +2422,7 @@ function renderTable(){
       <td></td>
     </tr>`;
   }).join('');
+  renderTotals();
 }
 
 // ── MODAL GRUPO ──
@@ -2347,21 +2483,38 @@ function fecharGrupoLanc(){
 
 // ── TOTALS BAR ──
 function renderTotals(){
-  const today=new Date().toISOString().split('T')[0];
-  const t=lancamentos.filter(l=>l.data===today);
+  // Usa sempre window._lancamentos (fonte primária do Firebase)
+  const fonte = (window._lancamentos && window._lancamentos.length) ? window._lancamentos : lancamentos;
+
+  // Se houver filtro de data ativo, usa essa data; senão usa hoje
+  const filtDataEl = document.getElementById('lFiltData');
+  const filtData = filtDataEl ? filtDataEl.value : '';
+  const diaRef = filtData || hojeLocal();
+
+  // Atualiza labels dos cards
+  const sufixo = filtData ? (() => { const [y,m,d]=diaRef.split('-'); return d+'/'+m; })() : 'Hoje';
+  ['tlBotijoes','tlValor','tlUltra','tlButano','tlFiado'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = el.dataset.base + ' ' + sufixo;
+  });
+
+  const t = fonte.filter(l => l.data === diaRef);
+
   // Para fiado: soma apenas a 1ª linha de cada grupo (evita duplicação)
-  const vistosT=new Set();
-  const totalFiado=t.reduce((a,l)=>{
-    const vid=l.vendaId!=null?l.vendaId:l.id;
-    if(!vistosT.has(vid)){vistosT.add(vid);return a+(l.pag&&l.pag['Fiado']||0);}
+  const vistosT = new Set();
+  const totalFiado = t.reduce((a,l) => {
+    const vid = l.vendaId != null ? l.vendaId : l.id;
+    if (!vistosT.has(vid)) { vistosT.add(vid); return a + (l.pag && l.pag['Fiado'] || 0); }
     return a;
-  },0);
-  document.getElementById('tqtd').textContent=t.reduce((a,b)=>a+b.qtd,0);
-  document.getElementById('tval').textContent=fmtVal(t.reduce((a,b)=>a+b.total,0));
-  document.getElementById('tqultra').textContent=t.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.qtd,0);
-  document.getElementById('tqbutano').textContent=t.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.qtd,0);
-  document.getElementById('tfiado').textContent=fmtVal(totalFiado);
+  }, 0);
+  document.getElementById('tqtd').textContent    = t.reduce((a,b) => a + b.qtd, 0);
+  document.getElementById('tval').textContent    = fmtVal(t.reduce((a,b) => a + b.total, 0));
+  document.getElementById('tqultra').textContent = t.filter(l => l.marca === 'Ultragaz').reduce((a,b) => a + b.qtd, 0);
+  document.getElementById('tqbutano').textContent= t.filter(l => l.marca === 'Butano').reduce((a,b) => a + b.qtd, 0);
+  document.getElementById('tfiado').textContent  = fmtVal(totalFiado);
 }
+// Expõe globalmente
+window.renderTotals = renderTotals;
 
 // ── CHART INSTANCES ──
 let chartUltraInst=null, chartButanoInst=null, chartPRInst=null;
@@ -3127,7 +3280,7 @@ function getItensCarga(containerId) {
 
 // Configuração de modais de cargas — chamada dentro do _appInit (após Firebase carregar)
 function initCargasUI() {
-  document.getElementById('cData').value = new Date().toISOString().split('T')[0];
+  document.getElementById('cData').value = hojeLocal();
   buildItensCarga('cItensContainer', [{}]);
   calcVencimentoAuto();
   renderCargas();
@@ -3214,7 +3367,7 @@ function abrirFreteConfig() {
   }).join('');
 
   // Tabela de empresas e dias úteis
-  const hoje = new Date().toISOString().split('T')[0];
+  const hoje = hojeLocal();
   const tbody = document.getElementById('empresaDiasBody');
   tbody.innerHTML = EMPRESAS_VENC.map(e => {
     const dias = empresaDiasConfig[e.nome] != null ? empresaDiasConfig[e.nome] : e.diasPadrao;
@@ -3236,7 +3389,7 @@ function abrirFreteConfig() {
 function atualizarExemploDias(empresa) {
   const input = document.getElementById('dias_' + empresa);
   const dias = parseInt(input.value) || 5;
-  const hoje = new Date().toISOString().split('T')[0];
+  const hoje = hojeLocal();
   const venc = addDiasUteis(hoje, dias);
   const [y,m,d] = venc.split('-');
   document.getElementById('ex_' + empresa).textContent = d+'/'+m+'/'+y;
@@ -3426,7 +3579,7 @@ async function addCarga() {
   document.getElementById('cTransp').value = 'IVG TRANSPORTES';
   document.getElementById('cCaminhao').value = '';
   document.getElementById('cStatus').value = 'A VENCER';
-  document.getElementById('cData').value = new Date().toISOString().split('T')[0];
+  document.getElementById('cData').value = hojeLocal();
   buildItensCarga('cItensContainer', [{}]);
   numItensCarga = 1;
   calcVencimentoAuto();
@@ -3539,7 +3692,7 @@ function renderCargas() {
   const totalVencido = f.filter(c => c.status === 'VENCIDO').reduce((a, c) => a + (c.liquido || c.valor), 0);
 
   // ── Próximas a vencer (cargas A VENCER + PRORROGADO com vencimento futuro/próximo) ──
-  const hoje = new Date().toISOString().split('T')[0];
+  const hoje = hojeLocal();
   const proximas = cargas
     .filter(c => (c.status === 'A VENCER' || c.status === 'PRORROGADO') && c.venc)
     .sort((a, b) => a.venc.localeCompare(b.venc))
@@ -4093,7 +4246,7 @@ async function carregarInfoBackup() {
     const el = document.getElementById('backupMetaInfo');
     if (meta) {
       const [y,m,d] = meta.ultimo.split('-');
-      const hoje = new Date().toISOString().split('T')[0];
+      const hoje = hojeLocal();
       const diff = Math.floor((new Date(hoje) - new Date(meta.ultimo)) / 86400000);
       const proximo = 10 - diff;
       el.innerHTML = `
@@ -4144,7 +4297,7 @@ async function fazerBackupManual() {
   btn.textContent = '⏳ Salvando...';
   btn.disabled = true;
   try {
-    const hoje = new Date().toISOString().split('T')[0];
+    const hoje = hojeLocal();
     // Adiciona sufixo de hora para não sobrescrever backup do mesmo dia
     const label = hoje + '_' + new Date().toTimeString().slice(0,5).replace(':','-');
     await window._executarBackup(label);
