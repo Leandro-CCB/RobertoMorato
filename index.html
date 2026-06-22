@@ -95,17 +95,61 @@
     await fetch(`${BASE}/${col}/${id}?key=${KEY}`, { method: 'DELETE' });
   }
 
-  // Salva coleção inteira (apaga + reescreve)
+  // Salva coleção inteira (SEGURO: escreve primeiro, apaga órfãos depois)
   async function fsSaveCollection(col, arr, idFn) {
-    // Apaga existentes
-    const existing = await fsGetCollection(col);
-    await Promise.all(existing.map(d => fsDeleteDoc(col, d._fbId)));
-    // Escreve novos
+    // 1. Escreve/atualiza todos os itens PRIMEIRO
     await Promise.all(arr.map(item => {
       const { _fbId, ...data } = item;
       return fsSetDoc(col, String(idFn(item)), data);
     }));
+    // 2. Só depois remove documentos que não existem mais no array
+    try {
+      const existing = await fsGetCollection(col);
+      const idsNovos = new Set(arr.map(item => String(idFn(item))));
+      const paraRemover = existing.filter(d => !idsNovos.has(d._fbId));
+      if (paraRemover.length > 0) {
+        await Promise.all(paraRemover.map(d => fsDeleteDoc(col, d._fbId)));
+      }
+    } catch(e) {
+      console.warn('[fsSaveCollection] Não foi possível limpar órfãos:', e);
+      // Não lança erro — os dados já foram salvos com sucesso
+    }
   }
+
+  // ── Restaurar backup ────────────────────────────────────────────────
+  window._restaurarBackup = async function(nomeBackup) {
+    if (!nomeBackup) { alert('Informe o nome do backup.'); return; }
+    if (!confirm(`Restaurar backup "${nomeBackup}"?\n\nIsso vai SOBRESCREVER os lançamentos e cargas atuais com os dados do backup.`)) return;
+    showLoadingOverlay(true);
+    try {
+      const r = await fetch(`${BASE}/backups/${nomeBackup}?key=${KEY}`);
+      if (!r.ok) throw new Error('Backup não encontrado: ' + nomeBackup);
+      const doc = await r.json();
+      const backup = fromFSFields(doc.fields || {});
+
+      const lancs  = backup.lancamentos || [];
+      const cargas = backup.cargas || [];
+
+      // Salva lançamentos
+      await Promise.all(lancs.map(l => {
+        const { _fbId, ...data } = l;
+        return fsSetDoc('lancamentos', String(l.id), data);
+      }));
+      // Salva cargas
+      await Promise.all(cargas.map(c => {
+        const { _fbId, ...data } = c;
+        return fsSetDoc('cargas', String(c.id), data);
+      }));
+
+      alert(`✅ Backup "${nomeBackup}" restaurado!\n📦 ${lancs.length} lançamentos\n🚛 ${cargas.length} cargas\n\nA página será recarregada.`);
+      location.reload();
+    } catch(e) {
+      console.error('Erro ao restaurar backup:', e);
+      alert('❌ Erro ao restaurar: ' + e.message);
+    } finally {
+      showLoadingOverlay(false);
+    }
+  };
 
   // ── Loading overlay ─────────────────────────────────────────────────
   function showLoadingOverlay(show) {
@@ -179,7 +223,7 @@
       const diff  = ultimo
         ? Math.floor((new Date(hoje) - new Date(ultimo)) / 86400000)
         : 999;
-      if (diff >= 10) { await executarBackup(hoje); console.log('✅ Backup automático:', hoje); }
+      if (diff >= 2) { await executarBackup(hoje); console.log('✅ Backup automático:', hoje); }
     } catch(e) { console.warn('Backup automático falhou:', e); }
   }
 
@@ -202,6 +246,222 @@
     await carregarDados();
     await verificarEFazerBackup();
     if (window._appInit) window._appInit();
+  });
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     MÓDULO DE SEGURANÇA LOCAL — IndexedDB
+     Salva cópia local no navegador a cada alteração.
+     Funciona mesmo se o Firebase falhar ou ficar fora do ar.
+════════════════════════════════════════════════════════════════ -->
+<script>
+(function() {
+  'use strict';
+
+  const DB_NAME    = 'GasBertoniSeguranca';
+  const DB_VERSION = 1;
+  const STORE      = 'snapshots';
+  const MAX_SNAPS  = 30; // mantém os últimos 30 snapshots locais
+
+  let _db = null;
+
+  // ── Abre / inicializa o banco IndexedDB ──────────────────────────
+  function abrirDB() {
+    return new Promise((resolve, reject) => {
+      if (_db) { resolve(_db); return; }
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE)) {
+          const store = db.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+          store.createIndex('ts', 'ts', { unique: false });
+        }
+      };
+      req.onsuccess = e => { _db = e.target.result; resolve(_db); };
+      req.onerror   = e => { console.warn('[LocalSeg] IndexedDB erro:', e); reject(e); };
+    });
+  }
+
+  // ── Salva snapshot local ─────────────────────────────────────────
+  async function salvarSnapshotLocal(origem) {
+    try {
+      const db = await abrirDB();
+      const lancs  = (window._lancamentos || []).map(l => { const {_fbId,...r}=l; return r; });
+      const cargas = (window._cargas      || []).map(c => { const {_fbId,...r}=c; return r; });
+      if (!lancs.length && !cargas.length) return; // nada para salvar
+
+      const snap = {
+        ts:     Date.now(),
+        origem: origem || 'auto',
+        lancamentos: lancs,
+        cargas:      cargas,
+      };
+
+      const tx    = db.transaction(STORE, 'readwrite');
+      const store = tx.objectStore(STORE);
+      store.add(snap);
+
+      // Remove snapshots antigos além do limite
+      tx.oncomplete = async () => {
+        try {
+          const db2   = await abrirDB();
+          const tx2   = db2.transaction(STORE, 'readwrite');
+          const st2   = tx2.objectStore(STORE);
+          const todos = await new Promise(res => { const r=st2.getAll(); r.onsuccess=()=>res(r.result); });
+          if (todos.length > MAX_SNAPS) {
+            const remover = todos.sort((a,b)=>a.ts-b.ts).slice(0, todos.length - MAX_SNAPS);
+            remover.forEach(s => st2.delete(s.id));
+          }
+        } catch(e) {}
+      };
+    } catch(e) {
+      console.warn('[LocalSeg] Erro ao salvar snapshot local:', e);
+    }
+  }
+
+  // ── Lista snapshots locais ───────────────────────────────────────
+  async function listarSnapshotsLocais() {
+    try {
+      const db    = await abrirDB();
+      const tx    = db.transaction(STORE, 'readonly');
+      const store = tx.objectStore(STORE);
+      return await new Promise(res => {
+        const r = store.getAll();
+        r.onsuccess = () => res((r.result || []).sort((a,b) => b.ts - a.ts));
+        r.onerror   = () => res([]);
+      });
+    } catch(e) { return []; }
+  }
+
+  // ── Restaurar snapshot local → Firebase ─────────────────────────
+  window._restaurarSnapshotLocal = async function(snapId) {
+    if (!confirm('Restaurar este snapshot local?\n\nOs dados serão enviados de volta para o Firebase e a página vai recarregar.')) return;
+    try {
+      const db    = await abrirDB();
+      const tx    = db.transaction(STORE, 'readonly');
+      const store = tx.objectStore(STORE);
+      const snap  = await new Promise(res => {
+        const r = store.get(snapId);
+        r.onsuccess = () => res(r.result);
+        r.onerror   = () => res(null);
+      });
+      if (!snap) { alert('Snapshot não encontrado.'); return; }
+
+      // Envia para Firebase
+      const lancs  = snap.lancamentos || [];
+      const cargas = snap.cargas || [];
+      await Promise.all(lancs.map(l  => window._fbSetDoc('lancamentos', String(l.id),  l)));
+      await Promise.all(cargas.map(c => window._fbSetDoc('cargas',      String(c.id),  c)));
+
+      alert(`✅ Snapshot restaurado!\n📦 ${lancs.length} lançamentos\n🚛 ${cargas.length} cargas\n\nA página será recarregada.`);
+      location.reload();
+    } catch(e) {
+      alert('❌ Erro ao restaurar: ' + e.message);
+      console.error('[LocalSeg] Erro ao restaurar snapshot:', e);
+    }
+  };
+
+  // ── Exportar snapshot como JSON ──────────────────────────────────
+  window._exportarSnapshotLocal = function(snapId, label) {
+    abrirDB().then(db => {
+      const tx    = db.transaction(STORE, 'readonly');
+      const store = tx.objectStore(STORE);
+      const r     = store.get(snapId);
+      r.onsuccess = () => {
+        const snap = r.result;
+        if (!snap) return;
+        const json = JSON.stringify(snap, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `seguranca_local_${label}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+    });
+  };
+
+  // ── Abre modal de segurança local ───────────────────────────────
+  window.abrirModalSegLocal = async function() {
+    let modal = document.getElementById('segLocalModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'segLocalModal';
+      modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:700;align-items:center;justify-content:center;padding:16px;';
+      modal.innerHTML = `
+        <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:600px;max-height:88vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid #dde1ec;">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:#15803d;margin-bottom:6px;display:flex;align-items:center;gap:8px;">🛡️ Segurança Local</div>
+          <p style="font-size:12px;color:#6b7280;margin-bottom:6px;">Cópias salvas <strong>neste navegador</strong>, independentes do Firebase. Se o Firebase falhar, restaure daqui.</p>
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:#15803d;">
+            ✅ Salvo automaticamente a cada alteração nos lançamentos · Últimos <strong>30 snapshots</strong> mantidos
+          </div>
+          <div id="segLocalList" style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto;">
+            <div style="text-align:center;padding:24px;color:#9ca3af;font-size:12px;">Carregando...</div>
+          </div>
+          <div style="margin-top:16px;display:flex;justify-content:flex-end;">
+            <button onclick="document.getElementById('segLocalModal').style.display='none'"
+              style="background:#eef0f6;color:#1a1f36;border:1.5px solid #dde1ec;padding:9px 20px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
+              ✕ Fechar
+            </button>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      modal.addEventListener('click', e => { if (e.target === modal) modal.style.display='none'; });
+    }
+
+    modal.style.display = 'flex';
+
+    const list = document.getElementById('segLocalList');
+    list.innerHTML = '<div style="text-align:center;padding:24px;color:#9ca3af;font-size:12px;">Carregando snapshots...</div>';
+
+    const snaps = await listarSnapshotsLocais();
+    if (!snaps.length) {
+      list.innerHTML = '<div style="text-align:center;padding:24px;color:#9ca3af;font-size:12px;">Nenhum snapshot local ainda.<br>Será criado automaticamente na próxima alteração.</div>';
+      return;
+    }
+
+    list.innerHTML = snaps.map(s => {
+      const d   = new Date(s.ts);
+      const dia = d.toLocaleDateString('pt-BR');
+      const hr  = d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+      const origemIcon = s.origem === 'manual' ? '🖐️' : '🔄';
+      return `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f7f8fc;border:1px solid #dde1ec;border-radius:10px;flex-wrap:wrap;">
+          <div style="font-size:18px;flex-shrink:0;">${origemIcon}</div>
+          <div style="flex:1;min-width:130px;">
+            <div style="font-weight:700;font-size:13px;color:#1a1f36;">${dia} <span style="font-weight:400;color:#6b7280;font-size:11px;">às ${hr}</span></div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px;">
+              📦 ${s.lancamentos?.length||0} lançamentos · 🚛 ${s.cargas?.length||0} cargas
+              <span style="margin-left:6px;font-size:10px;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;border-radius:4px;padding:1px 6px;">${s.origem||'auto'}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button onclick="window._restaurarSnapshotLocal(${s.id})" title="Restaurar para o Firebase"
+              style="background:#dcfce7;color:#15803d;border:1.5px solid #bbf7d0;padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">
+              ♻️ Restaurar
+            </button>
+            <button onclick="window._exportarSnapshotLocal(${s.id},'${dia.replace(/\//g,'-')}_${hr.replace(/:/g,'-')}')" title="Baixar como JSON"
+              style="background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">
+              ⬇️ JSON
+            </button>
+          </div>
+        </div>`;
+    }).join('');
+  };
+
+  // ── Expõe função de snapshot para ser chamada ao salvar ─────────
+  window._salvarSnapshotLocal = salvarSnapshotLocal;
+
+  // Snapshot inicial ao carregar os dados do Firebase
+  document.addEventListener('DOMContentLoaded', () => {
+    const origInit = window._appInit;
+    window._appInit = async function() {
+      if (origInit) await origInit.apply(this, arguments);
+      // Snapshot após carregar dados do Firebase
+      setTimeout(() => salvarSnapshotLocal('carga-inicial'), 2000);
+    };
   });
 })();
 </script>
@@ -1326,13 +1586,20 @@ td{padding:9px 12px;vertical-align:middle;}
   <!-- Backup card no final da aba config -->
   <div class="card" style="border:1.5px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff 0%,#fff 60%);">
     <div class="section-title" style="color:var(--ultra);">🗄️ Backup dos Dados</div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">O backup automático é feito a cada <strong>10 dias</strong> ao abrir o sistema. Crie um backup manual sempre que precisar.</p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">O backup automático é feito a cada <strong>2 dias</strong> ao abrir o sistema. Crie um backup manual sempre que precisar.</p>
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
       <button onclick="abrirBackupModal()" style="background:var(--ultra);color:#fff;border:none;padding:10px 24px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;box-shadow:0 2px 8px rgba(29,78,216,.25);transition:all .18s;display:flex;align-items:center;gap:7px;"
         onmouseover="this.style.background='#1e40af'" onmouseout="this.style.background='var(--ultra)'">
         🗄️ Abrir Central de Backup
       </button>
+      <button onclick="abrirModalSegLocal()" style="background:#dcfce7;color:#15803d;border:1.5px solid #bbf7d0;padding:10px 24px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:7px;transition:all .18s;"
+        onmouseover="this.style.background='#bbf7d0'" onmouseout="this.style.background='#dcfce7'">
+        🛡️ Segurança Local
+      </button>
     </div>
+    <p style="font-size:11px;color:#15803d;margin-top:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:8px 12px;">
+      🛡️ <strong>Segurança Local ativa:</strong> uma cópia é salva automaticamente neste navegador a cada alteração. Se o Firebase falhar, acesse "Segurança Local" para restaurar.
+    </p>
   </div>
 </div>
 
@@ -1855,7 +2122,14 @@ async function save() {
   window._lancamentos = lancamentos; // sincroniza antes de salvar
   try {
     await window._saveLancamentos();
-  } catch(e) { console.error('Erro ao salvar lançamentos:', e); }
+    // Snapshot local automático a cada salvamento no Firebase
+    if (window._salvarSnapshotLocal) window._salvarSnapshotLocal('auto');
+  } catch(e) {
+    console.error('Erro ao salvar lançamentos:', e);
+    // Mesmo se o Firebase falhar, salva snapshot local de emergência
+    if (window._salvarSnapshotLocal) window._salvarSnapshotLocal('emergencia-firebase-falhou');
+    showToast('\u26a0\ufe0f Erro ao salvar no Firebase! C\u00f3pia local salva.');
+  }
 }
 
 // ── FORMAT ──
@@ -4274,19 +4548,25 @@ async function carregarInfoBackup() {
       return;
     }
     list.innerHTML = backups.map(b => {
-      const [y,m,d] = b.data.split('-');
-      const ts = new Date(b.criadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      const [y,m,d] = (b.data||'').split('-');
+      const ts = b.criadoEm ? new Date(b.criadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '--:--';
       return `
-        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
           <div style="font-size:20px;flex-shrink:0;">🗄️</div>
-          <div style="flex:1;">
-            <div style="font-weight:700;font-size:13px;color:var(--text)">${d}/${m}/${y} <span style="font-size:10px;color:var(--muted);font-weight:400">às ${ts}</span></div>
+          <div style="flex:1;min-width:140px;">
+            <div style="font-weight:700;font-size:13px;color:var(--text)">${d||'??'}/${m||'??'}/${y||'??'} <span style="font-size:10px;color:var(--muted);font-weight:400">às ${ts}</span></div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px">${b.lancamentos?.length||0} lançamentos · ${b.cargas?.length||0} cargas</div>
           </div>
-          <button onclick="baixarBackup('${b.data}')" title="Baixar como JSON"
-            style="background:var(--ultra-light);color:var(--ultra);border:1.5px solid #bfdbfe;padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">
-            ⬇️ JSON
-          </button>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button onclick="window._restaurarBackup('${b.data}')" title="Restaurar este backup"
+              style="background:#dcfce7;color:var(--success);border:1.5px solid #bbf7d0;padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">
+              ♻️ Restaurar
+            </button>
+            <button onclick="baixarBackup('${b.data}')" title="Baixar como JSON"
+              style="background:var(--ultra-light);color:var(--ultra);border:1.5px solid #bfdbfe;padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">
+              ⬇️ JSON
+            </button>
+          </div>
         </div>`;
     }).join('');
   } catch(e) { console.error(e); }
@@ -4743,7 +5023,7 @@ document.addEventListener('DOMContentLoaded', function(){
 <div id="backupModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;align-items:center;justify-content:center;padding:16px;">
   <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid var(--border);">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:8px;">🗄️ Backup dos Dados</div>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:18px;">O backup automático é feito a cada <strong>10 dias</strong> ao abrir o sistema. Você também pode criar um backup manual agora.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:18px;">O backup automático é feito a cada <strong>2 dias</strong> ao abrir o sistema. Você também pode criar um backup manual agora.</p>
 
     <!-- Info último backup -->
     <div id="backupMetaInfo" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--muted);">
