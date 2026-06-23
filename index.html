@@ -553,26 +553,45 @@ function showTab(name, btn) {
   --shadow-hover:0 4px 16px rgba(0,0,0,.12);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;}
+#main-content{flex:1;min-width:0;overflow-y:auto;}
 
-/* ── HEADER ── */
+/* ── SIDEBAR ── */
 header{
+  width:210px;min-width:210px;
   background:#fff;
-  border-bottom:1px solid var(--border);
-  box-shadow:0 2px 8px rgba(0,0,0,.06);
-  padding:0 20px;
-  display:flex;align-items:center;gap:14px;height:56px;
-  position:sticky;top:0;z-index:100;
+  border-right:1px solid var(--border);
+  box-shadow:2px 0 10px rgba(0,0,0,.07);
+  display:flex;flex-direction:column;align-items:stretch;
+  position:sticky;top:0;height:100vh;z-index:100;overflow-y:auto;
 }
-.logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--accent);white-space:nowrap;}
-.logo span{color:var(--text);}
-.tabs{display:flex;gap:3px;margin-left:auto;flex-wrap:wrap;}
-.tab-btn{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:7px 16px;border:none;border-radius:8px;cursor:pointer;letter-spacing:.4px;text-transform:uppercase;transition:all .18s;background:transparent;color:var(--muted);}
-.tab-btn.active{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(224,123,0,.3);}
+.logo{
+  padding:10px 12px 6px;
+  display:flex;align-items:center;justify-content:center;
+  min-height:110px;
+}
+.logo img{
+  width:100%;max-width:190px;height:auto;display:block;
+}
+.logo-fallback{
+  display:none;
+  font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1.5px;
+  color:#1d4ed8;line-height:1.25;
+}
+.logo-fallback span{display:block;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:.3px;margin-top:4px;}
+.tabs{display:flex;flex-direction:column;gap:3px;padding:12px 10px;flex:1;}
+.tab-btn{
+  font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;
+  padding:12px 14px;border:none;border-radius:9px;cursor:pointer;
+  letter-spacing:.3px;text-transform:uppercase;transition:all .18s;
+  background:transparent;color:var(--muted);text-align:left;width:100%;
+  display:flex;align-items:center;gap:9px;
+}
+.tab-btn.active{background:var(--accent);color:#fff;box-shadow:0 2px 10px rgba(224,123,0,.35);}
 .tab-btn:not(.active):hover{background:var(--surface3);color:var(--text);}
 
 /* ── PAGES ── */
-.page{display:none;padding:20px;max-width:1400px;margin:0 auto;}
+.page{display:none;padding:20px 24px;max-width:100%;}
 .page.active{display:block;}
 
 /* ── TITLES ── */
@@ -580,7 +599,7 @@ header{
 .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
 
 /* ── CARD ── */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px;box-shadow:var(--shadow);}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:16px;box-shadow:var(--shadow);}
 
 /* ── INPUTS ── */
 .form-group{display:flex;flex-direction:column;gap:5px;}
@@ -618,12 +637,12 @@ select option{background:#fff;}
 .pay-col input{text-align:right;padding:9px 8px;font-size:13px;}
 
 /* ── TOTALS BAR ── */
-.totals-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
-.total-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:9px;box-shadow:var(--shadow);flex:1;min-width:140px;}
-.t-icon{font-size:20px;flex-shrink:0;line-height:1;}
-.t-info{display:flex;flex-direction:column;gap:1px;}
-.t-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);}
-.t-value{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--accent);letter-spacing:.5px;line-height:1.1;}
+.totals-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px;}
+.total-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);}
+.t-icon{font-size:22px;flex-shrink:0;line-height:1;}
+.t-info{display:flex;flex-direction:column;gap:2px;}
+.t-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);}
+.t-value{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--accent);letter-spacing:.5px;line-height:1.1;}
 .t-value.green{color:var(--success);}
 .t-value.blue{color:var(--ultra);}
 .t-value.red{color:var(--danger);}
@@ -659,17 +678,17 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
 .filter-row .form-group{min-width:140px;flex:1;}
 
 /* ── SUMMARY GLOBAL ── */
-.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:20px;}
-.summary-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);}
-.s-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px;}
-.s-value{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--accent);}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:20px;}
+.summary-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);}
+.s-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px;}
+.s-value{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--accent);}
 .s-value.green{color:var(--success);}
 .s-value.blue{color:var(--ultra);}
 .s-value.red{color:var(--danger);}
 .s-value.bgreen{color:var(--butano);}
 
 /* ── PR CARDS GRID ── */
-.pr-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:20px;}
+.pr-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-bottom:20px;}
 
 .pr-card{
   background:#fff;
@@ -929,10 +948,17 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
 .carga-form-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
 
 @media(max-width:700px){
+  body{flex-direction:column;}
+  header{width:100%;min-width:0;height:auto;position:sticky;top:0;flex-direction:column;border-right:none;border-bottom:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,.06);}
+  .logo{padding:8px 14px 8px;justify-content:flex-start;min-height:auto;}
+  .logo img{max-width:160px;}
+  .tabs{flex-direction:row;flex-wrap:wrap;padding:6px 8px;gap:3px;}
+  .tab-btn{padding:7px 10px;font-size:11px;width:auto;text-align:center;gap:5px;}
+  #main-content{overflow-y:unset;}
+  .totals-bar{grid-template-columns:repeat(2,1fr);}
   .pay-grid{grid-template-columns:repeat(4,1fr);}
   .header-row,.linha-row{grid-template-columns:70px 110px 120px 1fr;}
   .pr-cards-grid{grid-template-columns:1fr;}
-  .tab-btn{padding:6px 10px;font-size:11px;}
   .charts-grid{grid-template-columns:1fr;}
   .proximas-list{grid-template-columns:1fr;}
 }
@@ -941,7 +967,16 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
 <body>
 
 <header>
-  <div class="logo">🔥 Grupo Bertoni <span style="font-size:14px;letter-spacing:1px;font-family:'DM Sans',sans-serif;font-weight:600;color:var(--muted);text-transform:none"> — Controle PR Morato</span></div>
+  <div class="logo">
+    <img
+      src="logo.png"
+      srcset="logo.png 1x, logo@2x.png 2x"
+      alt="Grupo Bertoni — Controle Roberto"
+      width="190" height="auto"
+      onerror="this.style.display='none';this.nextElementSibling.style.display='block';"
+    >
+    <div class="logo-fallback">🔵 Grupo Bertoni<span>— Controle Roberto</span></div>
+  </div>
   <div class="tabs">
     <button class="tab-btn active" onclick="showTab('lancamento',this)">📋 Lançamento</button>
     <button class="tab-btn" onclick="showTab('resumo',this)">📊 Resumo</button>
@@ -951,6 +986,7 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     <button class="tab-btn" onclick="showTab('config',this)">⚙️ Config</button>
   </div>
 </header>
+<div id="main-content">
 
 <!-- ==================== LANÇAMENTO ==================== -->
 <div id="tab-lancamento" class="page active">
@@ -5201,5 +5237,6 @@ document.addEventListener('DOMContentLoaded', function(){
   </div>
 </div>
 
+</div><!-- /#main-content -->
 </body>
 </html>
