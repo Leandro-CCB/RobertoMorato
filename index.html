@@ -23,6 +23,30 @@
 <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<!-- ── Funções globais declaradas ANTES dos módulos para evitar ReferenceError ── -->
+<script>
+// DATA LOCAL (sem bug de fuso UTC) — declarada aqui para ser acessível a todos os módulos
+function hojeLocal() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+// showTab — declarada aqui para estar disponível nos onclick dos botões de aba
+function showTab(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'resumo') { if (typeof renderResumo === 'function') renderResumo(); }
+  if (name === 'cargas') { if (typeof renderCargas === 'function') renderCargas(); }
+  if (name === 'margem') { if (typeof renderMargem === 'function') renderMargem(); }
+  if (name === 'fiado')  { if (typeof renderFiado  === 'function') renderFiado(); }
+}
+</script>
+
 <!-- Firebase via REST API — funciona com file:// sem CDN externo -->
 <script>
 (function() {
@@ -923,7 +947,7 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     <button class="tab-btn" onclick="showTab('resumo',this)">📊 Resumo</button>
     <button class="tab-btn" onclick="showTab('cargas',this)">🚛 Cargas</button>
     <button class="tab-btn" onclick="showTab('margem',this)">📈 Margem</button>
-    <button class="tab-btn" onclick="showTab('fiado',this);renderFiado()">📒 Fiado</button>
+    <button class="tab-btn" onclick="showTab('fiado',this)">📒 Fiado</button>
     <button class="tab-btn" onclick="showTab('config',this)">⚙️ Config</button>
   </div>
 </header>
@@ -1775,16 +1799,8 @@ const PAY_FIELDS = ['Espécie','Débito','Crédito','QR Code','Pix','Moeda','Fia
 const PAY_IDS    = ['pEspecie','pDebito','pCredito','pQrCode','pPix','pMoeda','pFiado','pGasPovo','pSobrasAnt'];
 const PAY_EMOJIS = {'Espécie':'💵','Débito':'💳','Crédito':'💳','QR Code':'📱','Pix':'⚡','Moeda':'🪙','Fiado':'📒','Gás do Povo':'🔥','Sobras Anteriores':'🏦'};
 
-// ── DATA LOCAL (sem bug de fuso UTC) ─────────────────────────────────────
-// new Date().toISOString() usa UTC — no Brasil (UTC-3) isso causa a data errada
-// após as 21h. hojeLocal() sempre retorna a data no fuso do navegador do usuário.
-function hojeLocal() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
-}
+// ── hojeLocal() — declarada globalmente no <head> para ser acessível a todos os módulos ──
+// (definição movida para o primeiro <script> do <head> — veja o início do arquivo)
 
 // Variáveis de estado — preenchidas pelo módulo Firebase antes de _appInit
 let lancamentos  = [];
@@ -3259,16 +3275,7 @@ async function excluirPR(pr){
   showToast(`🗑️ PR "${pr}" excluído!`);
 }
 
-// ── TABS ──
-function showTab(name,btn){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('tab-'+name).classList.add('active');
-  btn.classList.add('active');
-  if(name==='resumo') renderResumo();
-  if(name==='cargas') renderCargas();
-  if(name==='margem') renderMargem();
-}
+// ── showTab() — declarada globalmente no <head> (veja o primeiro <script>) ──
 
 // ── TOAST ──
 function showToast(msg){
@@ -4405,7 +4412,7 @@ function exportarPDFCargas() {
 <!-- ══════════════════════════════════════════════════════════
      REGISTRO DO SERVICE WORKER (PWA)
 ════════════════════════════════════════════════════════════ -->
-<script>
+<\u0073cript>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
@@ -4454,7 +4461,7 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('offline', atualizarStatusOnline);
   atualizarStatusOnline();
 }
-</script>
+<\/script>
 
 </body></html>`;
 
