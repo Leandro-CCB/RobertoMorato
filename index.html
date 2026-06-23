@@ -2,8 +2,25 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Grupo Bertoni — Controle Personalizado dos PR de Morato</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Grupo Bertoni — Controle PR Morato</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#e07b00">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Bertoni PR">
+<meta name="application-name" content="Bertoni PR">
+<meta name="msapplication-TileColor" content="#e07b00">
+<meta name="msapplication-TileImage" content="icons/icon-144.png">
+
+<!-- Ícones -->
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <!-- Firebase via REST API — funciona com file:// sem CDN externo -->
@@ -95,25 +112,41 @@
     await fetch(`${BASE}/${col}/${id}?key=${KEY}`, { method: 'DELETE' });
   }
 
-  // Salva coleção inteira (SEGURO: escreve primeiro, apaga órfãos depois)
+  // Salva coleção inteira (SEGURO: escreve primeiro, apaga órfãos depois em background)
   async function fsSaveCollection(col, arr, idFn) {
     // 1. Escreve/atualiza todos os itens PRIMEIRO
     await Promise.all(arr.map(item => {
       const { _fbId, ...data } = item;
       return fsSetDoc(col, String(idFn(item)), data);
     }));
-    // 2. Só depois remove documentos que não existem mais no array
-    try {
-      const existing = await fsGetCollection(col);
-      const idsNovos = new Set(arr.map(item => String(idFn(item))));
-      const paraRemover = existing.filter(d => !idsNovos.has(d._fbId));
-      if (paraRemover.length > 0) {
-        await Promise.all(paraRemover.map(d => fsDeleteDoc(col, d._fbId)));
+    // 2. Limpa órfãos em BACKGROUND (não bloqueia o retorno para o usuário)
+    setTimeout(async () => {
+      try {
+        const existing = await fsGetCollection(col);
+        const idsNovos = new Set(arr.map(item => String(idFn(item))));
+        const paraRemover = existing.filter(d => !idsNovos.has(d._fbId));
+        if (paraRemover.length > 0) {
+          await Promise.all(paraRemover.map(d => fsDeleteDoc(col, d._fbId)));
+          console.log(`[fsSaveCollection] ${paraRemover.length} órfão(s) removido(s) de "${col}"`);
+        }
+      } catch(e) {
+        console.warn('[fsSaveCollection] Não foi possível limpar órfãos:', e);
       }
-    } catch(e) {
-      console.warn('[fsSaveCollection] Não foi possível limpar órfãos:', e);
-      // Não lança erro — os dados já foram salvos com sucesso
-    }
+    }, 0);
+  }
+
+  // Salva apenas documentos específicos (rápido, sem varrer a coleção)
+  async function fsSaveDocs(col, items, idFn) {
+    await Promise.all(items.map(item => {
+      const { _fbId, ...data } = item;
+      return fsSetDoc(col, String(idFn(item)), data);
+    }));
+  }
+
+  // Remove documentos específicos por ID
+  async function fsDeleteDocs(col, ids) {
+    if (!ids.length) return;
+    await Promise.all(ids.map(id => fsDeleteDoc(col, String(id))));
   }
 
   // ── Restaurar backup ────────────────────────────────────────────────
@@ -231,8 +264,13 @@
   window._fbSetDoc  = fsSetDoc;
   window._fbGetDoc  = fsGetDoc;
 
-  window._saveLancamentos = () => fsSaveCollection('lancamentos', window._lancamentos || [], l => l.id);
-  window._saveCargas      = () => fsSaveCollection('cargas',      window._cargas      || [], c => c.id);
+  window._saveLancamentos       = () => fsSaveCollection('lancamentos', window._lancamentos || [], l => l.id);
+  window._saveCargas            = () => fsSaveCollection('cargas',      window._cargas      || [], c => c.id);
+  // Versões rápidas: salvam apenas os docs passados, sem varrer a coleção
+  window._saveLancamentosDocs   = (items) => fsSaveDocs('lancamentos', items, l => l.id);
+  window._deleteLancamentosIds  = (ids)   => fsDeleteDocs('lancamentos', ids);
+  window._saveCargasDocs        = (items) => fsSaveDocs('cargas', items, c => c.id);
+  window._deleteCargasIds       = (ids)   => fsDeleteDocs('cargas', ids);
   window._savePRs         = (list) => fsSetDoc('config', 'prs', { lista: list });
 
   window._executarBackup  = executarBackup;
@@ -576,19 +614,19 @@ select option{background:#fff;}
 /* ── BUTTONS ── */
 .btn-primary{background:var(--accent);color:#fff;border:none;padding:11px 26px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .18s;box-shadow:0 2px 8px rgba(224,123,0,.25);}
 .btn-primary:hover{background:#c96d00;transform:translateY(-1px);box-shadow:0 4px 14px rgba(224,123,0,.35);}
-.btn-sm-del{background:transparent;color:var(--danger);border:1.5px solid var(--border);padding:6px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;transition:all .18s;}
-.btn-sm-del:hover{border-color:var(--danger);background:var(--danger-light);}
+.btn-sm-del{background:var(--danger-light);color:var(--danger);border:1.5px solid #fca5a5;padding:3px 6px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;transition:all .18s;}
+.btn-sm-del:hover{border-color:var(--danger);background:#fee2e2;transform:scale(1.05);}
 
 /* ── TABLE ── */
 .table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);}
-table{width:100%;border-collapse:collapse;font-size:12px;}
+table{width:100%;border-collapse:collapse;font-size:11px;}
 thead{background:var(--surface3);}
-thead th{padding:9px 12px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+thead th{padding:7px 5px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
 tbody tr{border-bottom:1px solid var(--border);transition:background .12s;background:#fff;}
 tbody tr:last-child{border-bottom:none;}
 tbody tr:hover{background:var(--surface2);}
-td{padding:9px 12px;vertical-align:middle;}
-.badge{display:inline-block;padding:3px 9px;border-radius:10px;font-size:10px;font-weight:700;}
+td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
+.badge{display:inline-block;padding:2px 6px;border-radius:8px;font-size:9px;font-weight:700;}
 .badge-ultra{background:var(--ultra-light);color:var(--ultra);border:1px solid #bfdbfe;}
 .badge-butano{background:var(--butano-light);color:var(--butano);border:1px solid #bbf7d0;}
 
@@ -696,7 +734,7 @@ td{padding:9px 12px;vertical-align:middle;}
 .empty{text-align:center;padding:32px;color:var(--muted2);font-size:13px;}
 
 /* ── EDIT BUTTON ── */
-.btn-sm-edit{background:transparent;color:var(--ultra);border:1.5px solid var(--border);padding:6px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;transition:all .18s;margin-right:4px;}
+.btn-sm-edit{background:transparent;color:var(--ultra);border:1.5px solid var(--border);padding:3px 6px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;transition:all .18s;}
 .btn-sm-edit:hover{border-color:var(--ultra);background:var(--ultra-light);}
 .btn-pdf{background:var(--danger);color:#fff;border:none;padding:11px 22px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .18s;box-shadow:0 2px 8px rgba(220,38,38,.25);}
 .btn-pdf:hover{background:#b91c1c;transform:translateY(-1px);}
@@ -986,8 +1024,8 @@ td{padding:9px 12px;vertical-align:middle;}
       <table>
         <thead>
           <tr>
-            <th>Data</th><th>PR</th><th>Qtd P13</th><th>Total Vendas</th>
-            <th>Marcas</th><th>Espécie</th><th>Débito</th><th>Crédito</th><th>QR Code</th><th>Pix</th><th>Moeda</th><th>Fiado</th><th>Gás do Povo</th><th>Sobras Ant.</th><th>Total Pago</th><th></th>
+            <th>Data</th><th>PR</th><th>Qtd</th><th>Total Vendas</th>
+            <th>Marcas</th><th>Espécie</th><th>Débito</th><th>Crédito</th><th>QR Code</th><th>Pix</th><th>Moeda</th><th>Fiado</th><th>Gás do Povo</th><th>Sobras Ant.</th><th>Total Pago</th><th>Ações</th>
           </tr>
         </thead>
         <tbody id="tbodyLanc">
@@ -2095,11 +2133,14 @@ async function addLancamento(){
     }
     const now=Date.now();
     const vendaId=now;
-    linhas.forEach((l,idx)=>lancamentos.push({
-      id:now+idx, vendaId, data, pr, ...l,
-      pag: idx===0 ? pag : Object.fromEntries(PAY_FIELDS.map(f=>[f,0]))
-    }));
-    await save(); renderTable(); renderTotals();
+    const novasLinhas=[];
+    linhas.forEach((l,idx)=>{
+      const novoLanc={id:now+idx, vendaId, data, pr, ...l,
+        pag: idx===0 ? pag : Object.fromEntries(PAY_FIELDS.map(f=>[f,0]))};
+      lancamentos.push(novoLanc);
+      novasLinhas.push(novoLanc);
+    });
+    await save({type:'add', items:novasLinhas}); renderTable(); renderTotals();
     showToast(`✓ ${linhas.length} linha(s) registrada(s)!`);
     buildLinhas();
     PAY_IDS.forEach(id=>document.getElementById(id).value='');
@@ -2114,14 +2155,38 @@ async function addLancamento(){
 async function deleteLanc(id){
   if(!confirm('Remover este lançamento?')) return;
   lancamentos=lancamentos.filter(l=>l.id!==id);
-  await save(); renderTable(); renderTotals();
+  await save({type:'delete', ids:[id]}); renderTable(); renderTotals();
+}
+
+// ── DELETE GRUPO COMPLETO (data + PR) ──
+async function excluirGrupoLanc(data, pr){
+  const itens = lancamentos.filter(l => l.data === data && l.pr === pr);
+  if (!itens.length) return;
+  const dataFmt = fmtDate(data);
+  if (!confirm(`⚠️ Excluir TODOS os ${itens.length} lançamento(s) de "${pr}" em ${dataFmt}?\n\nEssa ação não pode ser desfeita.`)) return;
+  const idsRemovidos = itens.map(l => l.id);
+  lancamentos = lancamentos.filter(l => !(l.data === data && l.pr === pr));
+  await save({type:'delete', ids:idsRemovidos}); renderTable(); renderTotals();
+  showToast(`🗑️ Lançamento de ${pr} (${dataFmt}) excluído!`);
 }
 
 // ── SAVE (Firebase) ──
-async function save() {
+// _saveContext: { type: 'add', items: [...] }   → salva só os novos/alterados
+//               { type: 'delete', ids: [...] }  → remove só os deletados
+//               { type: 'full' }                → reescreve tudo (fallback)
+async function save(_saveContext) {
   window._lancamentos = lancamentos; // sincroniza antes de salvar
   try {
-    await window._saveLancamentos();
+    if (_saveContext && _saveContext.type === 'add' && _saveContext.items && _saveContext.items.length) {
+      // RÁPIDO: salva só os docs novos/alterados
+      await window._saveLancamentosDocs(_saveContext.items);
+    } else if (_saveContext && _saveContext.type === 'delete' && _saveContext.ids && _saveContext.ids.length) {
+      // RÁPIDO: remove só os docs deletados
+      await window._deleteLancamentosIds(_saveContext.ids);
+    } else {
+      // FALLBACK: reescreve tudo (ex: edição complexa)
+      await window._saveLancamentos();
+    }
     // Snapshot local automático a cada salvamento no Firebase
     if (window._salvarSnapshotLocal) window._salvarSnapshotLocal('auto');
   } catch(e) {
@@ -2677,9 +2742,9 @@ function renderTable(){
     // Key para o botão (escapado para JSON)
     const keyEsc=JSON.stringify(g.data+'__'+g.pr).replace(/'/g,"\'");
 
-  return `<tr style="cursor:pointer;" onclick="abrirGrupoLanc('${g.data}','${g.pr}')">
+  return `<tr>
       <td>${fmtDate(g.data)}</td>
-      <td style="font-weight:700;white-space:nowrap">${g.pr} <button class="btn-sm-edit" title="Editar venda" onclick="event.stopPropagation();event.preventDefault();carregarEdicaoNoForm('${g.data}','${g.pr}');return false;" style="vertical-align:middle;margin-left:4px;">✏️</button></td>
+      <td style="font-weight:700;white-space:nowrap"><button class="btn-sm-edit" title="Editar venda" onclick="carregarEdicaoNoForm('${g.data}','${g.pr}')" style="vertical-align:middle;margin-right:5px;">✏️</button>${g.pr}</td>
       <td style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--text)">${qtdTotal}</td>
       <td style="font-weight:700;color:var(--success)">${fmtVal(valorTotal)}</td>
       <td>${marcaBadges}</td>
@@ -2693,7 +2758,9 @@ function renderTable(){
       <td style="color:var(--muted)">${pagGasPovo>0?fmtVal(pagGasPovo):'-'}</td>
       <td style="color:var(--muted)">${pagSobrasAnt>0?fmtVal(pagSobrasAnt):'-'}</td>
       <td style="font-weight:700;color:var(--accent)">${totalPago>0?fmtVal(totalPago):'-'}</td>
-      <td></td>
+      <td style="white-space:nowrap">
+        <button class="btn-sm-del" title="Excluir lançamento completo" onclick="event.stopPropagation();event.preventDefault();excluirGrupoLanc('${g.data}','${g.pr}');return false;">🗑️</button>
+      </td>
     </tr>`;
   }).join('');
   renderTotals();
@@ -2741,7 +2808,7 @@ function abrirEdicaoGrupo(){
 async function deleteLancGrupo(id,data,pr){
   if(!confirm('Remover este lançamento?')) return;
   lancamentos=lancamentos.filter(l=>l.id!==id);
-  await save(); renderTable(); renderTotals();
+  await save({type:'delete', ids:[id]}); renderTable(); renderTotals();
   // Reabre modal se ainda há itens do grupo
   const restantes=lancamentos.filter(l=>l.data===data&&l.pr===pr);
   if(restantes.length) abrirGrupoLanc(data,pr);
@@ -3553,11 +3620,35 @@ function getItensCarga(containerId) {
 }
 
 // Configuração de modais de cargas — chamada dentro do _appInit (após Firebase carregar)
+// ── AUTO-MARCAR PAGO: vencimento >= 3 dias atrás ────────────────
+async function autoMarcarPago() {
+  const hoje = hojeLocal();
+  const limite = new Date(hoje + 'T12:00:00');
+  limite.setDate(limite.getDate() - 3);
+  const limiteStr = limite.toISOString().split('T')[0];
+  let alterou = false;
+  cargas.forEach(c => {
+    if (
+      (c.status === 'A VENCER' || c.status === 'VENCIDO' || c.status === 'PRORROGADO') &&
+      c.venc && c.venc <= limiteStr
+    ) {
+      c.status = 'PAGO';
+      alterou = true;
+    }
+  });
+  if (alterou) {
+    window._cargas = cargas;
+    await saveCargas();
+    showToast('✅ Cargas vencidas há 3+ dias marcadas como PAGO!');
+    console.log('[auto-pago] Atualizado no Firebase.');
+  }
+}
+
 function initCargasUI() {
   document.getElementById('cData').value = hojeLocal();
   buildItensCarga('cItensContainer', [{}]);
   calcVencimentoAuto();
-  renderCargas();
+  autoMarcarPago().then(() => renderCargas());
   document.getElementById('editCargaModal').addEventListener('click', function(e){
     if(e.target === this) fecharCargaModal();
   });
@@ -4310,7 +4401,62 @@ function exportarPDFCargas() {
       <button onclick="window.close()" style="background:#f0f2f7;color:#374151;border:1px solid #dde1ec;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✕ Fechar</button>
     </div>
   </div>
-  </body></html>`;
+  
+<!-- ══════════════════════════════════════════════════════════
+     REGISTRO DO SERVICE WORKER (PWA)
+════════════════════════════════════════════════════════════ -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+      console.log('[PWA] Service Worker registrado:', reg.scope);
+
+      // Detecta atualização disponível
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            // Nova versão disponível — avisa o usuário
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1f36;color:#fff;padding:12px 24px;border-radius:10px;font-family:DM Sans,sans-serif;font-size:13px;font-weight:600;z-index:9999;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);';
+            toast.innerHTML = '🔄 Nova versão disponível! <button onclick="location.reload()" style="background:#e07b00;color:#fff;border:none;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">Atualizar</button>';
+            document.body.appendChild(toast);
+          }
+        });
+      });
+    } catch (err) {
+      console.warn('[PWA] Service Worker não registrado:', err);
+    }
+  });
+
+  // Controla estado online/offline
+  function atualizarStatusOnline() {
+    const online = navigator.onLine;
+    let badge = document.getElementById('pwa-online-badge');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = 'pwa-online-badge';
+      badge.style.cssText = 'position:fixed;top:8px;right:8px;padding:4px 10px;border-radius:20px;font-family:DM Sans,sans-serif;font-size:10px;font-weight:700;z-index:9998;transition:all .3s;letter-spacing:.4px;';
+      document.body.appendChild(badge);
+    }
+    if (online) {
+      badge.style.display = 'none';
+    } else {
+      badge.style.display = 'block';
+      badge.style.background = '#fef2f2';
+      badge.style.color = '#dc2626';
+      badge.style.border = '1.5px solid #fca5a5';
+      badge.textContent = '⚡ Offline — dados em cache';
+    }
+  }
+  window.addEventListener('online',  atualizarStatusOnline);
+  window.addEventListener('offline', atualizarStatusOnline);
+  atualizarStatusOnline();
+}
+</script>
+
+</body></html>`;
 
   const blob = new Blob([html], { type: 'text/html' });
   const url  = URL.createObjectURL(blob);
