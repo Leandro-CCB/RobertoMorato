@@ -616,6 +616,7 @@ select option{background:#fff;}
 .header-row label{text-align:center;}
 .linha-row{display:grid;grid-template-columns:90px 140px 150px 1fr;gap:8px;align-items:center;margin-bottom:8px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;transition:border .18s;}
 .linha-row:focus-within{border-color:var(--accent);}
+.linha-row .prod-chips-row{grid-column:1/-1;}
 .carga-item-row{display:grid;grid-template-columns:110px 1fr 32px;gap:8px;align-items:center;margin-bottom:8px;padding:9px 4px 9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;transition:border .18s;}
 .carga-item-row:focus-within{border-color:var(--accent);}
 .btn-rm-linha{background:var(--danger-light);color:var(--danger);border:1.5px solid #fca5a5;border-radius:7px;width:30px;height:30px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;padding:0;}
@@ -672,6 +673,15 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
 .badge{display:inline-block;padding:2px 6px;border-radius:8px;font-size:9px;font-weight:700;}
 .badge-ultra{background:var(--ultra-light);color:var(--ultra);border:1px solid #bfdbfe;}
 .badge-butano{background:var(--butano-light);color:var(--butano);border:1px solid #bbf7d0;}
+.badge-produto{background:#FEF3C7;color:#92400E;border:1px solid #FCD34D;}
+
+/* ── PRODUTO AVULSO ── */
+.brand-btn.produto{border-color:#F59E0B;color:#92400E;}
+.brand-btn.produto.active{background:#FEF3C7;border-color:#F59E0B;color:#92400E;}
+.prod-chips-row{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0 2px 0;grid-column:1/-1;}
+.prod-chip{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .15s;}
+.prod-chip:hover{border-color:#F59E0B;color:#92400E;background:#FFFBEB;}
+.prod-chip.ativo{background:#F59E0B;color:#fff;border-color:#D97706;font-weight:700;}
 
 /* ── FILTER ROW ── */
 .filter-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:16px;}
@@ -1050,6 +1060,15 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     <div style="margin-top:8px;font-size:12px;color:var(--muted);display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
       Total informado no pagamento: <span id="pagTotal" style="color:var(--accent);font-weight:700">R$ 0,00</span>
       <span id="pagSobra" style="display:none;font-size:12px;font-weight:700;padding:3px 10px;border-radius:6px;"></span>
+    </div>
+
+    <!-- Painel de pergunta: sobra ou falta -->
+    <div id="painelSobraFalta" style="display:none;margin-top:10px;padding:12px 16px;border-radius:10px;border:1.5px solid #F59E0B;background:#FFFBEB;">
+      <div id="painelSobraFaltaMsg" style="font-size:13px;font-weight:700;color:#92400E;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="btnSobraFaltaSim" onclick="confirmarSobraFalta()" style="background:#F59E0B;color:#fff;border:none;padding:7px 18px;border-radius:8px;font-family:DM Sans,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">✅ Sim, registrar</button>
+        <button onclick="ignorarSobraFalta()" style="background:var(--surface3);color:var(--muted);border:1.5px solid var(--border);padding:7px 16px;border-radius:8px;font-family:DM Sans,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Não, ignorar</button>
+      </div>
     </div>
 
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px;">
@@ -1681,6 +1700,18 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     </div>
   </div>
 
+  <!-- Limpar Fiados -->
+  <div class="card" style="border:1.5px solid #fca5a5;background:linear-gradient(135deg,#fef2f2 0%,#fff 60%);">
+    <div class="section-title" style="color:var(--danger);">🗑️ Limpar Dados de Fiado</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+      Apaga os registros de pagamento, sobras e faltas do fiado. Os valores de fiado gerados diretamente nos <strong>lançamentos</strong> (campo "Fiado" do pagamento) <strong>não são apagados aqui</strong> — para isso, edite cada lançamento.
+    </p>
+    <button onclick="abrirModalLimparFiado()" style="background:var(--danger);color:#fff;border:none;padding:10px 24px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;box-shadow:0 2px 8px rgba(220,38,38,.25);transition:all .18s;display:inline-flex;align-items:center;gap:7px;"
+      onmouseover="this.style.background='#b91c1c'" onmouseout="this.style.background='var(--danger)'">
+      🗑️ Limpar Fiados
+    </button>
+  </div>
+
   <!-- Backup card no final da aba config -->
   <div class="card" style="border:1.5px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff 0%,#fff 60%);">
     <div class="section-title" style="color:var(--ultra);">🗄️ Backup dos Dados</div>
@@ -1761,6 +1792,58 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     <div style="display:flex;gap:10px;">
       <button class="btn-primary" style="flex:1;" onclick="confirmarProrrogar()">✓ Confirmar</button>
       <button class="btn-secondary" onclick="fecharProrrogar()">✕ Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LIMPAR FIADOS -->
+<div id="limparFiadoModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:800;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:16px;padding:28px;width:100%;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,.22);border:2px solid #fca5a5;">
+    <div style="font-family:Bebas Neue,sans-serif;font-size:22px;letter-spacing:1px;color:var(--danger);margin-bottom:6px;display:flex;align-items:center;gap:10px;">🗑️ Limpar Dados de Fiado</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.6;">
+      Esta ação vai <strong style="color:var(--danger)">apagar permanentemente</strong> todos os pagamentos, sobras e faltas registrados no fiado. <strong>Não pode ser desfeita.</strong>
+    </p>
+
+    <!-- Passo 1: escolha o que limpar -->
+    <div id="limparFiadoStep1">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:10px;">O que deseja limpar?</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border .15s;" id="optPagLabel">
+          <input type="radio" name="limparOpcao" value="pagamentos" id="optPag" style="margin-top:2px;width:auto;" onchange="limparFiadoOpcaoChange()">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">Apenas pagamentos, sobras e faltas</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Mantém os fiados gerados pelos lançamentos. Apaga só os registros manuais.</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;transition:border .15s;" id="optTudoLabel">
+          <input type="radio" name="limparOpcao" value="tudo" id="optTudo" style="margin-top:2px;width:auto;" onchange="limparFiadoOpcaoChange()">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--danger);">Tudo — inclusive fiados dos lançamentos</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;">Zera também o campo Fiado de todos os lançamentos existentes. Ação mais drástica.</div>
+          </div>
+        </label>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button id="btnLimparFiadoProximo" disabled onclick="limparFiadoStep2()" style="flex:1;background:var(--danger);color:#fff;border:none;padding:10px;border-radius:9px;font-family:DM Sans,sans-serif;font-size:13px;font-weight:700;cursor:pointer;opacity:.4;transition:opacity .2s;">Próximo →</button>
+        <button onclick="fecharModalLimparFiado()" style="padding:10px 18px;background:var(--surface3);color:var(--text);border:1.5px solid var(--border);border-radius:9px;font-family:DM Sans,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- Passo 2: digitação da trava -->
+    <div id="limparFiadoStep2" style="display:none;">
+      <div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:700;color:var(--danger);margin-bottom:6px;">⚠️ Confirmação de segurança</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Para confirmar, digite exatamente: <strong style="color:var(--danger);font-size:13px;">LIMPAR FIADO</strong></div>
+        <input type="text" id="limparFiadoTrava" placeholder="Digite aqui..." oninput="limparFiadoTravaCheck()"
+          style="width:100%;padding:9px 12px;border:1.5px solid #fca5a5;border-radius:8px;font-family:DM Sans,sans-serif;font-size:14px;font-weight:700;color:var(--danger);background:#fff;outline:none;" />
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button id="btnLimparFiadoConfirmar" disabled onclick="executarLimparFiado()"
+          style="flex:1;background:var(--danger);color:#fff;border:none;padding:10px;border-radius:9px;font-family:DM Sans,sans-serif;font-size:13px;font-weight:700;cursor:pointer;opacity:.4;transition:opacity .2s;">
+          🗑️ Confirmar e Limpar
+        </button>
+        <button onclick="limparFiadoVoltarStep1()" style="padding:10px 18px;background:var(--surface3);color:var(--text);border:1.5px solid var(--border);border-radius:9px;font-family:DM Sans,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">← Voltar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1930,7 +2013,21 @@ window._appInit = async function() {
 // ── LINHAS ──
 var _numLinhas = 3;
 
+const PRODUTOS_AVULSOS = [
+  { label: 'Água 20L', cat: 'agua' },
+  { label: 'Água 10L', cat: 'agua' },
+  { label: 'Galão',    cat: 'agua' },
+  { label: 'V13',      cat: 'botijao' },
+  { label: 'P45',      cat: 'botijao' },
+  { label: 'V45',      cat: 'botijao' },
+  { label: 'Registro', cat: 'acessorio' },
+  { label: 'Kit',      cat: 'acessorio' },
+];
+
 function _criarLinhaEl(i) {
+  const chipsHtml = PRODUTOS_AVULSOS.map(p =>
+    `<button class="prod-chip" data-prod="${p.label}" onclick="selecionarProduto(${i},this,'${p.label}')">${p.label}</button>`
+  ).join('');
   const d = document.createElement('div');
   d.className='linha-row'; d.id='linha_'+i;
   d.innerHTML=`
@@ -1940,8 +2037,20 @@ function _criarLinhaEl(i) {
     <div class="brand-toggle">
       <button class="brand-btn ultra" id="l${i}_ultra" onclick="selectLinhaBrand(${i},'Ultragaz')">🔵 Ultra</button>
       <button class="brand-btn butano" id="l${i}_butano" onclick="selectLinhaBrand(${i},'Butano')">🟢 Butano</button>
+      <button class="brand-btn produto" id="l${i}_produto" onclick="selectLinhaBrand(${i},'Produto')">📦 Produto</button>
+    </div>
+    <div class="prod-chips-row" id="l${i}_chips" style="display:none;">
+      ${chipsHtml}
     </div>`;
   return d;
+}
+
+function selecionarProduto(i, el, prod) {
+  // Desmarca todos os chips da linha
+  document.querySelectorAll(`#l${i}_chips .prod-chip`).forEach(c => c.classList.remove('ativo'));
+  el.classList.add('ativo');
+  // Guarda no dataset da linha para recuperar depois
+  document.getElementById('linha_'+i).dataset.produtoSelecionado = prod;
 }
 
 function buildLinhas() {
@@ -1969,6 +2078,15 @@ function removerUltimaLinha() {
 function selectLinhaBrand(i,brand) {
   document.getElementById(`l${i}_ultra`).classList.toggle('active',brand==='Ultragaz');
   document.getElementById(`l${i}_butano`).classList.toggle('active',brand==='Butano');
+  document.getElementById(`l${i}_produto`).classList.toggle('active',brand==='Produto');
+  // Mostra/esconde chips de produto
+  const chipsRow = document.getElementById(`l${i}_chips`);
+  if (chipsRow) chipsRow.style.display = brand==='Produto' ? 'flex' : 'none';
+  // Reseta produto selecionado se mudou de tipo
+  if (brand !== 'Produto') {
+    const linhaEl = document.getElementById('linha_'+i);
+    if (linhaEl) delete linhaEl.dataset.produtoSelecionado;
+  }
   const pr=document.getElementById('fPr').value;
   if (pr&&configPrecos[pr]) {
     const p=brand==='Ultragaz'?(configPrecos[pr].ultragaz||0):(configPrecos[pr].butano||0);
@@ -1980,6 +2098,7 @@ function onPrChange() {
   for(let i=0;i<_numLinhas;i++){
     if(document.getElementById(`l${i}_ultra`).classList.contains('active')) selectLinhaBrand(i,'Ultragaz');
     if(document.getElementById(`l${i}_butano`).classList.contains('active')) selectLinhaBrand(i,'Butano');
+    // Produto: não preenche preço automático
   }
   // Exibe sobra acumulada do PR selecionado
   const pr = document.getElementById('fPr').value;
@@ -2016,14 +2135,24 @@ function calcLinha(i) {
 function getLinhaBrand(i){
   if(document.getElementById(`l${i}_ultra`).classList.contains('active')) return 'Ultragaz';
   if(document.getElementById(`l${i}_butano`).classList.contains('active')) return 'Butano';
+  if(document.getElementById(`l${i}_produto`).classList.contains('active')) return 'Produto';
   return '';
+}
+function getLinhaProduto(i){
+  const linhaEl = document.getElementById('linha_'+i);
+  return (linhaEl && linhaEl.dataset.produtoSelecionado) || '';
 }
 function calcLinhaTotais(){
   let q=0,v=0,n=0;
   for(let i=0;i<_numLinhas;i++){
     const qq=parseFloat(document.getElementById(`l${i}_qtd`).value)||0;
     const pp=parseFloat(document.getElementById(`l${i}_preco`).value)||0;
-    if(qq>0){q+=qq;v+=qq*pp;n++;}
+    const marca=getLinhaBrand(i);
+    if(qq>0){
+      if(marca!=='Produto') q+=qq; // só conta botijões
+      v+=qq*pp;
+      n++;
+    }
   }
   document.getElementById('lTotalQtd').textContent=q;
   document.getElementById('lTotalVal').textContent='R$ '+fmtNum(v);
@@ -2039,6 +2168,8 @@ function calcPagTotal(){
   const totalVendaEl=document.getElementById('lTotalVal');
   const totalVenda=totalVendaEl?parseFloat(totalVendaEl.textContent.replace(/[^\d,]/g,'').replace(',','.'))||0:0;
   const sobraEl=document.getElementById('pagSobra');
+  const painel=document.getElementById('painelSobraFalta');
+  const painelMsg=document.getElementById('painelSobraFaltaMsg');
   if(sobraEl && t>0 && totalVenda>0){
     const diff=Math.round((t-totalVenda)*100)/100;
     if(diff>0){
@@ -2046,17 +2177,68 @@ function calcPagTotal(){
       sobraEl.style.background='#dcfce7';
       sobraEl.style.color='#15803d';
       sobraEl.textContent='💰 Sobra: R$ '+fmtNum(diff);
+      if(painel && painelMsg){
+        painel.style.display='';
+        painel.style.borderColor='#6EE7B7';
+        painel.style.background='#F0FDF4';
+        painelMsg.style.color='#065F46';
+        painelMsg.textContent=`💰 Sobrou R$ ${fmtNum(diff)}. Registrar esta sobra no fiado de ${document.getElementById('fPr').value||'PR'} como crédito?`;
+        painel.dataset.tipo='sobra';
+        painel.dataset.valor=diff;
+      }
     } else if(diff<0){
       sobraEl.style.display='';
       sobraEl.style.background='#fef2f2';
       sobraEl.style.color='#dc2626';
       sobraEl.textContent='⚠ Falta: R$ '+fmtNum(Math.abs(diff));
+      if(painel && painelMsg){
+        painel.style.display='';
+        painel.style.borderColor='#FCA5A5';
+        painel.style.background='#FEF2F2';
+        painelMsg.style.color='#991B1B';
+        painelMsg.textContent=`⚠️ Faltou R$ ${fmtNum(Math.abs(diff))}. Registrar esta falta como fiado de ${document.getElementById('fPr').value||'PR'}?`;
+        painel.dataset.tipo='falta';
+        painel.dataset.valor=Math.abs(diff);
+      }
     } else {
       sobraEl.style.display='none';
+      if(painel) painel.style.display='none';
     }
-  } else if(sobraEl){
-    sobraEl.style.display='none';
+  } else {
+    if(sobraEl) sobraEl.style.display='none';
+    if(painel) painel.style.display='none';
   }
+}
+
+// Estado temporário do painel: guardado após registrar a venda principal
+let _pendenteSobraFalta = null;
+
+function confirmarSobraFalta() {
+  if (!_pendenteSobraFalta) return;
+  _registrarSobraFaltaNoFiado(_pendenteSobraFalta);
+  _pendenteSobraFalta = null;
+  document.getElementById('painelSobraFalta').style.display = 'none';
+}
+
+function ignorarSobraFalta() {
+  _pendenteSobraFalta = null;
+  document.getElementById('painelSobraFalta').style.display = 'none';
+}
+
+async function _registrarSobraFaltaNoFiado({ tipo, valor, pr, data }) {
+  const pags = await _loadFiadoPag();
+  const id = Date.now();
+  if (tipo === 'sobra') {
+    // Sobra = pagamento/crédito a favor do PR (abate futuro fiado)
+    pags.push({ id, pr, data, valor, obs: `💰 Sobra de troco registrada automaticamente`, formasPag: null, tipo: 'sobra' });
+  } else {
+    // Falta = novo fiado gerado
+    pags.push({ id, pr, data, valor, obs: `⚠️ Falta de pagamento registrada como fiado`, formasPag: null, tipo: 'falta_fiado' });
+  }
+  window._fiadoPagamentos = pags;
+  await _saveFiadoPag();
+  showToast(tipo === 'sobra' ? '💰 Sobra registrada no fiado!' : '📒 Falta registrada como fiado!');
+  if (typeof renderFiado === 'function' && document.getElementById('tab-fiado')?.classList.contains('active')) renderFiado();
 }
 
 // ── MODO EDIÇÃO NO FORMULÁRIO ──
@@ -2093,6 +2275,18 @@ function carregarEdicaoNoForm(data, pr){
     document.getElementById(`l${i}_preco`).value=l.preco;
     document.getElementById(`l${i}_ultra`).classList.toggle('active',l.marca==='Ultragaz');
     document.getElementById(`l${i}_butano`).classList.toggle('active',l.marca==='Butano');
+    document.getElementById(`l${i}_produto`).classList.toggle('active',l.marca==='Produto');
+    // Restaura chips de produto
+    const chipsRow = document.getElementById(`l${i}_chips`);
+    if (chipsRow) {
+      chipsRow.style.display = l.marca==='Produto' ? 'flex' : 'none';
+      if (l.marca==='Produto' && l.produto) {
+        chipsRow.querySelectorAll('.prod-chip').forEach(c => {
+          c.classList.toggle('ativo', c.dataset.prod === l.produto);
+        });
+        el.dataset.produtoSelecionado = l.produto;
+      }
+    }
     calcLinha(i);
   });
 
@@ -2123,9 +2317,12 @@ function carregarEdicaoNoForm(data, pr){
 
 function cancelarEdicaoForm(){
   _editFormData=null; _editFormPr=null;
+  _pendenteSobraFalta=null;
   document.getElementById('btnRegistrar').textContent='✚ Registrar Venda';
   document.getElementById('btnCancelarEdicao').style.display='none';
   document.getElementById('formEditLabel').style.display='none';
+  const painelEl=document.getElementById('painelSobraFalta');
+  if(painelEl) painelEl.style.display='none';
   buildLinhas();
   PAY_IDS.forEach(id=>document.getElementById(id).value='');
   calcPagTotal();
@@ -2146,7 +2343,9 @@ async function addLancamento(){
     const q=parseFloat(document.getElementById(`l${i}_qtd`).value)||0;
     const p=parseFloat(document.getElementById(`l${i}_preco`).value)||0;
     const m=getLinhaBrand(i);
-    if(q>0&&m) linhas.push({qtd:q,preco:p,total:q*p,marca:m});
+    const prod=getLinhaProduto(i);
+    if(m==='Produto' && q>0 && !prod){err.textContent=`⚠ Selecione o produto na linha ${i+1}.`;return;}
+    if(q>0&&m) linhas.push({qtd:q,preco:p,total:q*p,marca:m,produto:prod||''});
   }
   if(!linhas.length){err.textContent='⚠ Preencha ao menos 1 linha (qtd + preço + marca).';return;}
   const pag={};
@@ -2193,6 +2392,21 @@ async function addLancamento(){
       novasLinhas.push(novoLanc);
     });
     await save({type:'add', items:novasLinhas}); renderTable(); renderTotals();
+
+    // Captura sobra/falta antes de limpar o formulário
+    const painelEl = document.getElementById('painelSobraFalta');
+    if (painelEl && painelEl.style.display !== 'none' && painelEl.dataset.tipo && painelEl.dataset.valor) {
+      _pendenteSobraFalta = {
+        tipo: painelEl.dataset.tipo,
+        valor: parseFloat(painelEl.dataset.valor),
+        pr,
+        data
+      };
+      // Mantém o painel visível para a pergunta
+    } else {
+      _pendenteSobraFalta = null;
+    }
+
     showToast(`✓ ${linhas.length} linha(s) registrada(s)!`);
     buildLinhas();
     PAY_IDS.forEach(id=>document.getElementById(id).value='');
@@ -2200,6 +2414,8 @@ async function addLancamento(){
     ['lTotalQtd','lTotalLinhas'].forEach(id=>document.getElementById(id).textContent='0');
     document.getElementById('lTotalVal').textContent='R$ 0,00';
     document.getElementById('fPr').value='';
+    // Mantém painel visível se há pendente; caso contrário esconde
+    if (!_pendenteSobraFalta && painelEl) painelEl.style.display='none';
   }
 }
 
@@ -2440,7 +2656,15 @@ async function calcFiadoPorPR() {
   // Agrega pagamentos registrados
   pags.forEach(p => {
     if (!fiado[p.pr]) fiado[p.pr] = [];
-    fiado[p.pr].push({ data: p.data, valor: p.valor, tipo: 'pagamento', desc: p.obs || 'Pagamento recebido', id: p.id, formasPag: p.formasPag || null });
+    if (p.tipo === 'sobra') {
+      // Sobra = crédito a favor do PR (reduz saldo devedor, como pagamento)
+      fiado[p.pr].push({ data: p.data, valor: p.valor, tipo: 'pagamento', desc: p.obs || '💰 Sobra de troco', id: p.id, formasPag: null });
+    } else if (p.tipo === 'falta_fiado') {
+      // Falta = novo fiado gerado
+      fiado[p.pr].push({ data: p.data, valor: p.valor, tipo: 'fiado', desc: p.obs || '⚠️ Falta registrada como fiado', id: p.id, formasPag: null });
+    } else {
+      fiado[p.pr].push({ data: p.data, valor: p.valor, tipo: 'pagamento', desc: p.obs || 'Pagamento recebido', id: p.id, formasPag: p.formasPag || null });
+    }
   });
 
   // Monta resultado por PR
@@ -2509,9 +2733,22 @@ async function renderFiado() {
 
     const historicoHTML = d.historico.map(h => {
       const isFiado = h.tipo === 'fiado';
+      const isSobra = h.desc && h.desc.startsWith('💰 Sobra');
+      const isFaltaFiado = h.desc && h.desc.startsWith('⚠️ Falta');
+      // Badge visual
+      let badgeBg, badgeColor, badgeLabel;
+      if (isFaltaFiado) {
+        badgeBg='#FEF2F2'; badgeColor='var(--danger)'; badgeLabel='⚠️ Falta→Fiado';
+      } else if (isFiado) {
+        badgeBg='var(--danger-light)'; badgeColor='var(--danger)'; badgeLabel='📒 Fiado';
+      } else if (isSobra) {
+        badgeBg='#EFF6FF'; badgeColor='var(--ultra)'; badgeLabel='💰 Sobra';
+      } else {
+        badgeBg='var(--success-light)'; badgeColor='var(--success)'; badgeLabel='✅ Pagamento';
+      }
       // Monta resumo das formas de pagamento
       let formasPagHTML = '';
-      if (!isFiado && h.formasPag) {
+      if (!isFiado && !isFaltaFiado && h.formasPag) {
         const fp = h.formasPag;
         const labels = { especie:'💵 Espécie', pix:'⚡ PIX', debito:'💳 Débito', credito:'💳 Crédito', qrcode:'📱 QR Code' };
         const itens = Object.entries(labels)
@@ -2520,25 +2757,29 @@ async function renderFiado() {
           .join(' ');
         if (itens) formasPagHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${itens}</div>`;
       }
+      const sinalValor = isFiado || isFaltaFiado ? '+' : '-';
+      const corValor   = isFiado || isFaltaFiado ? 'var(--danger)' : 'var(--success)';
+      // Botões: pagamentos manuais, sobras e faltas_fiado podem ser excluídos
+      const podeExcluir = !isFiado || isFaltaFiado;
       return `<tr>
         <td style="padding:6px 10px;font-size:12px;color:var(--muted)">${fmtDate(h.data)}</td>
         <td style="padding:6px 10px;">
-          <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:${isFiado?'var(--danger-light)':'var(--success-light)'};color:${isFiado?'var(--danger)':'var(--success)'}">
-            ${isFiado?'📒 Fiado':'✅ Pagamento'}
+          <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:${badgeBg};color:${badgeColor}">
+            ${badgeLabel}
           </span>
         </td>
         <td style="padding:6px 10px;font-size:12px;color:var(--muted)">${h.desc}${formasPagHTML}</td>
-        <td style="padding:6px 10px;font-weight:700;color:${isFiado?'var(--danger)':'var(--success)'}">
-          ${isFiado?'+':'-'}${fmtVal(h.valor)}
+        <td style="padding:6px 10px;font-weight:700;color:${corValor}">
+          ${sinalValor}${fmtVal(h.valor)}
         </td>
         <td style="padding:6px 10px;font-weight:700;color:${h.saldoApos>0?'var(--danger)':'var(--success)'}">
           ${fmtVal(h.saldoApos)}
         </td>
         <td style="padding:6px 10px;">
-          ${!isFiado?`
+          ${podeExcluir && !isFiado ?`
             <div style="display:flex;gap:4px;">
-              <button onclick="editarPagFiado(${h.id})" style="background:var(--ultra-light);color:var(--ultra);border:1px solid #bfdbfe;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Editar pagamento">✏️</button>
-              <button onclick="excluirPagFiado(${h.id})" style="background:transparent;color:var(--muted2);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;" title="Excluir pagamento">✕</button>
+              ${!isSobra && !isFaltaFiado ? `<button onclick="editarPagFiado(${h.id})" style="background:var(--ultra-light);color:var(--ultra);border:1px solid #bfdbfe;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Editar">✏️</button>` : ''}
+              <button onclick="excluirPagFiado(${h.id})" style="background:transparent;color:var(--muted2);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;" title="Excluir">✕</button>
             </div>` : ''}
         </td>
       </tr>`;
@@ -2789,7 +3030,15 @@ function renderTable(){
 
     // Marcas distintas
     const marcas=[...new Set(g.itens.map(l=>l.marca))];
-    const marcaBadges=marcas.map(m=>`<span class="badge badge-${m==='Ultragaz'?'ultra':'butano'}">${m}</span>`).join(' ');
+    const marcaBadges=marcas.map(m=>{
+      if(m==='Ultragaz') return `<span class="badge badge-ultra">Ultra</span>`;
+      if(m==='Butano')   return `<span class="badge badge-butano">Butano</span>`;
+      if(m==='Produto'){
+        const prods=[...new Set(g.itens.filter(l=>l.marca==='Produto').map(l=>l.produto||'Produto'))];
+        return prods.map(p=>`<span class="badge badge-produto">📦 ${p}</span>`).join(' ');
+      }
+      return `<span class="badge">${m}</span>`;
+    }).join(' ');
 
     // Key para o botão (escapado para JSON)
     const keyEsc=JSON.stringify(g.data+'__'+g.pr).replace(/'/g,"\'");
@@ -2836,7 +3085,7 @@ function abrirGrupoLanc(data, pr){
       <td style="font-family:'Bebas Neue',sans-serif;font-size:18px">${l.qtd}</td>
       <td>${fmtVal(l.preco)}</td>
       <td style="font-weight:700;color:var(--success)">${fmtVal(l.total)}</td>
-      <td><span class="badge badge-${l.marca==='Ultragaz'?'ultra':'butano'}">${l.marca}</span></td>
+      <td><span class="badge badge-${l.marca==='Ultragaz'?'ultra':l.marca==='Butano'?'butano':'produto'}">${l.marca==='Produto'?('📦 '+(l.produto||'Produto')):l.marca}</span></td>
       ${PAY_FIELDS.map(p=>`<td style="color:${p==='Fiado'?'var(--danger)':'var(--muted)'}">${pagExibir&&pagExibir[p]>0?fmtVal(pagExibir[p]):'-'}</td>`).join('')}
       <td style="font-weight:700;color:var(--accent)">${totalPago!=null?fmtVal(totalPago):'-'}</td>
       <td style="white-space:nowrap">
@@ -2900,7 +3149,7 @@ function renderTotals(){
     if (!vistosT.has(vid)) { vistosT.add(vid); return a + (l.pag && l.pag['Fiado'] || 0); }
     return a;
   }, 0);
-  document.getElementById('tqtd').textContent    = t.reduce((a,b) => a + b.qtd, 0);
+  document.getElementById('tqtd').textContent    = t.filter(l=>l.marca!=='Produto').reduce((a,b) => a + b.qtd, 0);
   document.getElementById('tval').textContent    = fmtVal(t.reduce((a,b) => a + b.total, 0));
   document.getElementById('tqultra').textContent = t.filter(l => l.marca === 'Ultragaz').reduce((a,b) => a + b.qtd, 0);
   document.getElementById('tqbutano').textContent= t.filter(l => l.marca === 'Butano').reduce((a,b) => a + b.qtd, 0);
@@ -2908,6 +3157,106 @@ function renderTotals(){
 }
 // Expõe globalmente
 window.renderTotals = renderTotals;
+
+// ── LIMPAR FIADOS ──────────────────────────────────────────────
+function abrirModalLimparFiado() {
+  // Reseta o modal para o estado inicial
+  document.getElementById('limparFiadoStep1').style.display = '';
+  document.getElementById('limparFiadoStep2').style.display = 'none';
+  document.querySelectorAll('input[name="limparOpcao"]').forEach(r => r.checked = false);
+  document.getElementById('btnLimparFiadoProximo').disabled = true;
+  document.getElementById('btnLimparFiadoProximo').style.opacity = '.4';
+  const travaEl = document.getElementById('limparFiadoTrava');
+  if (travaEl) travaEl.value = '';
+  const confirmBtn = document.getElementById('btnLimparFiadoConfirmar');
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.opacity = '.4'; }
+  // Reseta bordas dos labels
+  ['optPagLabel','optTudoLabel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.borderColor = 'var(--border)';
+  });
+  document.getElementById('limparFiadoModal').style.display = 'flex';
+}
+
+function fecharModalLimparFiado() {
+  document.getElementById('limparFiadoModal').style.display = 'none';
+}
+
+function limparFiadoOpcaoChange() {
+  const val = document.querySelector('input[name="limparOpcao"]:checked')?.value;
+  const btn = document.getElementById('btnLimparFiadoProximo');
+  btn.disabled = !val;
+  btn.style.opacity = val ? '1' : '.4';
+  // Destaca a opção selecionada
+  document.getElementById('optPagLabel').style.borderColor  = val==='pagamentos' ? 'var(--danger)' : 'var(--border)';
+  document.getElementById('optTudoLabel').style.borderColor = val==='tudo'        ? 'var(--danger)' : 'var(--border)';
+}
+
+function limparFiadoStep2() {
+  document.getElementById('limparFiadoStep1').style.display = 'none';
+  document.getElementById('limparFiadoStep2').style.display = '';
+  document.getElementById('limparFiadoTrava').value = '';
+  document.getElementById('limparFiadoTrava').focus();
+  const btn = document.getElementById('btnLimparFiadoConfirmar');
+  btn.disabled = true; btn.style.opacity = '.4';
+}
+
+function limparFiadoVoltarStep1() {
+  document.getElementById('limparFiadoStep2').style.display = 'none';
+  document.getElementById('limparFiadoStep1').style.display = '';
+}
+
+function limparFiadoTravaCheck() {
+  const val = document.getElementById('limparFiadoTrava').value.trim().toUpperCase();
+  const btn = document.getElementById('btnLimparFiadoConfirmar');
+  const ok  = val === 'LIMPAR FIADO';
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '.4';
+}
+
+async function executarLimparFiado() {
+  const opcao = document.querySelector('input[name="limparOpcao"]:checked')?.value;
+  if (!opcao) return;
+
+  fecharModalLimparFiado();
+  showToast('⏳ Limpando...');
+
+  try {
+    // Sempre limpa os pagamentos/sobras/faltas manuais
+    window._fiadoPagamentos = [];
+    await window._fbSetDoc('config', 'fiado_pagamentos', { lista: [] });
+
+    if (opcao === 'tudo') {
+      // Zera o campo Fiado de todos os lançamentos
+      lancamentos.forEach(l => {
+        if (l.pag && l.pag['Fiado'] > 0) {
+          l.pag['Fiado'] = 0;
+        }
+      });
+      window._lancamentos = lancamentos;
+      await window._saveLancamentos();
+      renderTable();
+      renderTotals();
+      showToast('✅ Todos os fiados foram apagados!');
+    } else {
+      showToast('✅ Pagamentos e registros de fiado apagados!');
+    }
+
+    // Atualiza a aba fiado se estiver aberta
+    if (typeof renderFiado === 'function' && document.getElementById('tab-fiado')?.classList.contains('active')) {
+      renderFiado();
+    }
+  } catch(e) {
+    console.error('Erro ao limpar fiados:', e);
+    showToast('❌ Erro ao limpar. Tente novamente.');
+  }
+}
+
+// Fecha clicando fora do modal
+document.addEventListener('DOMContentLoaded', function(){
+  const m = document.getElementById('limparFiadoModal');
+  if (m) m.addEventListener('click', function(e){ if(e.target===this) fecharModalLimparFiado(); });
+});
 
 // ── CHART INSTANCES ──
 let chartUltraInst=null, chartButanoInst=null, chartPRInst=null;
