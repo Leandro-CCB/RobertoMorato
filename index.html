@@ -1212,6 +1212,12 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
   <!-- Totais globais -->
   <div class="summary-grid" id="summaryCards"></div>
 
+  <!-- Produtos Avulsos -->
+  <div class="card" id="cardProdutosResumo" style="display:none;">
+    <div class="section-title">📦 Produtos Avulsos</div>
+    <div id="produtosResumoGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;"></div>
+  </div>
+
   <!-- Pagamentos globais -->
   <div class="card">
     <div class="section-title">💰 Por Forma de Pagamento</div>
@@ -3474,6 +3480,41 @@ function renderResumo(){
     <div class="summary-card"><div class="s-label">Total Fiado</div><div class="s-value red">${fmtVal(f.reduce((a,b)=>a+(b.pag&&b.pag['Fiado']||0),0))}</div></div>
     <div class="summary-card"><div class="s-label">Preço Médio Ultra</div><div class="s-value blue" style="font-size:18px">${(()=>{const itens=f.filter(l=>l.marca==='Ultragaz');const qtd=itens.reduce((a,b)=>a+b.qtd,0);const val=itens.reduce((a,b)=>a+b.total,0);return qtd>0?fmtVal(val/qtd):'—';})()}</div></div>
     <div class="summary-card"><div class="s-label">Preço Médio Butano</div><div class="s-value bgreen" style="font-size:18px">${(()=>{const itens=f.filter(l=>l.marca==='Butano');const qtd=itens.reduce((a,b)=>a+b.qtd,0);const val=itens.reduce((a,b)=>a+b.total,0);return qtd>0?fmtVal(val/qtd):'—';})()}</div></div>`;
+
+  // ── Produtos Avulsos ──
+  const PROD_EMOJIS = {
+    'Água 20L': '💧', 'Água 10L': '💧', 'Galão': '🪣',
+    'P5': '🔴', 'P20': '🔴', 'P45': '🔴',
+    'Cota P13': '📋', 'Cota P5': '📋', 'Cota P20': '📋', 'Cota P45': '📋',
+    'Registro': '🔧', 'Kit': '📦'
+  };
+  const PROD_COLORS = {
+    'agua':     { bg: '#eff6ff', border: '#bfdbfe', label: '#1d4ed8', value: '#1e40af' },
+    'botijao':  { bg: '#fef3c7', border: '#fcd34d', label: '#92400e', value: '#b45309' },
+    'cota':     { bg: '#f0fdf4', border: '#bbf7d0', label: '#15803d', value: '#166534' },
+    'acessorio':{ bg: '#fdf4ff', border: '#e9d5ff', label: '#7e22ce', value: '#6b21a8' }
+  };
+  const prodItens = f.filter(l => l.marca === 'Produto');
+  const cardProd  = document.getElementById('cardProdutosResumo');
+  const gridProd  = document.getElementById('produtosResumoGrid');
+  if (!prodItens.length) {
+    cardProd.style.display = 'none';
+  } else {
+    cardProd.style.display = '';
+    gridProd.innerHTML = PRODUTOS_AVULSOS.map(p => {
+      const itensP = prodItens.filter(l => l.produto === p.label);
+      if (!itensP.length) return '';
+      const qtd = itensP.reduce((a, b) => a + b.qtd, 0);
+      const val = itensP.reduce((a, b) => a + b.total, 0);
+      const cor = PROD_COLORS[p.cat] || PROD_COLORS['acessorio'];
+      const emoji = PROD_EMOJIS[p.label] || '📦';
+      return `<div style="background:${cor.bg};border:1.5px solid ${cor.border};border-radius:12px;padding:12px 14px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:${cor.label};margin-bottom:4px;">${emoji} ${p.label}</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:${cor.value};line-height:1.1;">${qtd}</div>
+        <div style="font-size:11px;font-weight:600;color:${cor.label};margin-top:2px;">${fmtVal(val)}</div>
+      </div>`;
+    }).join('');
+  }
 
   // ── Breakdown pagamentos ──
   // Para pagamentos: apenas 1ª linha de cada venda (vendaId) para não duplicar
