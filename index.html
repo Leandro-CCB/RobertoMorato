@@ -4932,17 +4932,14 @@ function exportarPDF(){
   const qtdButano=f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.qtd,0);
   const valButano=f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.total,0);
 
-  // Agrupa por data+PR (igual à tela)
+  // Agrupa somente por PR (soma todos os lançamentos do período por PR)
   const grupos={};
   f.forEach(l=>{
-    const key=l.data+'__'+l.pr;
-    if(!grupos[key]) grupos[key]={data:l.data,pr:l.pr,itens:[]};
+    const key=l.pr;
+    if(!grupos[key]) grupos[key]={pr:l.pr,itens:[]};
     grupos[key].itens.push(l);
   });
-  const gruposArr=Object.values(grupos).sort((a,b)=>{
-    if(b.data!==a.data) return b.data.localeCompare(a.data);
-    return a.pr.localeCompare(b.pr);
-  });
+  const gruposArr=Object.values(grupos).sort((a,b)=>a.pr.localeCompare(b.pr));
 
   // Soma pagamentos sem duplicar por vendaId
   function somarPag(lista){
@@ -4968,7 +4965,7 @@ function exportarPDF(){
     return `<tr>
       <td style="font-weight:700">${g.pr}</td>
       <td style="text-align:center;font-family:'Bebas Neue',sans-serif;font-size:16px">${qtdT}</td>
-      <td style="text-align:center;color:#6b7280">${g.data.split('-').reverse().join('/')}</td>
+      <td style="text-align:center;color:#6b7280">${periodoLabel}</td>
       <td style="text-align:right;font-weight:700;color:#16a34a">R$ ${fmtNum(valT)}</td>
       ${PAY_FIELDS.map(p=>`<td style="text-align:right;color:${p==='Fiado'?'#dc2626':'#6b7280'}">${pag[p]>0?'R$ '+fmtNum(pag[p]):'-'}</td>`).join('')}
       <td style="text-align:right;font-weight:700">${totPago>0?'R$ '+fmtNum(totPago):'-'}</td>
@@ -5062,7 +5059,7 @@ function exportarPDF(){
   <div class="section-title">\uD83D\uDCCB Detalhamento por Marca</div>
   <table>
     <thead><tr>
-      <th>PR</th><th style="text-align:center">Qtd</th><th style="text-align:center">Data</th><th>Total Venda</th>
+      <th>PR</th><th style="text-align:center">Qtd</th><th style="text-align:center">Período</th><th>Total Venda</th>
       ${PAY_FIELDS.map(p=>`<th>${p}</th>`).join('')}<th>Total Pago</th>
     </tr></thead>
     <tbody>
