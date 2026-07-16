@@ -1636,9 +1636,35 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
   <!-- Cards de resumo -->
   <div id="fiadoResumoCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px;"></div>
 
+  <!-- Filtro de PR -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+    <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">🔎 Filtrar PR</label>
+    <select id="fiadoFiltroPr" onchange="renderFiado()" style="max-width:240px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);background:var(--surface2,#fff);">
+      <option value="">Todos os PRs</option>
+    </select>
+  </div>
+
   <!-- Cards por PR -->
   <div id="fiadoPrCards" style="display:flex;flex-direction:column;gap:16px;"></div>
 
+</div>
+
+<!-- Modal detalhes da venda fiado -->
+<div id="fiadoVendaModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:750;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid var(--border);">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--text);margin-bottom:2px;">🧾 Resumo do Dia</div>
+    <div id="fiadoVendaModalSub" style="font-size:12px;color:var(--muted);margin-bottom:16px;font-weight:600;"></div>
+
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px;">📦 Quantidade Vendida (Ultragaz / Butano)</div>
+    <div id="fiadoVendaModalItens" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;"></div>
+
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px;">💳 Formas de Pagamento</div>
+    <div id="fiadoVendaModalPag" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
+
+    <div id="fiadoVendaModalResumoPag" style="margin-bottom:18px;"></div>
+
+    <button onclick="document.getElementById('fiadoVendaModal').style.display='none'" style="width:100%;background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:11px 20px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Fechar</button>
+  </div>
 </div>
 
 <!-- Modal registrar pagamento de fiado -->
@@ -2732,13 +2758,28 @@ async function renderFiado() {
   cardsEl.innerHTML  = '';
 
   const dados = await calcFiadoPorPR();
-  const prs   = Object.keys(dados).sort((a,b) => dados[b].saldo - dados[a].saldo);
+  let prs = Object.keys(dados).sort((a,b) => dados[b].saldo - dados[a].saldo);
 
-  // Cards de resumo
-  const totalDevendo  = prs.reduce((a,p)=>a+(dados[p].saldo>0?dados[p].saldo:0),0);
-  const totalPRs      = prs.filter(p=>dados[p].saldo>0).length;
-  const totalGerado   = prs.reduce((a,p)=>a+dados[p].totalFiado,0);
-  const totalRecebido = prs.reduce((a,p)=>a+dados[p].totalPago,0);
+  // Popula/atualiza o filtro de PR mantendo a seleção atual
+  const filtroEl = document.getElementById('fiadoFiltroPr');
+  if (filtroEl) {
+    const selecionado = filtroEl.value;
+    const opcoesAtuais = Array.from(filtroEl.options).map(o=>o.value).join('|');
+    const novasOpcoes = Object.keys(dados).sort((a,b)=>a.localeCompare(b));
+    const novasOpcoesKey = [''].concat(novasOpcoes).join('|');
+    if (opcoesAtuais !== novasOpcoesKey) {
+      filtroEl.innerHTML = '<option value="">Todos os PRs</option>' + novasOpcoes.map(p=>`<option value="${p}">${p}</option>`).join('');
+      filtroEl.value = novasOpcoes.includes(selecionado) ? selecionado : '';
+    }
+    if (filtroEl.value) prs = prs.filter(p => p === filtroEl.value);
+  }
+
+  // Cards de resumo (sempre com base em todos os PRs, independente do filtro)
+  const todosPrs = Object.keys(dados);
+  const totalDevendo  = todosPrs.reduce((a,p)=>a+(dados[p].saldo>0?dados[p].saldo:0),0);
+  const totalPRs      = todosPrs.filter(p=>dados[p].saldo>0).length;
+  const totalGerado   = todosPrs.reduce((a,p)=>a+dados[p].totalFiado,0);
+  const totalRecebido = todosPrs.reduce((a,p)=>a+dados[p].totalPago,0);
 
   resumoEl.innerHTML = `
     <div class="summary-card" style="border:1.5px solid #fca5a5;background:var(--danger-light)">
@@ -2760,7 +2801,9 @@ async function renderFiado() {
   `;
 
   if (!prs.length) {
-    cardsEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted2);font-size:13px;">Nenhum fiado registrado ainda. Os valores de fiado aparecem automaticamente a partir dos lançamentos.</div>';
+    cardsEl.innerHTML = todosPrs.length
+      ? '<div style="text-align:center;padding:40px;color:var(--muted2);font-size:13px;">Nenhum resultado para o PR selecionado.</div>'
+      : '<div style="text-align:center;padding:40px;color:var(--muted2);font-size:13px;">Nenhum fiado registrado ainda. Os valores de fiado aparecem automaticamente a partir dos lançamentos.</div>';
     return;
   }
 
@@ -2815,11 +2858,13 @@ async function renderFiado() {
           ${fmtVal(h.saldoApos)}
         </td>
         <td style="padding:6px 10px;">
-          ${podeExcluir && !isFiado ?`
-            <div style="display:flex;gap:4px;">
+          <div style="display:flex;gap:4px;">
+            ${isFiado && !isFaltaFiado ? `<button onclick="verVendaFiado('${pr}',${h.id})" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Ver detalhes da venda">👁️ Ver</button>` : ''}
+            ${podeExcluir && !isFiado ?`
               ${!isSobra && !isFaltaFiado ? `<button onclick="editarPagFiado(${h.id})" style="background:var(--ultra-light);color:var(--ultra);border:1px solid #bfdbfe;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Editar">✏️</button>` : ''}
               <button onclick="excluirPagFiado(${h.id})" style="background:transparent;color:var(--muted2);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;" title="Excluir">✕</button>
-            </div>` : ''}
+            ` : ''}
+          </div>
         </td>
       </tr>`;
     }).join('');
@@ -2860,6 +2905,86 @@ async function renderFiado() {
       </div>
     </div>`;
   }).join('');
+}
+
+// ── Modal detalhes da venda (resumo do DIA inteiro: Ultragaz/Butano + formas de pagamento) ──
+function verVendaFiado(pr, vendaId) {
+  // Descobre a data da venda clicada, para então trazer TODOS os lançamentos daquele dia/PR
+  const vendaRef = lancamentos.find(l => (l.vendaId != null ? l.vendaId : l.id) === vendaId && l.pr === pr);
+  if (!vendaRef) { showToast('⚠️ Venda não encontrada.'); return; }
+  const dataVenda = vendaRef.data;
+
+  // Todos os lançamentos do PR nesse dia (todas as vendas/linhas do dia)
+  const itensDia = lancamentos.filter(l => l.pr === pr && l.data === dataVenda);
+
+  // Agrupa por marca/produto, somando quantidades e valores (Ultragaz, Butano, Produtos)
+  const grupos = {};
+  itensDia.forEach(l => {
+    const nome = l.marca === 'Produto' ? (l.produto || 'Produto') : l.marca;
+    if (!grupos[nome]) grupos[nome] = { nome, marca: l.marca, qtd: 0, total: 0 };
+    grupos[nome].qtd += l.qtd;
+    grupos[nome].total += l.total != null ? l.total : (l.qtd * l.preco);
+  });
+  // Ordena: Ultragaz, Butano, depois produtos
+  const ordem = { 'Ultragaz': 0, 'Butano': 1 };
+  const linhas = Object.values(grupos).sort((a,b) => (ordem[a.marca] ?? 2) - (ordem[b.marca] ?? 2));
+  const totalGeral = linhas.reduce((a,g)=>a+g.total,0);
+
+  const iconeMarca = (m) => m === 'Ultragaz' ? '🔵' : (m === 'Butano' ? '🟢' : '📦');
+
+  const itensHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tbody>
+        ${linhas.map(g => {
+          const precoUnit = g.qtd > 0 ? g.total / g.qtd : 0;
+          return `
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px 10px;font-weight:600;">${iconeMarca(g.marca)} ${g.nome}</td>
+            <td style="padding:8px 10px;color:var(--muted);white-space:nowrap;text-align:right;">${g.qtd} × ${fmtVal(precoUnit)}</td>
+            <td style="padding:8px 10px;text-align:right;font-weight:700;white-space:nowrap;">${fmtVal(g.total)}</td>
+          </tr>`;}).join('')}
+        <tr>
+          <td style="padding:8px 10px;font-weight:700;" colspan="2">Total do Dia</td>
+          <td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--danger);white-space:nowrap;">${fmtVal(totalGeral)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+  document.getElementById('fiadoVendaModalItens').innerHTML = itensHTML;
+
+  // Formas de pagamento do dia inteiro, somando 1x por venda (vendaId) para não duplicar
+  const vistosV = new Set();
+  const pagTotais = {};
+  itensDia.forEach(l => {
+    const vid = l.vendaId != null ? l.vendaId : l.id;
+    if (vistosV.has(vid)) return;
+    vistosV.add(vid);
+    if (!l.pag) return;
+    Object.entries(l.pag).forEach(([k,v]) => { if (v>0) pagTotais[k] = (pagTotais[k]||0) + v; });
+  });
+
+  const pagEmojis = PAY_EMOJIS || {};
+  const campos = (typeof PAY_FIELDS !== 'undefined' && PAY_FIELDS.length) ? PAY_FIELDS : Object.keys(pagTotais);
+  const pagHTML = campos.map(k => {
+    const v = pagTotais[k] || 0;
+    return `<span style="font-size:12px;background:${v>0?'var(--surface3)':'var(--surface2, #f3f4f6)'};border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-weight:600;white-space:nowrap;color:${v>0?(k==='Fiado'?'var(--danger)':'inherit'):'var(--muted2)'};">${pagEmojis[k]||''} ${k}: ${v>0?fmtVal(v):'-'}</span>`;
+  }).join('');
+  document.getElementById('fiadoVendaModalPag').innerHTML = pagHTML || '<span style="font-size:12px;color:var(--muted2);">Nenhuma forma de pagamento informada neste dia.</span>';
+
+  // Total efetivamente pago (todas as formas, exceto Fiado) e diferença em relação ao total da venda
+  const totalPagoReal = Object.entries(pagTotais).reduce((s,[k,v]) => k === 'Fiado' ? s : s + v, 0);
+  const diferenca = totalGeral - totalPagoReal;
+  document.getElementById('fiadoVendaModalResumoPag').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--surface3);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
+      <span style="font-size:12px;font-weight:700;color:var(--text);">💰 Total Pago</span>
+      <span style="font-size:14px;font-weight:700;color:var(--success, #16a34a);">${fmtVal(totalPagoReal)}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:${diferenca>0?'var(--danger-light,#fee2e2)':'var(--surface3)'};border:1px solid var(--border);border-radius:8px;">
+      <span style="font-size:12px;font-weight:700;color:var(--text);">📉 Diferença (Venda − Pago)</span>
+      <span style="font-size:14px;font-weight:700;color:${diferenca>0?'var(--danger)':'var(--success,#16a34a)'};">${fmtVal(diferenca)}</span>
+    </div>`;
+
+  document.getElementById('fiadoVendaModalSub').textContent = `${pr} — ${fmtDate(dataVenda)} — Resumo do dia (${itensDia.length} lançamento(s))`;
+  document.getElementById('fiadoVendaModal').style.display = 'flex';
 }
 
 // ── Modal pagamento ──
