@@ -1824,7 +1824,10 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px;">💳 Formas de Pagamento</div>
     <div id="fiadoVendaModalPag" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px;"></div>
 
-    <button onclick="document.getElementById('fiadoVendaModal').style.display='none'" style="width:100%;background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:11px 20px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Fechar</button>
+    <div style="display:flex;gap:8px;">
+      <button onclick="darBaixaVendaFiado()" style="flex:1;background:var(--success);color:#fff;border:none;padding:11px 20px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">💵 Dar Baixa</button>
+      <button onclick="document.getElementById('fiadoVendaModal').style.display='none'" style="flex:1;background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:11px 20px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Fechar</button>
+    </div>
   </div>
 </div>
 
@@ -2819,6 +2822,17 @@ async function _saveFiadoPag() {
   await window._fbSetDoc('config', 'fiado_pagamentos', { lista: window._fiadoPagamentos || [] });
 }
 
+// Retorna { but, ult } com a quantidade de P13 vendida numa venda fiado específica
+function getQtdVendaFiado(pr, vendaId) {
+  const itensVenda = lancamentos.filter(l => (l.vendaId != null ? l.vendaId : l.id) === vendaId && l.pr === pr);
+  let but = 0, ult = 0;
+  itensVenda.forEach(l => {
+    if (l.marca === 'Butano') but += l.qtd;
+    else if (l.marca === 'Ultragaz') ult += l.qtd;
+  });
+  return { but, ult };
+}
+
 // Calcula saldo de fiado por PR
 // Retorna { PR: { totalFiado, totalPago, saldo, historico[] } }
 async function calcFiadoPorPR() {
@@ -2878,6 +2892,7 @@ async function renderFiado() {
   cardsEl.innerHTML  = '';
 
   const dados = await calcFiadoPorPR();
+  window._fiadoDadosCache = dados;
   let prs = Object.keys(dados).sort((a,b) => dados[b].saldo - dados[a].saldo);
 
   // Popula/atualiza o filtro de PR mantendo a seleção atual
@@ -2963,6 +2978,10 @@ async function renderFiado() {
       const corValor   = isFiado || isFaltaFiado ? 'var(--danger)' : 'var(--success)';
       // Botões: pagamentos manuais, sobras e faltas_fiado podem ser excluídos
       const podeExcluir = !isFiado || isFaltaFiado;
+      // Quantidade de P13 (só faz sentido para vendas fiado ligadas a um lançamento real)
+      const qtd = (isFiado && !isFaltaFiado) ? getQtdVendaFiado(pr, h.id) : null;
+      const butCell = qtd ? (qtd.but > 0 ? qtd.but : '-') : '-';
+      const ultCell = qtd ? (qtd.ult > 0 ? qtd.ult : '-') : '-';
       return `<tr>
         <td style="padding:6px 10px;font-size:12px;color:var(--muted)">${fmtDate(h.data)}</td>
         <td style="padding:6px 10px;">
@@ -2977,9 +2996,11 @@ async function renderFiado() {
         <td style="padding:6px 10px;font-weight:700;color:${h.saldoApos>0?'var(--danger)':'var(--success)'}">
           ${fmtVal(h.saldoApos)}
         </td>
+        <td style="padding:6px 10px;font-size:12px;text-align:center;color:var(--butano);font-weight:700;">${butCell}</td>
+        <td style="padding:6px 10px;font-size:12px;text-align:center;color:var(--ultra);font-weight:700;">${ultCell}</td>
         <td style="padding:6px 10px;">
           <div style="display:flex;gap:4px;">
-            ${isFiado && !isFaltaFiado ? `<button onclick="verVendaFiado('${pr}',${h.id})" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Ver detalhes da venda">👁️ Ver</button>` : ''}
+            ${isFiado && !isFaltaFiado ? `<button onclick="verVendaFiado('${pr}',${h.id},${h.valor})" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Ver detalhes da venda">👁️ Ver</button>` : ''}
             ${podeExcluir && !isFiado ?`
               ${!isSobra && !isFaltaFiado ? `<button onclick="editarPagFiado(${h.id})" style="background:var(--ultra-light);color:var(--ultra);border:1px solid #bfdbfe;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Editar">✏️</button>` : ''}
               <button onclick="excluirPagFiado(${h.id})" style="background:transparent;color:var(--muted2);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;" title="Excluir">✕</button>
@@ -3016,6 +3037,8 @@ async function renderFiado() {
                 <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">Descrição</th>
                 <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">Valor</th>
                 <th style="padding:7px 10px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">Saldo</th>
+                <th style="padding:7px 10px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--butano);">BUT</th>
+                <th style="padding:7px 10px;text-align:center;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--ultra);">ULT</th>
                 <th></th>
               </tr>
             </thead>
@@ -3028,9 +3051,15 @@ async function renderFiado() {
 }
 
 // ── Modal detalhes da venda (itens + formas de pagamento) ──
-function verVendaFiado(pr, vendaId) {
+let _vendaFiadoModalPr = '', _vendaFiadoModalId = null, _vendaFiadoModalValor = 0;
+
+function verVendaFiado(pr, vendaId, valor) {
   const itensVenda = lancamentos.filter(l => (l.vendaId != null ? l.vendaId : l.id) === vendaId && l.pr === pr);
   if (!itensVenda.length) { showToast('⚠️ Venda não encontrada.'); return; }
+
+  _vendaFiadoModalPr = pr;
+  _vendaFiadoModalId = vendaId;
+  _vendaFiadoModalValor = valor || 0;
 
   // Agrupa por marca/produto + preço, somando quantidades
   const grupos = {};
@@ -3076,6 +3105,21 @@ function verVendaFiado(pr, vendaId) {
   const dataVenda = itensVenda[0].data;
   document.getElementById('fiadoVendaModalSub').textContent = `${pr} — ${fmtDate(dataVenda)}`;
   document.getElementById('fiadoVendaModal').style.display = 'flex';
+}
+
+// ── Dar baixa a partir do modal de detalhes da venda ──
+function darBaixaVendaFiado() {
+  const pr = _vendaFiadoModalPr;
+  if (!pr) return;
+  document.getElementById('fiadoVendaModal').style.display = 'none';
+  const d = (window._fiadoDadosCache || {})[pr];
+  const saldo = d ? d.saldo : _vendaFiadoModalValor;
+  abrirFiadoPagModal(pr, saldo);
+  // Pré-preenche o valor daquele dia em Espécie, como ponto de partida
+  if (_vendaFiadoModalValor > 0) {
+    document.getElementById('fpEspecie').value = _vendaFiadoModalValor;
+    calcFiadoPagTotal();
+  }
 }
 
 // ── Modal pagamento ──
