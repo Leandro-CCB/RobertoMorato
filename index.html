@@ -5470,6 +5470,59 @@ async function fazerBackupManual() {
   btn.disabled = false;
 }
 
+async function importarBackupJSON(file) {
+  if (!file) return;
+  const msgEl = document.getElementById('importarBackupMsg');
+  const btn   = document.getElementById('btnImportarBackup');
+  const inputEl = document.getElementById('inputImportarBackup');
+  msgEl.style.color = 'var(--muted)';
+  msgEl.textContent = '⏳ Lendo arquivo...';
+  try {
+    const text = await file.text();
+    const json = JSON.parse(text);
+
+    // Aceita tanto o formato de backup do próprio app quanto exports
+    // manuais (ex.: um export antigo do Firebase com a mesma estrutura).
+    const lancs  = json.lancamentos || (json.data && json.data.lancamentos) || [];
+    const cargas = json.cargas      || (json.data && json.data.cargas)      || [];
+    const cfg    = json.config      || (json.data && json.data.config)      || {};
+    const prs    = json.prs || json.prsSupabase || (cfg.prs && cfg.prs.lista) || null;
+    const fiado  = json.fiadoPagamentos || json.fiado_pagamentos || null;
+
+    if (!lancs.length && !cargas.length) {
+      throw new Error('Arquivo não contém lançamentos nem cargas reconhecíveis.');
+    }
+
+    if (!confirm(`Importar backup?\n\n📦 ${lancs.length} lançamentos\n🚛 ${cargas.length} cargas\n\nIsso vai GRAVAR esses dados no Supabase (itens com o mesmo id são sobrescritos).`)) {
+      msgEl.textContent = '';
+      return;
+    }
+
+    btn.disabled = true;
+    msgEl.textContent = '⏳ Importando...';
+
+    if (lancs.length)      await window._saveLancamentosDocs(lancs);
+    if (cargas.length)     await window._saveCargasDocs(cargas);
+    if (cfg.precos)        await window._fbSetDoc('config', 'precos', cfg.precos);
+    if (cfg.frete)         await window._fbSetDoc('config', 'frete', cfg.frete);
+    if (cfg.empresa_dias)  await window._fbSetDoc('config', 'empresa_dias', cfg.empresa_dias);
+    if (prs)               await window._savePRs(prs);
+    if (fiado)             await window._fbSetDoc('config', 'fiado_pagamentos', { lista: fiado });
+
+    msgEl.style.color = 'var(--success)';
+    msgEl.textContent = `✅ Importado! ${lancs.length} lançamentos, ${cargas.length} cargas.`;
+    showToast('✅ Backup importado! Recarregando...');
+    setTimeout(() => location.reload(), 1500);
+  } catch(e) {
+    console.error('Erro ao importar backup:', e);
+    msgEl.style.color = '#dc2626';
+    msgEl.textContent = '❌ Erro: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    if (inputEl) inputEl.value = '';
+  }
+}
+
 async function baixarBackup(dataLabel) {
   try {
     const backups = await window._fbGetBackups();
@@ -5910,13 +5963,25 @@ document.addEventListener('DOMContentLoaded', function(){
     </div>
 
     <!-- Botão backup manual -->
-    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
       <button onclick="fazerBackupManual()" id="btnBackupManual" style="background:var(--accent);color:#fff;border:none;padding:10px 22px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;box-shadow:0 2px 8px rgba(224,123,0,.25);transition:all .18s;">
         💾 Fazer Backup Agora
       </button>
       <button onclick="fecharBackupModal()" style="background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:10px 20px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
         ✕ Fechar
       </button>
+    </div>
+
+    <!-- Importar backup JSON (ex: exportado do Firebase antigo) -->
+    <div style="background:var(--surface2);border:1.5px dashed var(--border);border-radius:10px;padding:12px 14px;margin-bottom:20px;">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
+        📂 <strong>Importar backup (.json)</strong> — use para trazer um arquivo de backup baixado anteriormente (inclusive backups antigos do Firebase) para o Supabase.
+      </div>
+      <input type="file" id="inputImportarBackup" accept="application/json,.json" onchange="importarBackupJSON(this.files[0])" style="display:none;">
+      <button onclick="document.getElementById('inputImportarBackup').click()" id="btnImportarBackup" style="background:#fff;color:var(--accent);border:1.5px solid var(--accent);padding:9px 20px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
+        📂 Escolher Arquivo JSON
+      </button>
+      <span id="importarBackupMsg" style="font-size:12px;font-weight:600;margin-left:8px;"></span>
     </div>
 
     <!-- Lista de backups -->
