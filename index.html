@@ -1432,7 +1432,10 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
 
   <!-- Tabela detalhada -->
   <div class="card">
-    <div class="section-title">📋 Detalhamento</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:0;">
+      <div class="section-title" style="margin-bottom:0;">📋 Detalhamento</div>
+      <button onclick="imprimirDetalhamento()" style="background:var(--accent);color:#fff;border:none;padding:9px 16px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">🖨️ Imprimir / PDF</button>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -3930,6 +3933,66 @@ function renderResumo(){
 
   // Gráficos e Ranking
   setTimeout(()=>{ renderCharts(f); renderRanking(f); }, 0);
+}
+
+// ── Imprimir / gerar PDF do Detalhamento (respeita os filtros ativos) ──
+function imprimirDetalhamento(){
+  const tbody = document.getElementById('tbodyResumo');
+  if (!tbody || tbody.querySelector('.empty')) { showToast('⚠️ Não há dados para imprimir.'); return; }
+
+  const pr    = document.getElementById('rFiltPr').value;
+  const marca = document.getElementById('rFiltMarca').value;
+  const mes   = document.getElementById('rFiltMes').value;
+  const dia   = document.getElementById('rFiltDia')?.value || '';
+
+  const filtrosPartes = [];
+  if (pr)    filtrosPartes.push(`PR: ${pr}`);
+  if (marca) filtrosPartes.push(`Marca: ${marca}`);
+  if (dia)   filtrosPartes.push(`Dia: ${fmtDate(dia)}`);
+  else if (mes) filtrosPartes.push(`Mês: ${mes}`);
+  const filtrosTxt = filtrosPartes.length ? filtrosPartes.join(' &nbsp;|&nbsp; ') : 'Todos os registros';
+
+  const theadHTML = document.querySelector('#tab-resumo table thead').innerHTML;
+  const tbodyHTML = tbody.innerHTML;
+  const agora = new Date().toLocaleString('pt-BR');
+
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>Detalhamento — Controle Roberto</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; margin: 24px; color:#111; }
+        h1 { font-size: 18px; margin: 0 0 4px; }
+        .sub { font-size: 12px; color:#555; margin-bottom: 4px; }
+        .gerado { font-size: 10px; color:#999; margin-bottom: 16px; }
+        table { width:100%; border-collapse: collapse; font-size: 10px; }
+        th, td { border: 1px solid #ccc; padding: 5px 6px; text-align: left; white-space: nowrap; }
+        th { background:#f2f2f2; text-transform:uppercase; font-size:9px; }
+        tr:nth-child(even) { background:#fafafa; }
+        @media print {
+          @page { size: A4 landscape; margin: 12mm; }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>📋 Controle Roberto — Detalhamento</h1>
+      <div class="sub">${filtrosTxt}</div>
+      <div class="gerado">Gerado em ${agora}</div>
+      <table>
+        <thead>${theadHTML}</thead>
+        <tbody>${tbodyHTML}</tbody>
+      </table>
+      <script>
+        window.onload = function(){ window.print(); };
+      </script>
+    </body>
+    </html>
+  `);
+  win.document.close();
 }
 
 // ── CONFIG ──
