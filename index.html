@@ -70,11 +70,20 @@ function showTab(name, btn) {
 
   // ── Helpers de baixo nível (cada linha = { id text, data jsonb }) ────
 
-  // GET coleção inteira
+  // GET coleção inteira (pagina em blocos de 1000, pois o PostgREST/Supabase
+  // limita cada requisição a no máximo 1000 linhas por padrão)
   async function fsGetCollection(col) {
-    const { data, error } = await sb.from(TABLES[col]).select('id, data');
-    if (error) throw error;
-    return (data || []).map(row => ({ ...(row.data || {}), _fbId: row.id }));
+    const PAGE_SIZE = 1000;
+    let all = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await sb.from(TABLES[col]).select('id, data').range(from, from + PAGE_SIZE - 1);
+      if (error) throw error;
+      all = all.concat(data || []);
+      if (!data || data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+    return all.map(row => ({ ...(row.data || {}), _fbId: row.id }));
   }
 
   // GET documento único
