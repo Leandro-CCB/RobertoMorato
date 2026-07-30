@@ -1802,12 +1802,17 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
   <!-- Cards de resumo -->
   <div id="fiadoResumoCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px;"></div>
 
-  <!-- Filtro de PR -->
+  <!-- Filtro de PR e Mês -->
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
     <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">🔎 Filtrar PR</label>
     <select id="fiadoFiltroPr" onchange="renderFiado()" style="max-width:240px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);background:var(--surface2,#fff);">
       <option value="">Todos os PRs</option>
     </select>
+    <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">📅 Mês</label>
+    <select id="fiadoFiltroMes" onchange="renderFiado()" style="max-width:200px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);background:var(--surface2,#fff);">
+      <option value="">Todos os meses</option>
+    </select>
+    <button onclick="imprimirFiado()" style="margin-left:auto;background:var(--accent);color:#fff;border:none;padding:9px 16px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">🖨️ Imprimir / PDF</button>
   </div>
 
   <!-- Cards por PR -->
@@ -2912,6 +2917,27 @@ async function renderFiado() {
     if (filtroEl.value) prs = prs.filter(p => p === filtroEl.value);
   }
 
+  // Popula/atualiza o filtro de Mês mantendo a seleção atual
+  const mesEl = document.getElementById('fiadoFiltroMes');
+  let mesSelecionado = '';
+  if (mesEl) {
+    mesSelecionado = mesEl.value;
+    const mesesSet = new Set();
+    Object.keys(dados).forEach(pr => dados[pr].historico.forEach(h => mesesSet.add(h.data.slice(0,7))));
+    const mesesOrdenados = Array.from(mesesSet).sort().reverse();
+    const nomesMes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    const opcoesAtuaisMes = Array.from(mesEl.options).map(o=>o.value).join('|');
+    const novasOpcoesMesKey = [''].concat(mesesOrdenados).join('|');
+    if (opcoesAtuaisMes !== novasOpcoesMesKey) {
+      mesEl.innerHTML = '<option value="">Todos os meses</option>' + mesesOrdenados.map(m => {
+        const [y,mm] = m.split('-');
+        return `<option value="${m}">${nomesMes[parseInt(mm,10)-1]}/${y}</option>`;
+      }).join('');
+      mesEl.value = mesesOrdenados.includes(mesSelecionado) ? mesSelecionado : '';
+    }
+    mesSelecionado = mesEl.value;
+  }
+
   // Cards de resumo (sempre com base em todos os PRs, independente do filtro)
   const todosPrs = Object.keys(dados);
   const totalDevendo  = todosPrs.reduce((a,p)=>a+(dados[p].saldo>0?dados[p].saldo:0),0);
@@ -2951,7 +2977,23 @@ async function renderFiado() {
     const corSaldo = d.saldo <= 0 ? 'var(--success)' : 'var(--danger)';
     const bgCard   = d.saldo <= 0 ? '' : 'border:1.5px solid #fca5a5;';
 
-    const historicoHTML = d.historico.map(h => {
+    const historicoFiltrado = mesSelecionado ? d.historico.filter(h => h.data.slice(0,7) === mesSelecionado) : d.historico;
+
+    if (!historicoFiltrado.length) {
+      return `<div class="card" style="${bgCard}">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:38px;height:38px;border-radius:9px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Bebas Neue',sans-serif;font-size:16px;">${pr.substring(0,2).toUpperCase()}</div>
+            <div>
+              <div style="font-weight:700;font-size:15px;">${semaforo} ${pr}</div>
+              <div style="font-size:11px;color:var(--muted);">Sem lançamentos no mês selecionado</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    const historicoHTML = historicoFiltrado.map(h => {
       const isFiado = h.tipo === 'fiado';
       const isSobra = h.desc && h.desc.startsWith('💰 Sobra');
       const isFaltaFiado = h.desc && h.desc.startsWith('⚠️ Falta');
@@ -3051,6 +3093,61 @@ async function renderFiado() {
       </div>
     </div>`;
   }).join('');
+}
+
+// ── Imprimir / gerar PDF do relatório de Fiado (respeita os filtros ativos) ──
+function imprimirFiado(){
+  const cardsEl = document.getElementById('fiadoPrCards');
+  if (!cardsEl || !cardsEl.innerHTML.trim()) { showToast('⚠️ Não há dados para imprimir.'); return; }
+
+  const pr  = document.getElementById('fiadoFiltroPr').value;
+  const mesEl = document.getElementById('fiadoFiltroMes');
+  const mesTxt = mesEl && mesEl.value ? mesEl.options[mesEl.selectedIndex].textContent : '';
+
+  const filtrosPartes = [];
+  filtrosPartes.push(pr ? `PR: ${pr}` : 'Todos os PRs');
+  filtrosPartes.push(mesTxt ? `Mês: ${mesTxt}` : 'Todos os meses');
+  const filtrosTxt = filtrosPartes.join(' &nbsp;|&nbsp; ');
+
+  // Remove botões de ação (não fazem sentido no papel) mantendo o resto do layout
+  const conteudo = cardsEl.innerHTML.replace(/<button[\s\S]*?<\/button>/g, '');
+
+  const agora = new Date().toLocaleString('pt-BR');
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>Relatório de Fiado — Controle Roberto</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; margin: 24px; color:#111; }
+        h1 { font-size: 18px; margin: 0 0 4px; }
+        .sub { font-size: 12px; color:#555; margin-bottom: 4px; }
+        .gerado { font-size: 10px; color:#999; margin-bottom: 20px; }
+        .card { border: 1px solid #ccc; border-radius: 8px; padding: 14px; margin-bottom: 18px; page-break-inside: avoid; }
+        table { width:100%; border-collapse: collapse; font-size: 10px; margin-top:8px; }
+        th, td { border: 1px solid #ccc; padding: 5px 6px; text-align: left; }
+        th { background:#f2f2f2; text-transform:uppercase; font-size:9px; }
+        tr:nth-child(even) { background:#fafafa; }
+        @media print {
+          @page { size: A4 landscape; margin: 12mm; }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>📒 Controle Roberto — Relatório de Fiado</h1>
+      <div class="sub">${filtrosTxt}</div>
+      <div class="gerado">Gerado em ${agora}</div>
+      ${conteudo}
+      <script>
+        window.onload = function(){ window.print(); };
+      <\/script>
+    </body>
+    </html>
+  `);
+  win.document.close();
 }
 
 // ── Modal detalhes da venda (itens + formas de pagamento) ──
@@ -5257,7 +5354,7 @@ function exportarPDFCargas() {
 <!-- ══════════════════════════════════════════════════════════
      REGISTRO DO SERVICE WORKER (PWA)
 ════════════════════════════════════════════════════════════ -->
-<\u0073cript>
+<script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
