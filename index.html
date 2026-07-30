@@ -47,123 +47,80 @@ function showTab(name, btn) {
 }
 </script>
 
-<!-- Firebase via REST API — funciona com file:// sem CDN externo -->
+<!-- Supabase (substitui o antigo módulo Supabase). Mantém as MESMAS funções
+     globais (window._fbSetDoc, window._saveLancamentos, etc.) para que o
+     resto do app funcione sem nenhuma alteração. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 (function() {
   'use strict';
 
-  const PROJECT = 'gas-do-povo-3ce65';
-  const KEY     = 'AIzaSyBUNAiODlVTn1C_VQ1bgpurDNBQvRmmwKs';
-  const BASE    = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
+  const SUPABASE_URL = 'https://zfwcvsaaczbsxxfgzdur.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpmd2N2c2FhY3pic3h4Zmd6ZHVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0Mjk1NzIsImV4cCI6MjEwMTAwNTU3Mn0.g0_N-63t-Wwrm5S2r0u53BRIEnve1NLpvxcpBUBJtLs';
 
-  // ── Firestore REST helpers ──────────────────────────────────────────
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // Converte objeto JS → formato Firestore value
-  function toFSValue(v) {
-    if (v === null || v === undefined) return { nullValue: null };
-    if (typeof v === 'boolean') return { booleanValue: v };
-    if (typeof v === 'number')  return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
-    if (typeof v === 'string')  return { stringValue: v };
-    if (Array.isArray(v))       return { arrayValue: { values: v.map(toFSValue) } };
-    if (typeof v === 'object')  return { mapValue: { fields: toFSFields(v) } };
-    return { stringValue: String(v) };
-  }
-  function toFSFields(obj) {
-    const f = {};
-    for (const k in obj) if (Object.prototype.hasOwnProperty.call(obj, k)) f[k] = toFSValue(obj[k]);
-    return f;
-  }
+  // Mapeia as "coleções" antigas do Firestore para as tabelas do Supabase
+  const TABLES = {
+    lancamentos: 'roberto_lancamentos',
+    cargas:      'roberto_cargas',
+    config:      'roberto_config',
+    backups:     'roberto_backups',
+  };
 
-  // Converte formato Firestore value → objeto JS
-  function fromFSValue(v) {
-    if (!v) return null;
-    if ('nullValue'    in v) return null;
-    if ('booleanValue' in v) return v.booleanValue;
-    if ('integerValue' in v) return parseInt(v.integerValue, 10);
-    if ('doubleValue'  in v) return v.doubleValue;
-    if ('stringValue'  in v) return v.stringValue;
-    if ('arrayValue'   in v) return (v.arrayValue.values || []).map(fromFSValue);
-    if ('mapValue'     in v) return fromFSFields(v.mapValue.fields || {});
-    return null;
-  }
-  function fromFSFields(fields) {
-    const obj = {};
-    for (const k in fields) obj[k] = fromFSValue(fields[k]);
-    return obj;
-  }
-  function fromFSDoc(doc) {
-    if (!doc || !doc.fields) return null;
-    const obj = fromFSFields(doc.fields);
-    // extrai ID do name: projects/.../documents/col/ID
-    obj._fbId = (doc.name || '').split('/').pop();
-    return obj;
-  }
+  // ── Helpers de baixo nível (cada linha = { id text, data jsonb }) ────
 
-  // GET coleção
+  // GET coleção inteira
   async function fsGetCollection(col) {
-    let docs = [], pageToken = null;
-    do {
-      let url = `${BASE}/${col}?key=${KEY}&pageSize=300`;
-      if (pageToken) url += `&pageToken=${pageToken}`;
-      const r = await fetch(url);
-      const j = await r.json();
-      if (j.documents) docs = docs.concat(j.documents.map(fromFSDoc));
-      pageToken = j.nextPageToken || null;
-    } while (pageToken);
-    return docs;
+    const { data, error } = await sb.from(TABLES[col]).select('id, data');
+    if (error) throw error;
+    return (data || []).map(row => ({ ...(row.data || {}), _fbId: row.id }));
   }
 
-  // GET documento
+  // GET documento único
   async function fsGetDoc(col, id) {
-    const r = await fetch(`${BASE}/${col}/${id}?key=${KEY}`);
-    if (!r.ok) return null;
-    const j = await r.json();
-    return j.fields ? fromFSFields(j.fields) : null;
+    const { data, error } = await sb.from(TABLES[col]).select('data').eq('id', String(id)).maybeSingle();
+    if (error) throw error;
+    return data ? data.data : null;
   }
 
   // SET (cria ou sobrescreve) documento
-  async function fsSetDoc(col, id, data) {
-    const body = JSON.stringify({ fields: toFSFields(data) });
-    const r = await fetch(`${BASE}/${col}/${id}?key=${KEY}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body
-    });
-    if (!r.ok) throw new Error(`fsSetDoc ${col}/${id} failed: ${r.status}`);
-    return r.json();
+  async function fsSetDoc(col, id, docData) {
+    const { error } = await sb.from(TABLES[col]).upsert({ id: String(id), data: docData });
+    if (error) throw new Error(`fsSetDoc ${col}/${id} failed: ${error.message}`);
+    return docData;
   }
 
   // DELETE documento
   async function fsDeleteDoc(col, id) {
-    await fetch(`${BASE}/${col}/${id}?key=${KEY}`, { method: 'DELETE' });
-  }
-
-  // Executa tarefas assíncronas em lotes, limitando a concorrência
-  // (evita net::ERR_INSUFFICIENT_RESOURCES ao gravar centenas de docs de uma vez)
-  const FS_CONCURRENCY = 15;
-  async function executarEmLotes(items, taskFn, tamanhoLote) {
-    const lote = tamanhoLote || FS_CONCURRENCY;
-    const resultados = [];
-    for (let i = 0; i < items.length; i += lote) {
-      const pedaco = items.slice(i, i + lote);
-      resultados.push(...await Promise.all(pedaco.map(taskFn)));
-    }
-    return resultados;
+    await sb.from(TABLES[col]).delete().eq('id', String(id));
   }
 
   // Salva coleção inteira (SEGURO: escreve primeiro, apaga órfãos depois em background)
   async function fsSaveCollection(col, arr, idFn) {
-    // 1. Escreve/atualiza todos os itens PRIMEIRO (em lotes, não tudo de uma vez)
-    await executarEmLotes(arr, item => {
-      const { _fbId, ...data } = item;
-      return fsSetDoc(col, String(idFn(item)), data);
-    });
+    // 1. Escreve/atualiza todos os itens PRIMEIRO (upsert em lote, uma única chamada)
+    if (arr.length) {
+      const rows = arr.map(item => {
+        const { _fbId, ...data } = item;
+        return { id: String(idFn(item)), data };
+      });
+      const { error } = await sb.from(TABLES[col]).upsert(rows);
+      if (error) throw new Error(`fsSaveCollection ${col} failed: ${error.message}`);
+    }
     // 2. Limpa órfãos em BACKGROUND (não bloqueia o retorno para o usuário)
     setTimeout(async () => {
       try {
         const existing = await fsGetCollection(col);
         const idsNovos = new Set(arr.map(item => String(idFn(item))));
         const paraRemover = existing.filter(d => !idsNovos.has(d._fbId));
-        if (paraRemover.length > 0) {
-          await executarEmLotes(paraRemover, d => fsDeleteDoc(col, d._fbId));
+
+        const pctRemover = existing.length > 0 ? paraRemover.length / existing.length : 0;
+        const pareceExclusaoEmMassa = paraRemover.length > 5 && pctRemover > 0.2;
+
+        if (paraRemover.length > 0 && pareceExclusaoEmMassa) {
+          console.warn(`[fsSaveCollection] ⚠️ BLOQUEADO por segurança: tentativa de apagar ${paraRemover.length} de ${existing.length} documento(s) de "${col}" (${(pctRemover*100).toFixed(0)}%). Isso parece um array local desatualizado, não uma exclusão intencional. Nada foi apagado.`);
+        } else if (paraRemover.length > 0) {
+          await sb.from(TABLES[col]).delete().in('id', paraRemover.map(d => d._fbId));
           console.log(`[fsSaveCollection] ${paraRemover.length} órfão(s) removido(s) de "${col}"`);
         }
       } catch(e) {
@@ -174,16 +131,19 @@ function showTab(name, btn) {
 
   // Salva apenas documentos específicos (rápido, sem varrer a coleção)
   async function fsSaveDocs(col, items, idFn) {
-    await executarEmLotes(items, item => {
+    if (!items.length) return;
+    const rows = items.map(item => {
       const { _fbId, ...data } = item;
-      return fsSetDoc(col, String(idFn(item)), data);
+      return { id: String(idFn(item)), data };
     });
+    const { error } = await sb.from(TABLES[col]).upsert(rows);
+    if (error) throw new Error(`fsSaveDocs ${col} failed: ${error.message}`);
   }
 
   // Remove documentos específicos por ID
   async function fsDeleteDocs(col, ids) {
     if (!ids.length) return;
-    await executarEmLotes(ids, id => fsDeleteDoc(col, String(id)));
+    await sb.from(TABLES[col]).delete().in('id', ids.map(String));
   }
 
   // ── Restaurar backup ────────────────────────────────────────────────
@@ -192,24 +152,14 @@ function showTab(name, btn) {
     if (!confirm(`Restaurar backup "${nomeBackup}"?\n\nIsso vai SOBRESCREVER os lançamentos e cargas atuais com os dados do backup.`)) return;
     showLoadingOverlay(true);
     try {
-      const r = await fetch(`${BASE}/backups/${nomeBackup}?key=${KEY}`);
-      if (!r.ok) throw new Error('Backup não encontrado: ' + nomeBackup);
-      const doc = await r.json();
-      const backup = fromFSFields(doc.fields || {});
+      const backup = await fsGetDoc('backups', nomeBackup);
+      if (!backup) throw new Error('Backup não encontrado: ' + nomeBackup);
 
       const lancs  = backup.lancamentos || [];
       const cargas = backup.cargas || [];
 
-      // Salva lançamentos
-      await Promise.all(lancs.map(l => {
-        const { _fbId, ...data } = l;
-        return fsSetDoc('lancamentos', String(l.id), data);
-      }));
-      // Salva cargas
-      await Promise.all(cargas.map(c => {
-        const { _fbId, ...data } = c;
-        return fsSetDoc('cargas', String(c.id), data);
-      }));
+      if (lancs.length)  await fsSaveDocs('lancamentos', lancs, l => l.id);
+      if (cargas.length) await fsSaveDocs('cargas', cargas, c => c.id);
 
       alert(`✅ Backup "${nomeBackup}" restaurado!\n📦 ${lancs.length} lançamentos\n🚛 ${cargas.length} cargas\n\nA página será recarregada.`);
       location.reload();
@@ -228,7 +178,7 @@ function showTab(name, btn) {
       el = document.createElement('div');
       el.id = 'fbLoadingOverlay';
       el.style.cssText = 'position:fixed;inset:0;background:rgba(255,255,255,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:DM Sans,sans-serif;';
-      el.innerHTML = '<div style="font-size:42px">🔥</div><div style="font-size:15px;font-weight:700;color:#e07b00">Conectando ao Firebase…</div><div style="width:44px;height:44px;border:4px solid #e07b00;border-top-color:transparent;border-radius:50%;animation:fbspin .8s linear infinite"></div><style>@keyframes fbspin{to{transform:rotate(360deg)}}</style>';
+      el.innerHTML = '<div style="font-size:42px">⚡</div><div style="font-size:15px;font-weight:700;color:#e07b00">Conectando ao Supabase…</div><div style="width:44px;height:44px;border:4px solid #e07b00;border-top-color:transparent;border-radius:50%;animation:fbspin .8s linear infinite"></div><style>@keyframes fbspin{to{transform:rotate(360deg)}}</style>';
       document.body.appendChild(el);
     }
     el.style.display = show ? 'flex' : 'none';
@@ -238,7 +188,6 @@ function showTab(name, btn) {
   async function carregarDados() {
     showLoadingOverlay(true);
 
-    // Sem internet: carrega direto do cache local, nem tenta a rede
     if (!navigator.onLine) {
       const usouCache = (typeof window._aplicarCacheLocal === 'function') && window._aplicarCacheLocal();
       showLoadingOverlay(false);
@@ -260,15 +209,13 @@ function showTab(name, btn) {
       window._configPrecos      = cfgPrecos      || {};
       window._freteConfig       = cfgFrete       || {};
       window._empresaDiasConfig = cfgDias        || {};
-      window._prsFirebase       = (cfgPRs && cfgPRs.lista && cfgPRs.lista.length) ? cfgPRs.lista : null;
-      // Guarda cópia local para uso offline
+      window._prsSupabase       = (cfgPRs && cfgPRs.lista && cfgPRs.lista.length) ? cfgPRs.lista : null;
       if (typeof window._salvarCacheLocal === 'function') window._salvarCacheLocal();
     } catch(e) {
       console.error('Erro ao carregar dados:', e);
-      // Falhou a rede (mesmo com navigator.onLine=true) — tenta cache local antes de desistir
       const usouCache = (typeof window._aplicarCacheLocal === 'function') && window._aplicarCacheLocal();
       if (!usouCache) {
-        alert('⚠️ Não foi possível conectar ao Firebase.\nVerifique sua conexão com a internet.');
+        alert('⚠️ Não foi possível conectar ao Supabase.\nVerifique sua conexão com a internet.');
       } else {
         console.log('[Sync] Carregado a partir do cache local (sem internet no momento).');
       }
@@ -294,8 +241,10 @@ function showTab(name, btn) {
       config: { precos: cfgP||{}, frete: cfgF||{}, empresa_dias: cfgD||{} }
     };
     await fsSetDoc('backups', label, backup);
+    const dataPura = String(label).split('_')[0];
     await fsSetDoc('config', 'backup_meta', {
-      ultimo: label,
+      ultimo: dataPura,
+      ultimoLabel: label,
       total_lancamentos: backup.lancamentos.length,
       total_cargas: backup.cargas.length,
     });
@@ -314,13 +263,12 @@ function showTab(name, btn) {
     } catch(e) { console.warn('Backup automático falhou:', e); }
   }
 
-  // ── Exposição global ─────────────────────────────────────────────────
+  // ── Exposição global (mesmos nomes de antes) ─────────────────────────
   window._fbSetDoc  = fsSetDoc;
   window._fbGetDoc  = fsGetDoc;
 
   window._saveLancamentos       = () => fsSaveCollection('lancamentos', window._lancamentos || [], l => l.id);
   window._saveCargas            = () => fsSaveCollection('cargas',      window._cargas      || [], c => c.id);
-  // Versões rápidas: salvam apenas os docs passados, sem varrer a coleção
   window._saveLancamentosDocs   = (items) => fsSaveDocs('lancamentos', items, l => l.id);
   window._deleteLancamentosIds  = (ids)   => fsDeleteDocs('lancamentos', ids);
   window._saveCargasDocs        = (items) => fsSaveDocs('cargas', items, c => c.id);
@@ -348,7 +296,7 @@ function showTab(name, btn) {
      localStorage (fila pendente) e um cache completo dos dados
      é mantido para o app funcionar normalmente offline.
      Quando a internet volta (evento 'online') OU a cada 30 min
-     (timer), a fila pendente é enviada ao Firebase.
+     (timer), a fila pendente é enviada ao Supabase.
 ════════════════════════════════════════════════════════════════ -->
 <script>
 (function() {
@@ -399,7 +347,7 @@ function showTab(name, btn) {
         configPrecos:       window._configPrecos       || {},
         freteConfig:        window._freteConfig        || {},
         empresaDiasConfig:  window._empresaDiasConfig  || {},
-        prsFirebase:        window._prsFirebase        || null,
+        prsSupabase:        window._prsSupabase        || null,
         fiadoPagamentos:    window._fiadoPagamentos    || [],
         ts: Date.now()
       };
@@ -416,7 +364,7 @@ function showTab(name, btn) {
       window._configPrecos      = c.configPrecos      || {};
       window._freteConfig       = c.freteConfig       || {};
       window._empresaDiasConfig = c.empresaDiasConfig || {};
-      window._prsFirebase       = c.prsFirebase        || null;
+      window._prsSupabase       = c.prsSupabase        || null;
       window._fiadoPagamentos   = c.fiadoPagamentos    || [];
       return true;
     } catch(e) { console.warn('[Sync] Falha ao ler cache local:', e); return false; }
@@ -472,7 +420,7 @@ function showTab(name, btn) {
     }
   }
 
-  // ── Sincroniza a fila pendente com o Firebase ──────────────────────
+  // ── Sincroniza a fila pendente com o Supabase ──────────────────────
   window._sincronizarPendencias = async function(manual) {
     if (sincronizando) return;
     if (!navigator.onLine) {
@@ -521,7 +469,7 @@ function showTab(name, btn) {
 <!-- ══════════════════════════════════════════════════════════════
      MÓDULO DE SEGURANÇA LOCAL — IndexedDB
      Salva cópia local no navegador a cada alteração.
-     Funciona mesmo se o Firebase falhar ou ficar fora do ar.
+     Funciona mesmo se o Supabase falhar ou ficar fora do ar.
 ════════════════════════════════════════════════════════════════ -->
 <script>
 (function() {
@@ -602,9 +550,9 @@ function showTab(name, btn) {
     } catch(e) { return []; }
   }
 
-  // ── Restaurar snapshot local → Firebase ─────────────────────────
+  // ── Restaurar snapshot local → Supabase ─────────────────────────
   window._restaurarSnapshotLocal = async function(snapId) {
-    if (!confirm('Restaurar este snapshot local?\n\nOs dados serão enviados de volta para o Firebase e a página vai recarregar.')) return;
+    if (!confirm('Restaurar este snapshot local?\n\nOs dados serão enviados de volta para o Supabase e a página vai recarregar.')) return;
     try {
       const db    = await abrirDB();
       const tx    = db.transaction(STORE, 'readonly');
@@ -616,7 +564,7 @@ function showTab(name, btn) {
       });
       if (!snap) { alert('Snapshot não encontrado.'); return; }
 
-      // Envia para Firebase
+      // Envia para Supabase
       const lancs  = snap.lancamentos || [];
       const cargas = snap.cargas || [];
       await Promise.all(lancs.map(l  => window._fbSetDoc('lancamentos', String(l.id),  l)));
@@ -661,7 +609,7 @@ function showTab(name, btn) {
       modal.innerHTML = `
         <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:600px;max-height:88vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid #dde1ec;">
           <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:#15803d;margin-bottom:6px;display:flex;align-items:center;gap:8px;">🛡️ Segurança Local</div>
-          <p style="font-size:12px;color:#6b7280;margin-bottom:6px;">Cópias salvas <strong>neste navegador</strong>, independentes do Firebase. Se o Firebase falhar, restaure daqui.</p>
+          <p style="font-size:12px;color:#6b7280;margin-bottom:6px;">Cópias salvas <strong>neste navegador</strong>, independentes do Supabase. Se o Supabase falhar, restaure daqui.</p>
           <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:11px;color:#15803d;">
             ✅ Salvo automaticamente a cada alteração nos lançamentos · Últimos <strong>30 snapshots</strong> mantidos
           </div>
@@ -706,7 +654,7 @@ function showTab(name, btn) {
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button onclick="window._restaurarSnapshotLocal(${s.id})" title="Restaurar para o Firebase"
+            <button onclick="window._restaurarSnapshotLocal(${s.id})" title="Restaurar para o Supabase"
               style="background:#dcfce7;color:#15803d;border:1.5px solid #bbf7d0;padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">
               ♻️ Restaurar
             </button>
@@ -722,12 +670,12 @@ function showTab(name, btn) {
   // ── Expõe função de snapshot para ser chamada ao salvar ─────────
   window._salvarSnapshotLocal = salvarSnapshotLocal;
 
-  // Snapshot inicial ao carregar os dados do Firebase
+  // Snapshot inicial ao carregar os dados do Supabase
   document.addEventListener('DOMContentLoaded', () => {
     const origInit = window._appInit;
     window._appInit = async function() {
       if (origInit) await origInit.apply(this, arguments);
-      // Snapshot após carregar dados do Firebase
+      // Snapshot após carregar dados do Supabase
       setTimeout(() => salvarSnapshotLocal('carga-inicial'), 2000);
     };
   });
@@ -1991,7 +1939,7 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
       </button>
     </div>
     <p style="font-size:11px;color:#15803d;margin-top:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:8px 12px;">
-      🛡️ <strong>Segurança Local ativa:</strong> uma cópia é salva automaticamente neste navegador a cada alteração. Se o Firebase falhar, acesse "Segurança Local" para restaurar.
+      🛡️ <strong>Segurança Local ativa:</strong> uma cópia é salva automaticamente neste navegador a cada alteração. Se o Supabase falhar, acesse "Segurança Local" para restaurar.
     </p>
   </div>
 </div>
@@ -2185,20 +2133,20 @@ const PAY_EMOJIS = {'Espécie':'💵','Débito':'💳','Crédito':'💳','QR Cod
 // ── hojeLocal() — declarada globalmente no <head> para ser acessível a todos os módulos ──
 // (definição movida para o primeiro <script> do <head> — veja o início do arquivo)
 
-// Variáveis de estado — preenchidas pelo módulo Firebase antes de _appInit
+// Variáveis de estado — preenchidas pelo módulo Supabase antes de _appInit
 let lancamentos  = [];
 let configPrecos = {};
 
-// ── INIT (chamado após Firebase carregar os dados) ──
+// ── INIT (chamado após Supabase carregar os dados) ──
 window._appInit = async function() {
-  // Sincroniza variáveis locais com os dados carregados do Firebase
+  // Sincroniza variáveis locais com os dados carregados do Supabase
   lancamentos  = window._lancamentos  || [];
   configPrecos = window._configPrecos || {};
   cargas       = window._cargas       || [];
   freteConfig  = window._freteConfig  || {};
   empresaDiasConfig = window._empresaDiasConfig || {};
 
-  // ── Remove duplicatas por id (dados corrompidos no Firebase) ──
+  // ── Remove duplicatas por id (dados corrompidos no Supabase) ──
   const _vistoIds = new Set();
   const _antes = lancamentos.length;
   lancamentos = lancamentos.filter(l => {
@@ -2209,12 +2157,12 @@ window._appInit = async function() {
   if (lancamentos.length < _antes) {
     console.warn(`[dedup] Removidas ${_antes - lancamentos.length} entradas duplicadas por id. Salvando...`);
     window._lancamentos = lancamentos;
-    window._saveLancamentos().then(() => console.log('[dedup] Firebase limpo!'));
+    window._saveLancamentos().then(() => console.log('[dedup] Supabase limpo!'));
   }
-  // Carrega lista de PRs do Firebase (se existir), sobrepondo o array hardcoded
-  if (window._prsFirebase) {
+  // Carrega lista de PRs do Supabase (se existir), sobrepondo o array hardcoded
+  if (window._prsSupabase) {
     PRS.length = 0;
-    window._prsFirebase.forEach(p => PRS.push(p));
+    window._prsSupabase.forEach(p => PRS.push(p));
   }
   document.getElementById('fData').value = hojeLocal();
   ['fPr','rFiltPr','editPr'].forEach(id => {
@@ -2666,7 +2614,7 @@ async function excluirGrupoLanc(data, pr){
   showToast(`🗑️ Lançamento de ${pr} (${dataFmt}) excluído!`);
 }
 
-// ── SAVE (Firebase) ──
+// ── SAVE (Supabase) ──
 // _saveContext: { type: 'add', items: [...] }   → salva só os novos/alterados
 //               { type: 'delete', ids: [...] }  → remove só os deletados
 //               { type: 'full' }                → reescreve tudo (fallback)
@@ -2683,13 +2631,13 @@ async function save(_saveContext) {
       // FALLBACK: reescreve tudo (ex: edição complexa)
       await window._saveLancamentos();
     }
-    // Snapshot local automático a cada salvamento no Firebase
+    // Snapshot local automático a cada salvamento no Supabase
     if (window._salvarSnapshotLocal) window._salvarSnapshotLocal('auto');
   } catch(e) {
     console.error('Erro ao salvar lançamentos:', e);
-    // Mesmo se o Firebase falhar, salva snapshot local de emergência
-    if (window._salvarSnapshotLocal) window._salvarSnapshotLocal('emergencia-firebase-falhou');
-    showToast('\u26a0\ufe0f Erro ao salvar no Firebase! C\u00f3pia local salva.');
+    // Mesmo se o Supabase falhar, salva snapshot local de emergência
+    if (window._salvarSnapshotLocal) window._salvarSnapshotLocal('emergencia-supabase-falhou');
+    showToast('\u26a0\ufe0f Erro ao salvar no Supabase! C\u00f3pia local salva.');
   }
 }
 
@@ -2769,7 +2717,7 @@ window.corrigirPagDuplicado=async function(){
   window._lancamentos=lancamentos;
   await window._saveLancamentos();
   renderTable();renderTotals();
-  console.log('✅ Corrigidos '+n+' lançamento(s) e salvos no Firebase!');
+  console.log('✅ Corrigidos '+n+' lançamento(s) e salvos no Supabase!');
   showToast('✅ '+n+' pagamento(s) duplicado(s) corrigido(s)!');
 };
 
@@ -2820,7 +2768,7 @@ window.corrigirVendasDuplicadas=async function(){
   window._lancamentos=lancamentos;
   await window._saveLancamentos();
   renderTable();renderTotals();
-  console.log('✅ Corrigido! Removidas',idsRemover.size,'linha(s) e salvo no Firebase!');
+  console.log('✅ Corrigido! Removidas',idsRemover.size,'linha(s) e salvo no Supabase!');
   showToast('✅ Vendas duplicadas removidas!');
 };
 
@@ -3423,7 +3371,7 @@ function fecharGrupoLanc(){
 
 // ── TOTALS BAR ──
 function renderTotals(){
-  // Usa sempre window._lancamentos (fonte primária do Firebase)
+  // Usa sempre window._lancamentos (fonte primária do Supabase)
   const fonte = (window._lancamentos && window._lancamentos.length) ? window._lancamentos : lancamentos;
 
   // Se houver filtro de data ativo, usa essa data; senão usa hoje
@@ -3959,7 +3907,7 @@ async function saveConfig(){
     };
   });
   window._configPrecos = configPrecos; // sincroniza
-  // Salva configPrecos no Firebase
+  // Salva configPrecos no Supabase
   try {
     await window._fbSetDoc('config', 'precos', configPrecos);
   } catch(e) { console.error('Erro ao salvar config:', e); }
@@ -3976,7 +3924,7 @@ async function excluirPR(pr){
   if(idx===-1) return;
   PRS.splice(idx,1);
   delete configPrecos[pr];
-  // Salva no Firebase (preços e lista de PRs)
+  // Salva no Supabase (preços e lista de PRs)
   try { await window._fbSetDoc('config', 'precos', configPrecos); } catch(e) {}
   try { await window._savePRs([...PRS]); } catch(e) { console.error('Erro ao salvar PRs:', e); }
   // Atualiza todos os selects
@@ -4234,7 +4182,7 @@ async function adicionarNovoPR(){
   if(PRS.includes(nome)){msg.style.color='var(--danger)';msg.textContent='⚠ PR já existe na lista.';return;}
   PRS.push(nome);
   PRS.sort();
-  // Salva lista de PRs no Firebase
+  // Salva lista de PRs no Supabase
   try { await window._savePRs([...PRS]); } catch(e) { console.error('Erro ao salvar PRs:', e); }
   // atualiza selects de PR
   ['fPr','rFiltPr'].forEach(id=>{
@@ -4262,7 +4210,7 @@ async function adicionarNovoPR(){
 // ══════════════════════════════════════════════════════
 //  CONTROLE DE CARGAS
 // ══════════════════════════════════════════════════════
-// cargas, freteConfig e empresaDiasConfig são carregados do Firebase pelo módulo ES
+// cargas, freteConfig e empresaDiasConfig são carregados do Supabase pelo módulo ES
 // e armazenados em window.* antes de _appInit ser chamado
 
 // Empresas e seus dias úteis padrão
@@ -4344,7 +4292,7 @@ function getItensCarga(containerId) {
   return itens;
 }
 
-// Configuração de modais de cargas — chamada dentro do _appInit (após Firebase carregar)
+// Configuração de modais de cargas — chamada dentro do _appInit (após Supabase carregar)
 // ── AUTO-MARCAR PAGO: vencimento >= 3 dias atrás ────────────────
 async function autoMarcarPago() {
   const hoje = hojeLocal();
@@ -4365,7 +4313,7 @@ async function autoMarcarPago() {
     window._cargas = cargas;
     await saveCargas();
     showToast('✅ Cargas vencidas há 3+ dias marcadas como PAGO!');
-    console.log('[auto-pago] Atualizado no Firebase.');
+    console.log('[auto-pago] Atualizado no Supabase.');
   }
 }
 
@@ -4495,7 +4443,7 @@ async function salvarFreteConfig() {
     const el = document.getElementById('frete_' + safeid);
     if (el) freteConfig[p] = parseFloat(el.value) || 0;
   });
-  // Salva frete no Firebase (será feito junto com empresa_dias abaixo)
+  // Salva frete no Supabase (será feito junto com empresa_dias abaixo)
 
   // Salvar dias úteis por empresa
   EMPRESAS_VENC.forEach(e => {
@@ -4504,7 +4452,7 @@ async function salvarFreteConfig() {
   });
   window._freteConfig = freteConfig;
   window._empresaDiasConfig = empresaDiasConfig;
-  // Salva freteConfig e empresaDiasConfig no Firebase
+  // Salva freteConfig e empresaDiasConfig no Supabase
   try {
     await window._fbSetDoc('config', 'frete', freteConfig);
     await window._fbSetDoc('config', 'empresa_dias', empresaDiasConfig);
