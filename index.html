@@ -633,7 +633,7 @@ function showTab(name, btn) {
           </div>
         </div>`;
       document.body.appendChild(modal);
-      modal.addEventListener('click', e => { if (e.target === modal) modal.style.display='none'; });
+      // clique fora desabilitado
     }
 
     modal.style.display = 'flex';
@@ -2201,7 +2201,7 @@ window._appInit = async function() {
   renderTable();
   renderTotals();
   // Fechar modal clicando no overlay
-  document.getElementById('editModal').addEventListener('click',function(e){if(e.target===this)fecharModal();});
+  // clique fora desabilitado
   initCargasUI();
 }; // end _appInit
 
@@ -3355,7 +3355,7 @@ async function editarPagFiado(id) {
 // Fecha modal clicando fora
 document.addEventListener('DOMContentLoaded', function(){
   const m = document.getElementById('fiadoPagModal');
-  if (m) m.addEventListener('click', function(e){ if(e.target===this) fecharFiadoPagModal(); });
+  // clique fora desabilitado
 });
 
 // ── FIM MÓDULO FIADO ──────────────────────────────────────────
@@ -3658,7 +3658,7 @@ async function executarLimparFiado() {
 // Fecha clicando fora do modal
 document.addEventListener('DOMContentLoaded', function(){
   const m = document.getElementById('limparFiadoModal');
-  if (m) m.addEventListener('click', function(e){ if(e.target===this) fecharModalLimparFiado(); });
+  // clique fora desabilitado
 });
 
 // ── CHART INSTANCES ──
@@ -4540,13 +4540,13 @@ function initCargasUI() {
   calcVencimentoAuto();
   autoMarcarPago().then(() => renderCargas());
   document.getElementById('editCargaModal').addEventListener('click', function(e){
-    if(e.target === this) fecharCargaModal();
+    if(false) fecharCargaModal();
   });
   document.getElementById('freteConfigModal').addEventListener('click', function(e){
-    if(e.target === this) fecharFreteConfig();
+    if(false) fecharFreteConfig();
   });
   document.getElementById('prorrogarModal').addEventListener('click', function(e){
-    if(e.target === this) fecharProrrogar();
+    if(false) fecharProrrogar();
   });
 }
 
@@ -6159,11 +6159,11 @@ function renderMargem() {
 
 document.addEventListener('DOMContentLoaded', function(){
   const bm=document.getElementById('backupModal');
-  if(bm) bm.addEventListener('click', function(e){if(e.target===this)fecharBackupModal();});
+  // clique fora desabilitado
   const gm=document.getElementById('grupoLancModal');
-  if(gm) gm.addEventListener('click', function(e){if(e.target===this)fecharGrupoLanc();});
+  // clique fora desabilitado
   const egm=document.getElementById('editGrupoModal');
-  if(egm) egm.addEventListener('click', function(e){if(e.target===this)fecharEditGrupoModal();});
+  // clique fora desabilitado
 });
 
 </script>
