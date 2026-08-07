@@ -1877,9 +1877,13 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
         <label>💳 Crédito</label>
         <input type="number" id="fpCredito" min="0" step="0.01" placeholder="0,00" oninput="calcFiadoPagTotal()" />
       </div>
-      <div class="form-group" style="grid-column:1/-1;">
+      <div class="form-group">
         <label>📱 QR Code</label>
         <input type="number" id="fpQrcode" min="0" step="0.01" placeholder="0,00" oninput="calcFiadoPagTotal()" />
+      </div>
+      <div class="form-group">
+        <label>🔥 Gás do Povo</label>
+        <input type="number" id="fpGasPovo" min="0" step="0.01" placeholder="0,00" oninput="calcFiadoPagTotal()" />
       </div>
     </div>
 
@@ -3012,7 +3016,7 @@ async function renderFiado() {
       let formasPagHTML = '';
       if (!isFiado && !isFaltaFiado && h.formasPag) {
         const fp = h.formasPag;
-        const labels = { especie:'💵 Espécie', pix:'⚡ PIX', debito:'💳 Débito', credito:'💳 Crédito', qrcode:'📱 QR Code' };
+        const labels = { especie:'💵 Espécie', pix:'⚡ PIX', debito:'💳 Débito', credito:'💳 Crédito', qrcode:'📱 QR Code', gasPovo:'🔥 Gás do Povo' };
         const itens = Object.entries(labels)
           .filter(([k]) => fp[k] > 0)
           .map(([k,lbl]) => `<span style="font-size:10px;background:var(--surface3);border:1px solid var(--border);border-radius:5px;padding:1px 6px;white-space:nowrap;">${lbl}: ${fmtVal(fp[k])}</span>`)
@@ -3225,8 +3229,8 @@ function darBaixaVendaFiado() {
 // ── Modal pagamento ──
 let _fiadoPagPrAtual = '', _fiadoPagSaldoAtual = 0, _fiadoPagEditId = null;
 
-const FP_IDS = ['fpEspecie','fpPix','fpDebito','fpCredito','fpQrcode'];
-const FP_FIELDS = ['especie','pix','debito','credito','qrcode'];
+const FP_IDS = ['fpEspecie','fpPix','fpDebito','fpCredito','fpQrcode','fpGasPovo'];
+const FP_FIELDS = ['especie','pix','debito','credito','qrcode','gasPovo'];
 
 function calcFiadoPagTotal() {
   let t = 0;
