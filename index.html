@@ -276,6 +276,9 @@ function showTab(name, btn) {
   // ── Exposição global (mesmos nomes de antes) ─────────────────────────
   window._fbSetDoc  = fsSetDoc;
   window._fbGetDoc  = fsGetDoc;
+  window._fbGetCollection = fsGetCollection;     // ✅ ADICIONADO
+  window._fbSaveCollection = fsSaveCollection;   // ✅ ADICIONADO
+  window._fbDeleteDoc = fsDeleteDoc;             // ✅ ADICIONADO
 
   window._saveLancamentos       = () => fsSaveCollection('lancamentos', window._lancamentos || [], l => l.id);
   window._saveCargas            = () => fsSaveCollection('cargas',      window._cargas      || [], c => c.id);
