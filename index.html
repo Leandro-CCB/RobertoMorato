@@ -3122,6 +3122,7 @@ async function renderFiado() {
           <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${corSaldo};line-height:1">${fmtVal(Math.abs(d.saldo))}${d.saldo<0?' (crédito)':''}</div>
         </div>
         ${d.saldo > 0 ? `<button onclick="abrirFiadoPagModal('${pr}',${d.saldo})" style="background:var(--success);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(21,128,61,.25);">💵 Registrar Pagamento</button>` : ''}
+        ${d.saldo > 0 ? `<button onclick="marcarFiadoBaixado('${pr}')" style="background:var(--ultra);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(29,78,216,.25);">✅ Marcar como Baixado</button>` : ''}
       </div>
 
       <!-- Histórico -->
@@ -3297,6 +3298,48 @@ function _limparFiadoPagForm() {
   document.getElementById('fiadoPagErr').textContent = '';
   document.getElementById('fiadoPagTotalBox').style.display = 'none';
   document.getElementById('fiadoPagTotalVal').textContent = 'R$ 0,00';
+}
+
+// ✅ NOVA FUNÇÃO: Marcar Fiado como Baixado (simples, sem modal, sem valores)
+async function marcarFiadoBaixado(pr) {
+  if (!confirm(`Tem certeza que deseja marcar todo o fiado de ${pr} como BAIXADO?\n\nIsso registrará a baixa para hoje sem exigir valores de pagamento.`)) {
+    return;
+  }
+
+  try {
+    // Carrega todos os fiados
+    const fiados = await window._fbGetCollection('fiados');
+    
+    // Encontra todos os fiados pendentes deste PR
+    const fiadosDoPR = fiados.filter(f => f.pr === pr && f.status !== 'quitado');
+    
+    if (fiadosDoPR.length === 0) {
+      showToast(`✅ Nenhum fiado pendente de ${pr}`);
+      return;
+    }
+
+    const hoje = hojeLocal();
+
+    // Marca todos como quitado/baixado
+    fiadosDoPR.forEach(f => {
+      f.status = 'quitado';
+      f.dataBaixa = hoje;
+      f.dataBaixaRegistro = new Date().toISOString();
+    });
+
+    // Salva na tabela
+    await window._fbSaveCollection('fiados', fiados, f => f._fbId || f.id);
+
+    showToast(`✅ Fiado de ${pr} marcado como BAIXADO em ${fmtDate(hoje)}`);
+
+    // Recarrega visualização
+    if (typeof renderFiado === 'function') {
+      renderFiado();
+    }
+  } catch (e) {
+    console.error('[marcarFiadoBaixado] Erro:', e);
+    alert(`❌ Erro ao marcar como baixado: ${e.message}`);
+  }
 }
 
 function abrirFiadoPagModal(pr, saldo) {
