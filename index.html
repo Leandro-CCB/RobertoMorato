@@ -1909,7 +1909,8 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
 <div id="fiadoStatusModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:750;align-items:center;justify-content:center;padding:16px;">
   <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:380px;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid var(--border);">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;color:var(--text);margin-bottom:8px;">📌 Alterar Status do Fiado</div>
-    <div id="fiadoStatusInfo" style="font-size:13px;color:var(--muted);margin-bottom:20px;"></div>
+    <div id="fiadoStatusInfo" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></div>
+    <div style="font-size:11px;color:var(--muted2);background:var(--surface2);border-radius:6px;padding:8px 10px;margin-bottom:16px;">ℹ️ Isso apenas marca o status desta linha para organização. O saldo em aberto do PR não é alterado.</div>
 
     <div style="display:flex;flex-direction:column;gap:10px;">
       <button id="btnFiadoBaixar" onclick="definirStatusFiado('quitado')" style="background:var(--success);color:#fff;border:none;padding:12px 16px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">✅ Marcar como Baixa</button>
@@ -2914,11 +2915,9 @@ async function calcFiadoPorPR() {
     const hist = [...fiado[pr]].sort((a,b) => a.data.localeCompare(b.data) || a.id - b.id);
     let saldo = 0;
     const historico = hist.map(h => {
-      if (h.tipo === 'fiado') {
-        if (h.status !== 'quitado') saldo += h.valor;   // ✅ Fiado baixado não soma no saldo em aberto
-      } else {
-        saldo -= h.valor;
-      }
+      // ✅ Status do fiado (Em aberto / Baixado) é apenas informativo — NÃO altera o cálculo do saldo
+      if (h.tipo === 'fiado') saldo += h.valor;
+      else saldo -= h.valor;
       return { ...h, saldoApos: saldo };
     });
     const totalFiado = hist.filter(h=>h.tipo==='fiado').reduce((a,b)=>a+b.valor,0);
