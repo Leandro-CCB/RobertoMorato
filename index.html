@@ -44,6 +44,7 @@ function showTab(name, btn) {
   if (name === 'cargas') { if (typeof renderCargas === 'function') renderCargas(); }
   if (name === 'margem') { if (typeof renderMargem === 'function') renderMargem(); }
   if (name === 'fiado')  { if (typeof renderFiado  === 'function') renderFiado(); }
+  if (name === 'estoque'){ if (typeof renderEstoque === 'function') renderEstoque(); }
 }
 </script>
 
@@ -784,7 +785,7 @@ select option{background:#fff;}
 .linha-row{display:grid;grid-template-columns:90px 140px 150px 1fr;gap:8px;align-items:center;margin-bottom:8px;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;transition:border .18s;}
 .linha-row:focus-within{border-color:var(--accent);}
 .linha-row .prod-chips-row{grid-column:1/-1;}
-.carga-item-row{display:grid;grid-template-columns:110px 1fr 32px;gap:8px;align-items:center;margin-bottom:8px;padding:9px 4px 9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;transition:border .18s;}
+.carga-item-row{display:grid;grid-template-columns:110px 1fr 130px 32px;gap:8px;align-items:center;margin-bottom:8px;padding:9px 4px 9px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;transition:border .18s;}
 .carga-item-row:focus-within{border-color:var(--accent);}
 .btn-rm-linha{background:var(--danger-light);color:var(--danger);border:1.5px solid #fca5a5;border-radius:7px;width:30px;height:30px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;padding:0;}
 .btn-rm-linha:hover{background:#fee2e2;border-color:var(--danger);}
@@ -1173,6 +1174,7 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     <button class="tab-btn active" onclick="showTab('lancamento',this)">📋 Lançamento</button>
     <button class="tab-btn" onclick="showTab('resumo',this)">📊 Resumo</button>
     <button class="tab-btn" onclick="showTab('cargas',this)">🚛 Cargas</button>
+    <button class="tab-btn" onclick="showTab('estoque',this)">🏭 Estoque</button>
     <button class="tab-btn" onclick="showTab('margem',this)">📈 Margem</button>
     <button class="tab-btn" onclick="showTab('fiado',this)">📒 Fiado</button>
     <button class="tab-btn" onclick="showTab('config',this)">⚙️ Config</button>
@@ -1504,9 +1506,10 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
 
     <!-- Itens da Carga -->
     <div class="section-title" style="font-size:14px;margin-bottom:8px;">🛢️ Itens da Carga</div>
-    <div style="display:grid;grid-template-columns:110px 1fr 32px;gap:8px;padding:0 4px;margin-bottom:4px;">
+    <div style="display:grid;grid-template-columns:110px 1fr 130px 32px;gap:8px;padding:0 4px;margin-bottom:4px;">
       <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);text-align:center">Quantidade</label>
       <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);text-align:center">Produto</label>
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);text-align:center">Marca (se P 13)</label>
       <label></label>
     </div>
     <div id="cItensContainer"></div>
@@ -1707,6 +1710,65 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     <div class="troca-actions">
       <button class="btn-troca-sim" onclick="resolverTroca(true)">✅ Sim, é troca</button>
       <button class="btn-troca-nao" onclick="resolverTroca(false)">➡️ Não, seguir normal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== ESTOQUE ==================== -->
+<div id="tab-estoque" class="page">
+
+  <!-- Cabeçalho explicativo -->
+  <div class="card" style="background:linear-gradient(135deg,#eff6ff 0%,#f0fdf4 100%);border:1.5px solid #bfdbfe;">
+    <div class="section-title" style="margin-bottom:6px;">🏭 Controle de Estoque — Botijões P13</div>
+    <div style="font-size:12.5px;color:var(--muted);line-height:1.5;">
+      Estoque diário de botijões <strong>P13</strong> por marca. A <strong>entrada</strong> é lançada automaticamente pelos itens <strong>P 13</strong> registrados na aba 🚛 Cargas (informe a marca do item). A <strong>saída</strong> é calculada a partir das vendas lançadas na aba 📋 Lançamento.
+    </div>
+  </div>
+
+  <!-- Estoque inicial -->
+  <div class="card">
+    <div class="section-title">🧮 Estoque Inicial (ajuste manual, opcional)</div>
+    <div class="filter-row">
+      <div class="form-group"><label>🔵 Estoque Inicial Ultragaz</label><input type="number" min="0" id="eEstInicialUltra" placeholder="0" /></div>
+      <div class="form-group"><label>🟢 Estoque Inicial Butano</label><input type="number" min="0" id="eEstInicialButano" placeholder="0" /></div>
+      <div class="form-group"><label>📅 A partir de</label><input type="date" id="eEstInicialData" /></div>
+      <div style="display:flex;align-items:flex-end;">
+        <button class="btn-pdf" onclick="salvarEstoqueInicial()">💾 Salvar</button>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;">Use isto apenas se já existia estoque físico antes do início dos lançamentos no sistema.</div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card">
+    <div class="section-title">🔍 Filtros</div>
+    <div class="filter-row">
+      <div class="form-group"><label>Mês</label><select id="eFiltMes" onchange="renderEstoque()"><option value="">Todos os meses</option></select></div>
+      <div class="form-group"><label>De</label><input type="date" id="eFiltDataIni" onchange="renderEstoque()" /></div>
+      <div class="form-group"><label>Até</label><input type="date" id="eFiltDataFim" onchange="renderEstoque()" /></div>
+    </div>
+  </div>
+
+  <!-- Cards de saldo atual -->
+  <div class="summary-grid" id="estoqueResumoCards"></div>
+
+  <!-- Tabela diária -->
+  <div class="card">
+    <div class="section-title">📅 Movimentação Diária</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>🔵 Entrada Ultra</th><th>🔵 Saída Ultra</th><th>🔵 Saldo Ultra</th>
+            <th>🟢 Entrada Butano</th><th>🟢 Saída Butano</th><th>🟢 Saldo Butano</th>
+            <th>📦 Saldo Total</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyEstoque">
+          <tr><td colspan="8" class="empty">Nenhum dado.</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -3958,7 +4020,7 @@ function renderResumo(){
 
   // ── Totais globais ──
   document.getElementById('summaryCards').innerHTML=`
-    <div class="summary-card"><div class="s-label">Total Botijões</div><div class="s-value">${f.reduce((a,b)=>a+b.qtd,0)}</div></div>
+    <div class="summary-card"><div class="s-label">Total Botijões</div><div class="s-value">${f.filter(l=>l.marca==='Ultragaz'||l.marca==='Butano').reduce((a,b)=>a+b.qtd,0)}</div></div>
     <div class="summary-card"><div class="s-label">Valor Total</div><div class="s-value green">${fmtVal(f.reduce((a,b)=>a+b.total,0))}</div></div>
     <div class="summary-card"><div class="s-label">Ultragaz Qtd</div><div class="s-value blue">${f.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.qtd,0)}</div></div>
     <div class="summary-card"><div class="s-label">Ultragaz Valor</div><div class="s-value blue" style="font-size:18px">${fmtVal(f.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.total,0))}</div></div>
@@ -4538,18 +4600,29 @@ const PRODUTOS_CARGA_OPTS = ['P 05','P 13','P 20','P 45'];
 // ── ITENS DA CARGA (formulário novo) ──
 let numItensCarga = 1;
 
-function _buildItemCargaDOM(containerId, i, qtd, prod) {
+function _buildItemCargaDOM(containerId, i, qtd, prod, marca) {
   const c = document.getElementById(containerId);
   const d = document.createElement('div');
   d.className = 'carga-item-row'; d.id = containerId + '_item_' + i;
+  const isP13 = prod === 'P 13';
   d.innerHTML = `
     <input type="number" id="${containerId}_qtd_${i}" min="0" placeholder="0" value="${qtd||''}" oninput="calcFreteAuto()" />
-    <select id="${containerId}_prod_${i}" onchange="calcFreteAuto()">
+    <select id="${containerId}_prod_${i}" onchange="calcFreteAuto();_toggleMarcaCarga('${containerId}',${i})">
       <option value="">— Produto —</option>
       ${PRODUTOS_CARGA_OPTS.map(p=>`<option value="${p}"${prod===p?' selected':''}>${p}</option>`).join('')}
     </select>
+    <select id="${containerId}_marca_${i}" style="display:${isP13?'':'none'}">
+      <option value="Ultragaz"${marca!=='Butano'?' selected':''}>🔵 Ultragaz</option>
+      <option value="Butano"${marca==='Butano'?' selected':''}>🟢 Butano</option>
+    </select>
     <button class="btn-rm-linha" onclick="removeItemCarga('${containerId}',${i})" title="Remover">✕</button>`;
   c.appendChild(d);
+}
+
+function _toggleMarcaCarga(containerId, i) {
+  const prodEl  = document.getElementById(`${containerId}_prod_${i}`);
+  const marcaEl = document.getElementById(`${containerId}_marca_${i}`);
+  if (marcaEl) marcaEl.style.display = (prodEl && prodEl.value === 'P 13') ? '' : 'none';
 }
 
 function buildItensCarga(containerId, itens) {
@@ -4558,13 +4631,13 @@ function buildItensCarga(containerId, itens) {
   const lista = itens && itens.length ? itens : [{}];
   if (containerId === 'cItensContainer') numItensCarga = 0;
   lista.forEach((item, i) => {
-    _buildItemCargaDOM(containerId, i, item.qtd, item.produto);
+    _buildItemCargaDOM(containerId, i, item.qtd, item.produto, item.marca);
     if (containerId === 'cItensContainer') numItensCarga++;
   });
 }
 
 function addItemCarga() {
-  _buildItemCargaDOM('cItensContainer', numItensCarga, '', '');
+  _buildItemCargaDOM('cItensContainer', numItensCarga, '', '', '');
   numItensCarga++;
 }
 
@@ -4579,16 +4652,17 @@ function removeItemCarga(containerId, i) {
     if (j === i) continue;
     const qEl = document.getElementById(`${containerId}_qtd_${j}`);
     const pEl = document.getElementById(`${containerId}_prod_${j}`);
-    if (qEl && pEl) dados.push({ qtd: qEl.value, produto: pEl.value });
+    const mEl = document.getElementById(`${containerId}_marca_${j}`);
+    if (qEl && pEl) dados.push({ qtd: qEl.value, produto: pEl.value, marca: mEl ? mEl.value : '' });
   }
-  buildItensCarga(containerId, dados.map(d => ({ qtd: parseFloat(d.qtd)||0, produto: d.produto })));
+  buildItensCarga(containerId, dados.map(d => ({ qtd: parseFloat(d.qtd)||0, produto: d.produto, marca: d.marca })));
   if (isNew) numItensCarga = dados.length;
   calcFreteAuto();
 }
 
 function addItemEditCarga() {
   const total = document.querySelectorAll('#ecItensContainer .carga-item-row').length;
-  _buildItemCargaDOM('ecItensContainer', total, '', '');
+  _buildItemCargaDOM('ecItensContainer', total, '', '', '');
 }
 
 function getItensCarga(containerId) {
@@ -4597,10 +4671,162 @@ function getItensCarga(containerId) {
   while (document.getElementById(`${containerId}_qtd_${i}`) !== null) {
     const qtd = parseFloat(document.getElementById(`${containerId}_qtd_${i}`).value) || 0;
     const produto = document.getElementById(`${containerId}_prod_${i}`).value || '';
-    if (qtd > 0 || produto) itens.push({ qtd, produto });
+    const marcaEl = document.getElementById(`${containerId}_marca_${i}`);
+    const marca = (produto === 'P 13' && marcaEl) ? marcaEl.value : '';
+    if (qtd > 0 || produto) itens.push({ qtd, produto, marca });
     i++;
   }
   return itens;
+}
+
+// ══════════════════════════════════════════════════════
+//  CONTROLE DE ESTOQUE — P13 (Ultragaz + Butano)
+// ══════════════════════════════════════════════════════
+const LS_ESTOQUE_INICIAL_KEY = 'estoqueInicial_v1';
+
+function getEstoqueInicial() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_ESTOQUE_INICIAL_KEY) || '{}');
+  } catch (e) { return {}; }
+}
+
+function salvarEstoqueInicial() {
+  const cfg = {
+    ultragaz: parseFloat(document.getElementById('eEstInicialUltra').value) || 0,
+    butano:   parseFloat(document.getElementById('eEstInicialButano').value) || 0,
+    data:     document.getElementById('eEstInicialData').value || ''
+  };
+  try {
+    localStorage.setItem(LS_ESTOQUE_INICIAL_KEY, JSON.stringify(cfg));
+    showToast('💾 Estoque inicial salvo!');
+  } catch (e) { showToast('⚠ Não foi possível salvar.'); }
+  renderEstoque();
+}
+
+function buildEstoqueMesOptions() {
+  const sel = document.getElementById('eFiltMes');
+  if (!sel) return;
+  const mesesSet = new Set([
+    ...lancamentos.filter(l => l.marca === 'Ultragaz' || l.marca === 'Butano').map(l => l.data.slice(0, 7)),
+    ...cargas.map(c => c.data ? c.data.slice(0, 7) : '').filter(Boolean)
+  ]);
+  const sorted = [...mesesSet].sort().reverse();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Todos os meses</option>';
+  sorted.forEach(m => {
+    const [y, mo] = m.split('-');
+    const o = document.createElement('option');
+    o.value = m; o.textContent = `${MESES_PT[parseInt(mo, 10) - 1]} ${y}`;
+    if (m === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+// Monta o histórico diário completo de entradas/saídas/saldo de P13 por marca
+function calcEstoqueDiario() {
+  const inicial = getEstoqueInicial();
+  const dataIni = inicial.data || '';
+
+  // Saídas: vendas de P13 (marca Ultragaz/Butano) por dia
+  const saidasPorDia = {}; // { 'YYYY-MM-DD': { ultragaz: n, butano: n } }
+  lancamentos.forEach(l => {
+    if (l.marca !== 'Ultragaz' && l.marca !== 'Butano') return;
+    if (dataIni && l.data < dataIni) return;
+    if (!saidasPorDia[l.data]) saidasPorDia[l.data] = { ultragaz: 0, butano: 0 };
+    saidasPorDia[l.data][l.marca === 'Ultragaz' ? 'ultragaz' : 'butano'] += (l.qtd || 0);
+  });
+
+  // Entradas: itens P 13 de cargas, por dia e marca
+  const entradasPorDia = {};
+  cargas.forEach(c => {
+    if (!c.data) return;
+    if (dataIni && c.data < dataIni) return;
+    const itensP13 = (c.itens || []).filter(it => it.produto === 'P 13');
+    if (!itensP13.length) return;
+    if (!entradasPorDia[c.data]) entradasPorDia[c.data] = { ultragaz: 0, butano: 0 };
+    itensP13.forEach(it => {
+      const marca = it.marca === 'Butano' ? 'butano' : 'ultragaz'; // padrão Ultragaz se não informado
+      entradasPorDia[c.data][marca] += (it.qtd || 0);
+    });
+  });
+
+  const todasDatas = [...new Set([...Object.keys(saidasPorDia), ...Object.keys(entradasPorDia)])].sort();
+
+  let saldoU = parseFloat(inicial.ultragaz) || 0;
+  let saldoB = parseFloat(inicial.butano) || 0;
+
+  return todasDatas.map(data => {
+    const entU = (entradasPorDia[data] && entradasPorDia[data].ultragaz) || 0;
+    const entB = (entradasPorDia[data] && entradasPorDia[data].butano) || 0;
+    const saiU = (saidasPorDia[data] && saidasPorDia[data].ultragaz) || 0;
+    const saiB = (saidasPorDia[data] && saidasPorDia[data].butano) || 0;
+    saldoU += entU - saiU;
+    saldoB += entB - saiB;
+    return { data, entU, saiU, saldoU, entB, saiB, saldoB, saldoTotal: saldoU + saldoB };
+  });
+}
+
+function renderEstoque() {
+  buildEstoqueMesOptions();
+
+  const inicial = getEstoqueInicial();
+  const elU = document.getElementById('eEstInicialUltra');
+  const elB = document.getElementById('eEstInicialButano');
+  const elD = document.getElementById('eEstInicialData');
+  if (elU && document.activeElement !== elU) elU.value = inicial.ultragaz || '';
+  if (elB && document.activeElement !== elB) elB.value = inicial.butano || '';
+  if (elD && document.activeElement !== elD) elD.value = inicial.data || '';
+
+  const historico = calcEstoqueDiario();
+
+  const mes     = document.getElementById('eFiltMes')?.value || '';
+  const dataIni = document.getElementById('eFiltDataIni')?.value || '';
+  const dataFim = document.getElementById('eFiltDataFim')?.value || '';
+
+  let visiveis = historico;
+  if (dataIni || dataFim) {
+    if (dataIni) visiveis = visiveis.filter(h => h.data >= dataIni);
+    if (dataFim) visiveis = visiveis.filter(h => h.data <= dataFim);
+  } else if (mes) {
+    visiveis = visiveis.filter(h => h.data.startsWith(mes));
+  }
+
+  // Cards de saldo atual = último saldo do histórico completo (não filtrado)
+  const ultimo = historico.length ? historico[historico.length - 1] : null;
+  const saldoAtualU = ultimo ? ultimo.saldoU : (parseFloat(inicial.ultragaz) || 0);
+  const saldoAtualB = ultimo ? ultimo.saldoB : (parseFloat(inicial.butano) || 0);
+  const totalEntU = historico.reduce((a, h) => a + h.entU, 0);
+  const totalSaiU = historico.reduce((a, h) => a + h.saiU, 0);
+  const totalEntB = historico.reduce((a, h) => a + h.entB, 0);
+  const totalSaiB = historico.reduce((a, h) => a + h.saiB, 0);
+
+  document.getElementById('estoqueResumoCards').innerHTML = `
+    <div class="summary-card"><div class="s-label">🔵 Saldo Atual Ultragaz</div><div class="s-value blue">${saldoAtualU}</div></div>
+    <div class="summary-card"><div class="s-label">🟢 Saldo Atual Butano</div><div class="s-value bgreen">${saldoAtualB}</div></div>
+    <div class="summary-card"><div class="s-label">📦 Saldo Total P13</div><div class="s-value">${saldoAtualU + saldoAtualB}</div></div>
+    <div class="summary-card"><div class="s-label">🔵 Entradas / Saídas Ultra</div><div class="s-value blue" style="font-size:16px">${totalEntU} / ${totalSaiU}</div></div>
+    <div class="summary-card"><div class="s-label">🟢 Entradas / Saídas Butano</div><div class="s-value bgreen" style="font-size:16px">${totalEntB} / ${totalSaiB}</div></div>
+  `;
+
+  const tbody = document.getElementById('tbodyEstoque');
+  if (!visiveis.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">Nenhum dado para o filtro selecionado.</td></tr>';
+    return;
+  }
+  const ordenado = [...visiveis].reverse(); // mais recente primeiro
+  tbody.innerHTML = ordenado.map(h => {
+    const [y, mo, d] = h.data.split('-');
+    return `<tr>
+      <td>${d}/${mo}/${y}</td>
+      <td style="text-align:right;color:var(--success)">${h.entU > 0 ? '+' + h.entU : '—'}</td>
+      <td style="text-align:right;color:var(--danger)">${h.saiU > 0 ? '-' + h.saiU : '—'}</td>
+      <td style="text-align:right;font-weight:700;color:var(--ultra)">${h.saldoU}</td>
+      <td style="text-align:right;color:var(--success)">${h.entB > 0 ? '+' + h.entB : '—'}</td>
+      <td style="text-align:right;color:var(--danger)">${h.saiB > 0 ? '-' + h.saiB : '—'}</td>
+      <td style="text-align:right;font-weight:700;color:var(--butano)">${h.saldoB}</td>
+      <td style="text-align:right;font-weight:700">${h.saldoTotal}</td>
+    </tr>`;
+  }).join('');
 }
 
 // Configuração de modais de cargas — chamada dentro do _appInit (após Supabase carregar)
