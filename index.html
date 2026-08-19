@@ -2687,6 +2687,23 @@ async function addLancamento(){
   const pag={};
   PAY_IDS.forEach((id,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(id).value)||0);
 
+  // ✅ TRAVA: não deixa usar mais sobra do que o PR realmente tem
+  const sobrasAntUsadas = pag['Sobras Anteriores'] || 0;
+  if (sobrasAntUsadas > 0.009) {
+    let excludeVid = null;
+    if (_editFormData !== null) {
+      const oldItensSobra = lancamentos.filter(l => l.data === _editFormData && l.pr === _editFormPr);
+      if (oldItensSobra.length) excludeVid = oldItensSobra[0].vendaId != null ? oldItensSobra[0].vendaId : oldItensSobra[0].id;
+    }
+    const sobraDisponivel = await getSobraDisponivelPR(pr, excludeVid);
+    if (sobrasAntUsadas > sobraDisponivel + 0.009) {
+      err.textContent = sobraDisponivel > 0
+        ? `⚠ Não há sobra suficiente para ${pr}. Disponível: R$ ${fmtNum(sobraDisponivel)}.`
+        : `⚠ Não há sobra registrada para ${pr}.`;
+      return;
+    }
+  }
+
   if(_editFormData!==null){
     // ── MODO EDIÇÃO: substitui TODOS os lançamentos do dia/PR ──
     const oldItens=lancamentos.filter(l=>l.data===_editFormData&&l.pr===_editFormPr);
@@ -2995,7 +3012,7 @@ function getQtdVendaFiado(pr, vendaId) {
 
 // Calcula saldo de fiado por PR
 // Retorna { PR: { totalFiado, totalPago, saldo, historico[] } }
-async function calcFiadoPorPR() {
+async function calcFiadoPorPR(excludeVendaId) {
   const pags = await _loadFiadoPag();
 
   // Agrega fiado gerado dos lançamentos (1 linha por vendaId)
@@ -3003,12 +3020,31 @@ async function calcFiadoPorPR() {
   const vistos = new Set();
   lancamentos.forEach(l => {
     const vid = l.vendaId != null ? l.vendaId : l.id;
+    if (excludeVendaId != null && vid === excludeVendaId) return; // usado na validação (edição)
     if (vistos.has(vid)) return;
     vistos.add(vid);
+
     const vf = (l.pag && l.pag['Fiado']) || 0;
     if (vf > 0) {
       if (!fiado[l.pr]) fiado[l.pr] = [];
       fiado[l.pr].push({ data: l.data, valor: vf, tipo: 'fiado', desc: 'Venda fiado', id: vid, status: l.statusFiado || 'aberto' });
+    }
+
+    // ✅ Se a venda usou "Sobras Anteriores", isso CONSOME o crédito do PR —
+    // precisa aparecer no fiado como um lançamento que aumenta o saldo
+    // (reduz a sobra disponível), mantendo Fiado e Sobra sempre sincronizados.
+    const sobraUsada = (l.pag && l.pag['Sobras Anteriores']) || 0;
+    if (sobraUsada > 0.009) {
+      if (!fiado[l.pr]) fiado[l.pr] = [];
+      fiado[l.pr].push({
+        data: l.data,
+        valor: sobraUsada,
+        tipo: 'fiado',              // mesma direção contábil de um "fiado" (aumenta saldo / reduz crédito)
+        subtipo: 'sobra_uso',       // marcador para o render tratar como algo diferente de venda fiado real
+        desc: '📤 Sobra anterior utilizada nesta venda',
+        id: vid + '_sobraUso',
+        formasPag: null
+      });
     }
   });
 
@@ -3029,7 +3065,7 @@ async function calcFiadoPorPR() {
   // Monta resultado por PR
   const resultado = {};
   Object.keys(fiado).forEach(pr => {
-    const hist = [...fiado[pr]].sort((a,b) => a.data.localeCompare(b.data) || a.id - b.id);
+    const hist = [...fiado[pr]].sort((a,b) => a.data.localeCompare(b.data) || String(a.id).localeCompare(String(b.id)));
     let saldo = 0;
     const historico = hist.map(h => {
       // ✅ Status do fiado (Em aberto / Baixado) é apenas informativo — NÃO altera o cálculo do saldo
@@ -3037,12 +3073,24 @@ async function calcFiadoPorPR() {
       else saldo -= h.valor;
       return { ...h, saldoApos: saldo };
     });
-    const totalFiado = hist.filter(h=>h.tipo==='fiado').reduce((a,b)=>a+b.valor,0);
+    const totalFiado = hist.filter(h=>h.tipo==='fiado' && h.subtipo!=='sobra_uso').reduce((a,b)=>a+b.valor,0);
     const totalPago  = hist.filter(h=>h.tipo==='pagamento').reduce((a,b)=>a+b.valor,0);
     resultado[pr] = { totalFiado, totalPago, saldo: Math.round(saldo*100)/100, historico };
   });
 
   return resultado;
+}
+
+// Retorna quanto de sobra (crédito) o PR tem disponível agora.
+// excludeVendaId: usado ao validar uma EDIÇÃO, para não contar a sobra que
+// a própria venda em edição já havia consumido (senão a validação ficaria
+// presa comparando contra um saldo que já a desconta).
+async function getSobraDisponivelPR(pr, excludeVendaId) {
+  if (!pr) return 0;
+  const fiadoPorPR = await calcFiadoPorPR(excludeVendaId);
+  const saldo = (fiadoPorPR[pr] && fiadoPorPR[pr].saldo) || 0;
+  const sobra = -saldo; // saldo negativo = crédito (sobra) a favor do PR
+  return Math.max(0, Math.round(sobra * 100) / 100);
 }
 
 // ── Renderiza a aba FIADO ──
@@ -3147,12 +3195,15 @@ async function renderFiado() {
     }
 
     const historicoHTML = historicoFiltrado.map(h => {
-      const isFiado = h.tipo === 'fiado';
+      const isSobraUso = h.subtipo === 'sobra_uso';
+      const isFiado = h.tipo === 'fiado' && !isSobraUso;
       const isSobra = h.desc && h.desc.startsWith('💰 Sobra');
       const isFaltaFiado = h.desc && h.desc.startsWith('⚠️ Falta');
       // Badge visual
       let badgeBg, badgeColor, badgeLabel;
-      if (isFaltaFiado) {
+      if (isSobraUso) {
+        badgeBg='#FFFBEB'; badgeColor='#92400E'; badgeLabel='📤 Sobra Usada';
+      } else if (isFaltaFiado) {
         badgeBg='#FEF2F2'; badgeColor='var(--danger)'; badgeLabel='⚠️ Falta→Fiado';
       } else if (isFiado) {
         badgeBg='var(--danger-light)'; badgeColor='var(--danger)'; badgeLabel='📒 Fiado';
@@ -3172,12 +3223,12 @@ async function renderFiado() {
           .join(' ');
         if (itens) formasPagHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">${itens}</div>`;
       }
-      const sinalValor = isFiado || isFaltaFiado ? '+' : '-';
-      const corValor   = isFiado || isFaltaFiado ? 'var(--danger)' : 'var(--success)';
-      // Botões: pagamentos manuais, sobras e faltas_fiado podem ser excluídos
-      const podeExcluir = !isFiado || isFaltaFiado;
+      const sinalValor = isFiado || isFaltaFiado || isSobraUso ? '+' : '-';
+      const corValor   = isFiado || isFaltaFiado || isSobraUso ? 'var(--danger)' : 'var(--success)';
+      // Botões: pagamentos manuais, sobras e faltas_fiado podem ser excluídos (sobra_uso não, é derivada do lançamento)
+      const podeExcluir = (!isFiado || isFaltaFiado) && !isSobraUso;
       // Quantidade de P13 (só faz sentido para vendas fiado ligadas a um lançamento real)
-      const qtd = (isFiado && !isFaltaFiado) ? getQtdVendaFiado(pr, h.id) : null;
+      const qtd = (isFiado && !isFaltaFiado && !isSobraUso) ? getQtdVendaFiado(pr, h.id) : null;
       const butCell = qtd ? (qtd.but > 0 ? qtd.but : '-') : '-';
       const ultCell = qtd ? (qtd.ult > 0 ? qtd.ult : '-') : '-';
       return `<tr>
@@ -3198,8 +3249,8 @@ async function renderFiado() {
         <td style="padding:6px 10px;font-size:12px;text-align:center;color:var(--ultra);font-weight:700;">${ultCell}</td>
         <td style="padding:6px 10px;">
           <div style="display:flex;gap:4px;">
-            ${isFiado && !isFaltaFiado ? `<button onclick="verVendaFiado('${pr}',${h.id},${h.valor})" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Ver detalhes da venda">👁️ Ver</button>` : ''}
-            ${isFiado && !isFaltaFiado ? `<button onclick="abrirModalStatusFiado('${pr}',${h.id},'${h.status==='quitado'?'quitado':'aberto'}')" style="background:${h.status==='quitado'?'var(--success)':'var(--surface3)'};color:${h.status==='quitado'?'#fff':'var(--text)'};border:1px solid ${h.status==='quitado'?'var(--success)':'var(--border)'};border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Alterar status do fiado">${h.status==='quitado'?'✅ Baixado':'📌 Em aberto'}</button>` : ''}
+            ${isFiado && !isFaltaFiado && !isSobraUso ? `<button onclick="verVendaFiado('${pr}',${h.id},${h.valor})" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Ver detalhes da venda">👁️ Ver</button>` : ''}
+            ${isFiado && !isFaltaFiado && !isSobraUso ? `<button onclick="abrirModalStatusFiado('${pr}',${h.id},'${h.status==='quitado'?'quitado':'aberto'}')" style="background:${h.status==='quitado'?'var(--success)':'var(--surface3)'};color:${h.status==='quitado'?'#fff':'var(--text)'};border:1px solid ${h.status==='quitado'?'var(--success)':'var(--border)'};border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Alterar status do fiado">${h.status==='quitado'?'✅ Baixado':'📌 Em aberto'}</button>` : ''}
             ${podeExcluir && !isFiado ?`
               ${!isSobra && !isFaltaFiado ? `<button onclick="editarPagFiado(${h.id})" style="background:var(--ultra-light);color:var(--ultra);border:1px solid #bfdbfe;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Editar">✏️</button>` : ''}
               <button onclick="excluirPagFiado(${h.id})" style="background:transparent;color:var(--muted2);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;" title="Excluir">✕</button>
@@ -4617,6 +4668,20 @@ async function salvarEdicaoGrupo(){
   // Pagamento
   const pag={};
   EG_PAY_IDS.forEach((eid,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(eid)?.value)||0);
+
+  // ✅ TRAVA: mesma validação de sobra, agora no modo "Editar Venda Completa"
+  const sobrasAntUsadasEg = pag['Sobras Anteriores'] || 0;
+  if (sobrasAntUsadasEg > 0.009) {
+    const oldItensEg = lancamentos.filter(l => l.data === _grupoAtualData && l.pr === _grupoAtualPr);
+    const excludeVidEg = oldItensEg.length ? (oldItensEg[0].vendaId != null ? oldItensEg[0].vendaId : oldItensEg[0].id) : null;
+    const sobraDisponivelEg = await getSobraDisponivelPR(pr, excludeVidEg);
+    if (sobrasAntUsadasEg > sobraDisponivelEg + 0.009) {
+      err.textContent = sobraDisponivelEg > 0
+        ? `⚠ Não há sobra suficiente para ${pr}. Disponível: R$ ${fmtNum(sobraDisponivelEg)}.`
+        : `⚠ Não há sobra registrada para ${pr}.`;
+      return;
+    }
+  }
 
   // Remove todos os lançamentos antigos deste data+PR
   const oldItens=lancamentos.filter(l=>l.data===_grupoAtualData&&l.pr===_grupoAtualPr);
