@@ -1905,27 +1905,16 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
   </div>
 </div>
 
-<!-- ✅ NOVO MODAL: Marcar Fiado como Quitado -->
-<div id="fiadoMarcarQuitadoModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:750;align-items:center;justify-content:center;padding:16px;">
-  <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:420px;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid var(--border);">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;color:var(--success);margin-bottom:8px;">✅ Marcar como Quitado</div>
-    <div id="fiadoQuitadoInfo" style="font-size:13px;color:var(--muted);margin-bottom:16px;"></div>
-    
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;">
-      <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px;">Data do Pagamento:</label>
-      <input type="date" id="fiadoQuitadoData" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:13px;" />
-    </div>
+<!-- ✅ MODAL: Alterar Status do Fiado (Baixa / Reabrir) -->
+<div id="fiadoStatusModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:750;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:380px;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1px solid var(--border);">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;color:var(--text);margin-bottom:8px;">📌 Alterar Status do Fiado</div>
+    <div id="fiadoStatusInfo" style="font-size:13px;color:var(--muted);margin-bottom:20px;"></div>
 
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;">
-      <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px;">Observações:</label>
-      <textarea id="fiadoQuitadoObs" placeholder="Ex: Pagamento completo da dívida" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:13px;resize:vertical;min-height:60px;"></textarea>
-    </div>
-
-    <div id="fiadoQuitadoErr" style="color:var(--danger);font-size:12px;font-weight:600;margin-bottom:10px;display:none;"></div>
-
-    <div style="display:flex;gap:10px;">
-      <button onclick="confirmarQuitado()" style="flex:1;background:var(--success);color:#fff;border:none;padding:11px 16px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">✅ Confirmar</button>
-      <button onclick="document.getElementById('fiadoMarcarQuitadoModal').style.display='none'" style="flex:1;background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:11px 16px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button id="btnFiadoBaixar" onclick="definirStatusFiado('quitado')" style="background:var(--success);color:#fff;border:none;padding:12px 16px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">✅ Marcar como Baixa</button>
+      <button id="btnFiadoReabrir" onclick="definirStatusFiado('aberto')" style="background:var(--warning);color:#fff;border:none;padding:12px 16px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">↩️ Reabrir (Em Aberto)</button>
+      <button onclick="document.getElementById('fiadoStatusModal').style.display='none'" style="background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:11px 16px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">✕ Cancelar</button>
     </div>
   </div>
 </div>
@@ -2845,16 +2834,16 @@ window.zerarPagId=async function(id){
 // ══════════════════════════════════════════════════════════════
 
 // pagamentos de fiado ficam em window._fiadoPagamentos (array)
-// cada item: { id, pr, data, valor, obs, status, tipo }
+// cada item: { id, pr, data, valor, obs, status, tipo, status }
 // ✅ AGORA SALVO NA TABELA SEPARADA 'fiados' (não mais em config!)
 
 async function _loadFiadoPag() {
   if (!window._fiadoPagamentos) {
     try {
-      // Carrega da tabela separada 'fiados'
+      // Carrega da tabela separada 'fiados' — TODOS OS FIADOS (não apenas pagamentos!)
       const fiados = await window._fbGetCollection('fiados');
-      // Filtra apenas os pagamentos/movimentações (tipo específico)
-      window._fiadoPagamentos = fiados.filter(f => f.tipo && ['pagamento', 'sobra', 'falta_fiado'].includes(f.tipo));
+      // ✅ CARREGA TUDO: fiados dos lançamentos + pagamentos + sobras + faltas
+      window._fiadoPagamentos = fiados;  // ✅ CORRIGIDO!
     } catch(e) {
       console.warn('[_loadFiadoPag] Erro ao carregar fiados:', e.message);
       window._fiadoPagamentos = [];
@@ -2865,19 +2854,10 @@ async function _loadFiadoPag() {
 
 async function _saveFiadoPag() {
   try {
-    // Carrega TODOS os fiados da tabela separada
-    const todosFiados = await window._fbGetCollection('fiados');
-    
-    // Remove os pagamentos antigos
-    const fiadosSemPagamentos = todosFiados.filter(f => !f.tipo || !['pagamento', 'sobra', 'falta_fiado'].includes(f.tipo));
-    
-    // Adiciona os pagamentos atualizados
+    // Salva TODOS os fiados na tabela separada
     if (window._fiadoPagamentos && window._fiadoPagamentos.length > 0) {
-      fiadosSemPagamentos.push(...window._fiadoPagamentos);
+      await window._fbSaveCollection('fiados', window._fiadoPagamentos, f => f.id || f._fbId);
     }
-    
-    // Salva TUDO de volta na tabela fiados
-    await window._fbSaveCollection('fiados', fiadosSemPagamentos, f => f.id || f._fbId);
   } catch(e) {
     console.error('[_saveFiadoPag] Erro ao salvar fiados:', e.message);
     throw e;
@@ -2910,7 +2890,7 @@ async function calcFiadoPorPR() {
     const vf = (l.pag && l.pag['Fiado']) || 0;
     if (vf > 0) {
       if (!fiado[l.pr]) fiado[l.pr] = [];
-      fiado[l.pr].push({ data: l.data, valor: vf, tipo: 'fiado', desc: 'Venda fiado', id: vid });
+      fiado[l.pr].push({ data: l.data, valor: vf, tipo: 'fiado', desc: 'Venda fiado', id: vid, status: l.statusFiado || 'aberto' });
     }
   });
 
@@ -2934,8 +2914,11 @@ async function calcFiadoPorPR() {
     const hist = [...fiado[pr]].sort((a,b) => a.data.localeCompare(b.data) || a.id - b.id);
     let saldo = 0;
     const historico = hist.map(h => {
-      if (h.tipo === 'fiado') saldo += h.valor;
-      else saldo -= h.valor;
+      if (h.tipo === 'fiado') {
+        if (h.status !== 'quitado') saldo += h.valor;   // ✅ Fiado baixado não soma no saldo em aberto
+      } else {
+        saldo -= h.valor;
+      }
       return { ...h, saldoApos: saldo };
     });
     const totalFiado = hist.filter(h=>h.tipo==='fiado').reduce((a,b)=>a+b.valor,0);
@@ -3100,6 +3083,7 @@ async function renderFiado() {
         <td style="padding:6px 10px;">
           <div style="display:flex;gap:4px;">
             ${isFiado && !isFaltaFiado ? `<button onclick="verVendaFiado('${pr}',${h.id},${h.valor})" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Ver detalhes da venda">👁️ Ver</button>` : ''}
+            ${isFiado && !isFaltaFiado ? `<button onclick="abrirModalStatusFiado('${pr}',${h.id},'${h.status==='quitado'?'quitado':'aberto'}')" style="background:${h.status==='quitado'?'var(--success)':'var(--surface3)'};color:${h.status==='quitado'?'#fff':'var(--text)'};border:1px solid ${h.status==='quitado'?'var(--success)':'var(--border)'};border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Alterar status do fiado">${h.status==='quitado'?'✅ Baixado':'📌 Em aberto'}</button>` : ''}
             ${podeExcluir && !isFiado ?`
               ${!isSobra && !isFaltaFiado ? `<button onclick="editarPagFiado(${h.id})" style="background:var(--ultra-light);color:var(--ultra);border:1px solid #bfdbfe;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Editar">✏️</button>` : ''}
               <button onclick="excluirPagFiado(${h.id})" style="background:transparent;color:var(--muted2);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;" title="Excluir">✕</button>
@@ -3122,7 +3106,6 @@ async function renderFiado() {
           <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${corSaldo};line-height:1">${fmtVal(Math.abs(d.saldo))}${d.saldo<0?' (crédito)':''}</div>
         </div>
         ${d.saldo > 0 ? `<button onclick="abrirFiadoPagModal('${pr}',${d.saldo})" style="background:var(--success);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(21,128,61,.25);">💵 Registrar Pagamento</button>` : ''}
-        ${d.saldo > 0 ? `<button onclick="marcarFiadoBaixado('${pr}')" style="background:var(--ultra);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(29,78,216,.25);">✅ Marcar como Baixado</button>` : ''}
       </div>
 
       <!-- Histórico -->
@@ -3300,48 +3283,6 @@ function _limparFiadoPagForm() {
   document.getElementById('fiadoPagTotalVal').textContent = 'R$ 0,00';
 }
 
-// ✅ NOVA FUNÇÃO: Marcar Fiado como Baixado (simples, sem modal, sem valores)
-async function marcarFiadoBaixado(pr) {
-  if (!confirm(`Tem certeza que deseja marcar todo o fiado de ${pr} como BAIXADO?\n\nIsso registrará a baixa para hoje sem exigir valores de pagamento.`)) {
-    return;
-  }
-
-  try {
-    // Carrega todos os fiados
-    const fiados = await window._fbGetCollection('fiados');
-    
-    // Encontra todos os fiados pendentes deste PR
-    const fiadosDoPR = fiados.filter(f => f.pr === pr && f.status !== 'quitado');
-    
-    if (fiadosDoPR.length === 0) {
-      showToast(`✅ Nenhum fiado pendente de ${pr}`);
-      return;
-    }
-
-    const hoje = hojeLocal();
-
-    // Marca todos como quitado/baixado
-    fiadosDoPR.forEach(f => {
-      f.status = 'quitado';
-      f.dataBaixa = hoje;
-      f.dataBaixaRegistro = new Date().toISOString();
-    });
-
-    // Salva na tabela
-    await window._fbSaveCollection('fiados', fiados, f => f._fbId || f.id);
-
-    showToast(`✅ Fiado de ${pr} marcado como BAIXADO em ${fmtDate(hoje)}`);
-
-    // Recarrega visualização
-    if (typeof renderFiado === 'function') {
-      renderFiado();
-    }
-  } catch (e) {
-    console.error('[marcarFiadoBaixado] Erro:', e);
-    alert(`❌ Erro ao marcar como baixado: ${e.message}`);
-  }
-}
-
 function abrirFiadoPagModal(pr, saldo) {
   _fiadoPagPrAtual = pr;
   _fiadoPagSaldoAtual = saldo;
@@ -3390,92 +3331,64 @@ function fecharFiadoPagModal() {
   document.getElementById('fiadoPagSaldoInfo').style.color = 'var(--danger)';
 }
 
-// ✅ NOVAS FUNÇÕES: Marcar Fiado como Quitado
-let fiadoQuitandoId = null;
+// ✅ NOVAS FUNÇÕES: Alterar Status do Fiado (por linha, direto no lançamento)
+// Não mexe em valores nem cria pagamentos — apenas marca a venda-fiado como Baixa ou Em Aberto.
+let _fiadoStatusVendaId = null;
+let _fiadoStatusPr = null;
 
-async function abrirModalMarcarQuitado(fiadoId) {
-  fiadoQuitandoId = fiadoId;
-  
-  try {
-    // Carrega todos os fiados
-    const fiados = await window._fbGetCollection('fiados');
-    const fiado = fiados.find(f => f._fbId === fiadoId || f.id === fiadoId);
-    
-    if (!fiado) {
-      alert('❌ Fiado não encontrado!');
-      return;
-    }
+function abrirModalStatusFiado(pr, vendaId, statusAtual) {
+  _fiadoStatusVendaId = vendaId;
+  _fiadoStatusPr = pr;
 
-    // Popula informações no modal
-    document.getElementById('fiadoQuitadoInfo').innerHTML = `
-      <strong style="color:var(--text);">${fiado.pr || 'PR'}</strong> — Débito: <strong style="color:var(--danger);">R$ ${fmtNum(fiado.valor || 0)}</strong>
-    `;
+  document.getElementById('fiadoStatusInfo').innerHTML = `
+    <strong style="color:var(--text);">${pr}</strong><br>
+    Status atual: <strong style="color:${statusAtual==='quitado'?'var(--success)':'var(--danger)'}">${statusAtual==='quitado' ? '✅ Baixado' : '📌 Em aberto'}</strong>
+  `;
 
-    // Define data padrão como hoje
-    const hoje = hojeLocal();
-    document.getElementById('fiadoQuitadoData').value = hoje;
-    document.getElementById('fiadoQuitadoObs').value = '';
-    document.getElementById('fiadoQuitadoErr').style.display = 'none';
+  // Destaca a ação recomendada (a oposta ao status atual)
+  const btnBaixar  = document.getElementById('btnFiadoBaixar');
+  const btnReabrir = document.getElementById('btnFiadoReabrir');
+  btnBaixar.style.opacity  = statusAtual === 'quitado' ? '0.5' : '1';
+  btnReabrir.style.opacity = statusAtual === 'quitado' ? '1'   : '0.5';
 
-    // Abre modal
-    document.getElementById('fiadoMarcarQuitadoModal').style.display = 'flex';
-  } catch (e) {
-    console.error('[abrirModalMarcarQuitado] Erro:', e);
-    alert(`❌ Erro: ${e.message}`);
-  }
+  document.getElementById('fiadoStatusModal').style.display = 'flex';
 }
 
-async function confirmarQuitado() {
-  if (!fiadoQuitandoId) {
-    alert('❌ Erro: Nenhum fiado selecionado.');
-    return;
-  }
-
-  const data = document.getElementById('fiadoQuitadoData').value;
-  const obs = document.getElementById('fiadoQuitadoObs').value.trim();
-  const errEl = document.getElementById('fiadoQuitadoErr');
-
-  if (!data) {
-    errEl.textContent = '⚠️ Selecione uma data!';
-    errEl.style.display = 'block';
+async function definirStatusFiado(novoStatus) {
+  if (_fiadoStatusVendaId === null) {
+    alert('❌ Erro: nenhuma venda selecionada.');
     return;
   }
 
   try {
-    // Carrega todos os fiados
-    const fiados = await window._fbGetCollection('fiados');
-    
-    // Encontra o fiado
-    const fiadoIndex = fiados.findIndex(f => f._fbId === fiadoQuitandoId || f.id === fiadoQuitandoId);
-    if (fiadoIndex === -1) {
-      alert('❌ Fiado não encontrado!');
+    // Encontra TODOS os lançamentos que pertencem a essa venda (mesmo vendaId, ou id direto)
+    const alvos = lancamentos.filter(l => (l.vendaId != null ? l.vendaId : l.id) === _fiadoStatusVendaId);
+
+    if (!alvos.length) {
+      alert('❌ Lançamento não encontrado!');
       return;
     }
 
-    const fiado = fiados[fiadoIndex];
+    alvos.forEach(l => { l.statusFiado = novoStatus; });
 
-    // Marca como quitado
-    fiado.status = 'quitado';
-    fiado.dataQuitacao = data;
-    fiado.obsQuitacao = obs || 'Quitado';
-    fiado.dataRegistroQuitacao = new Date().toISOString();
-
-    // Salva na tabela de fiados
-    await window._fbSaveCollection('fiados', fiados, f => f._fbId || f.id);
-
-    showToast(`✅ Fiado de ${fiado.pr} marcado como quitado!`);
-
-    // Fecha modal
-    document.getElementById('fiadoMarcarQuitadoModal').style.display = 'none';
-
-    // Recarrega a visualização
-    if (typeof renderFiado === 'function') {
-      renderFiado();
+    // Sincroniza e salva só os itens alterados (mais rápido e seguro)
+    window._lancamentos = lancamentos;
+    if (typeof window._saveLancamentosDocs === 'function') {
+      await window._saveLancamentosDocs(alvos);
+    } else {
+      await window._saveLancamentos();
     }
+
+    showToast(novoStatus === 'quitado' ? `✅ Fiado de ${_fiadoStatusPr} marcado como BAIXADO` : `↩️ Fiado de ${_fiadoStatusPr} reaberto`);
+
+    document.getElementById('fiadoStatusModal').style.display = 'none';
+    _fiadoStatusVendaId = null;
+    _fiadoStatusPr = null;
+
+    if (typeof renderFiado === 'function') renderFiado();
   } catch (e) {
-    console.error('[confirmarQuitado] Erro:', e);
-    errEl.textContent = `❌ Erro ao salvar: ${e.message}`;
-    errEl.style.display = 'block';
+    console.error('[definirStatusFiado] Erro:', e);
+    alert(`❌ Erro ao salvar status: ${e.message}`);
   }
 }
 
