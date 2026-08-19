@@ -5921,7 +5921,7 @@ if ('serviceWorker' in navigator) {
   showToast('📄 Relatório de cargas gerado!');
 }
 
-function exportarPDF(){
+async function exportarPDF(){
   const pr=document.getElementById('rFiltPr').value;
   const marca=document.getElementById('rFiltMarca').value;
   const mesVal=document.getElementById('rFiltMes').value;
@@ -5934,6 +5934,18 @@ function exportarPDF(){
   else if(mesVal) f=f.filter(l=>l.data.startsWith(mesVal));
 
   if(!f.length){showToast('\u26a0 Nenhum dado para exportar!');return;}
+
+  // Pagamentos de fiado quitados depois (aba 📒 Fiado) — mesma lógica do Resumo,
+  // sem duplicar: só entram quando não há filtro de marca (pagamento de fiado
+  // não é atribuído a Ultragaz/Butano especificamente).
+  let fiadoPagsFiltrados = [];
+  if (!marca) {
+    const _todosFiadoPags = await _loadFiadoPag();
+    fiadoPagsFiltrados = _todosFiadoPags.filter(p => p.tipo !== 'sobra' && p.tipo !== 'falta_fiado' && p.formasPag);
+    if (pr)         fiadoPagsFiltrados = fiadoPagsFiltrados.filter(p => p.pr === pr);
+    if (diaVal)      fiadoPagsFiltrados = fiadoPagsFiltrados.filter(p => p.data === diaVal);
+    else if (mesVal) fiadoPagsFiltrados = fiadoPagsFiltrados.filter(p => p.data && p.data.startsWith(mesVal));
+  }
 
   // Labels
   let periodoLabel='Todos os meses';
@@ -6014,6 +6026,14 @@ function exportarPDF(){
   }
 
   const pagGeral=somarPag(f);
+  // Soma os pagamentos de fiado quitados depois (aba Fiado) no total geral —
+  // sem atribuir a uma marca específica, só no total.
+  fiadoPagsFiltrados.forEach(pg=>{
+    Object.keys(FP_TO_PAY).forEach(fpKey=>{
+      const v=(pg.formasPag && pg.formasPag[fpKey])||0;
+      if(v>0) pagGeral[FP_TO_PAY[fpKey]] = (pagGeral[FP_TO_PAY[fpKey]]||0) + v;
+    });
+  });
   const totPagoGeral=PAY_FIELDS.reduce((a,p)=>a+pagGeral[p],0);
   const totalGeralRow=`<tr style="background:#fff3e0;font-weight:700;border-top:3px solid #e07b00">
     <td style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e07b00">TOTAL GERAL</td>
@@ -6086,6 +6106,7 @@ function exportarPDF(){
       ${totalGeralRow}
     </tbody>
   </table>
+  ${fiadoPagsFiltrados.length ? `<div style="font-size:9px;color:#6b7280;margin-top:6px;">* O TOTAL GERAL inclui pagamentos de fiado quitados posteriormente na aba 📒 Fiado (R$ ${fmtNum(fiadoPagsFiltrados.reduce((a,p)=>a+p.valor,0))}), não atribuídos a uma marca específica.</div>` : ''}
   <div class="footer"><strong style="color:#374151">Sistema Controle de PR</strong> \u2014 Desenvolvido por <strong style="color:#374151">Leandro Machado</strong></div>
   <div class="no-print" style="margin-top:20px;text-align:center">
     <button onclick="window.print()" style="background:#e07b00;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px">\uD83D\uDDA8\uFE0F Imprimir / Salvar PDF</button>
