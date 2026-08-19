@@ -1502,6 +1502,13 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
           <option value="OUTRO">🚛 Outro</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Tipo (Ultra/Butano)</label>
+        <select id="cTipo" onchange="_aplicarTipoCargaAosItens()">
+          <option value="Ultragaz">🔵 Ultragaz</option>
+          <option value="Butano">🟢 Butano</option>
+        </select>
+      </div>
     </div>
 
     <!-- Itens da Carga -->
@@ -1673,6 +1680,12 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
           <option value="OUTRO">🚛 Outro</option>
         </select>
       </div>
+      <div class="form-group"><label>Tipo (Ultra/Butano)</label>
+        <select id="ecTipo" onchange="_aplicarTipoCargaAosItens('ecItensContainer')">
+          <option value="Ultragaz">🔵 Ultragaz</option>
+          <option value="Butano">🟢 Butano</option>
+        </select>
+      </div>
     </div>
     <div class="carga-form-3">
       <div class="form-group"><label>Valor Carga (R$) <span style="font-size:9px;color:var(--muted2);font-weight:400">(opcional)</span></label><input type="number" id="ecValor" min="0" step="0.01" oninput="calcEditCargaLiquido()" /></div>
@@ -1769,6 +1782,44 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
           <tr><td colspan="8" class="empty">Nenhum dado.</td></tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- Estoque de outros itens (modais) -->
+  <div class="card">
+    <div class="section-title">📦 Estoque — Outros Itens</div>
+    <div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px;">
+      O foco do controle automático é o <strong>P13</strong>. Para os demais itens, abra o modal correspondente para ver entradas (cargas), saídas (lançamentos) e saldo, dia a dia.
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <button class="btn-pdf" onclick="abrirEstoqueOutros('P 05')">🔴 P05</button>
+      <button class="btn-pdf" onclick="abrirEstoqueOutros('P 20')">🔴 P20</button>
+      <button class="btn-pdf" onclick="abrirEstoqueOutros('P 45')">🔴 P45</button>
+      <button class="btn-pdf" onclick="abrirEstoqueOutros('Cota P13')">📋 Cota P13</button>
+      <button class="btn-pdf" onclick="abrirEstoqueOutros('Cota P5')">📋 Cota P5</button>
+      <button class="btn-pdf" onclick="abrirEstoqueOutros('Cota P20')">📋 Cota P20</button>
+      <button class="btn-pdf" onclick="abrirEstoqueOutros('Cota P45')">📋 Cota P45</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Estoque de outros itens -->
+<div class="modal-overlay" id="estoqueOutrosModal">
+  <div class="modal-box" style="max-width:640px;">
+    <div class="modal-title" id="estoqueOutrosTitulo">📦 Estoque do item</div>
+    <div class="summary-grid" id="estoqueOutrosCards" style="margin-bottom:12px;"></div>
+    <div class="table-wrap" style="max-height:420px;overflow:auto;">
+      <table>
+        <thead>
+          <tr><th>Data</th><th>Entrada</th><th>Saída</th><th>Saldo</th></tr>
+        </thead>
+        <tbody id="tbodyEstoqueOutros">
+          <tr><td colspan="4" class="empty">Nenhum dado.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="fecharEstoqueOutros()">Fechar</button>
     </div>
   </div>
 </div>
@@ -2375,30 +2426,34 @@ function selectLinhaBrand(i,brand) {
   }
   calcLinha(i);
 }
-function onPrChange() {
+async function onPrChange() {
   for(let i=0;i<_numLinhas;i++){
     if(document.getElementById(`l${i}_ultra`).classList.contains('active')) selectLinhaBrand(i,'Ultragaz');
     if(document.getElementById(`l${i}_butano`).classList.contains('active')) selectLinhaBrand(i,'Butano');
     // Produto: não preenche preço automático
   }
-  // Exibe sobra acumulada do PR selecionado
+  // Exibe saldo de fiado do PR selecionado — usa o MESMO cálculo da aba 📒 Fiado
+  // (calcFiadoPorPR), que já desconta baixas/quitações e sobras registradas lá.
+  // Assim, o que aparece aqui é sempre igual ao que está na aba Fiado, sem risco
+  // de cobrar errado do cliente.
   const pr = document.getElementById('fPr').value;
   const infoEl = document.getElementById('prSobraInfo');
   if (pr && infoEl) {
-    const saldos = calcSobrasPorPR();
-    const sobra = saldos[pr] || 0;
+    const fiadoPorPR = await calcFiadoPorPR();
+    const saldoFiado = (fiadoPorPR[pr] && fiadoPorPR[pr].saldo) || 0; // >0 = deve; <0 = crédito a favor
+    const sobra = -saldoFiado;
     if (sobra > 0.009) {
       infoEl.style.display = 'flex';
       infoEl.style.background = '#dcfce7';
       infoEl.style.border = '1.5px solid #bbf7d0';
       infoEl.style.color = '#15803d';
-      infoEl.innerHTML = `💰 <span>Sobra disponível: <strong>R$ ${fmtNum(sobra)}</strong></span>`;
+      infoEl.innerHTML = `💰 <span>Crédito/sobra disponível: <strong>R$ ${fmtNum(sobra)}</strong></span>`;
     } else if (sobra < -0.009) {
       infoEl.style.display = 'flex';
       infoEl.style.background = '#fef2f2';
       infoEl.style.border = '1.5px solid #fca5a5';
       infoEl.style.color = '#dc2626';
-      infoEl.innerHTML = `⚠️ <span>Pendência: <strong>R$ ${fmtNum(Math.abs(sobra))}</strong></span>`;
+      infoEl.innerHTML = `⚠️ <span>Fiado em aberto: <strong>R$ ${fmtNum(Math.abs(sobra))}</strong></span>`;
     } else {
       infoEl.style.display = 'none';
     }
@@ -4006,7 +4061,11 @@ function buildMesOptions(){
     sel.appendChild(o);
   });
 }
-function renderResumo(){
+// Mapeia as chaves do formulário de pagamento de fiado (aba Fiado) para os
+// rótulos usados em PAY_FIELDS, para poder somar sem duplicar.
+const FP_TO_PAY = { especie: 'Espécie', pix: 'Pix', debito: 'Débito', credito: 'Crédito', qrcode: 'QR Code', gasPovo: 'Gás do Povo' };
+
+async function renderResumo(){
   buildMesOptions();
   let f=[...lancamentos];
   const pr   =document.getElementById('rFiltPr').value;
@@ -4017,6 +4076,21 @@ function renderResumo(){
   if(marca) f=f.filter(l=>l.marca===marca);
   if(dia)   f=f.filter(l=>l.data===dia);
   else if(mes) f=f.filter(l=>l.data.startsWith(mes));
+
+  // ── Pagamentos de fiado quitados posteriormente (aba 📒 Fiado) ──
+  // São valores efetivamente recebidos depois da venda original (ex: PR pagou
+  // via Pix a dívida que tinha ficado como Fiado). Não duplicam o "Valor Total"
+  // (que já é a receita da venda) — apenas entram na quebra de "Formas de Pagamento".
+  // Ignora tipo 'sobra' (já contabilizada no pag da venda original) e 'falta_fiado'
+  // (é dívida gerada, não dinheiro recebido).
+  let fiadoPagsFiltrados = [];
+  if (!marca) { // pagamento de fiado não tem marca associada — só entra quando não há filtro de marca
+    const _todosFiadoPags = await _loadFiadoPag();
+    fiadoPagsFiltrados = _todosFiadoPags.filter(p => p.tipo !== 'sobra' && p.tipo !== 'falta_fiado' && p.formasPag);
+    if (pr)      fiadoPagsFiltrados = fiadoPagsFiltrados.filter(p => p.pr === pr);
+    if (dia)     fiadoPagsFiltrados = fiadoPagsFiltrados.filter(p => p.data === dia);
+    else if(mes) fiadoPagsFiltrados = fiadoPagsFiltrados.filter(p => p.data && p.data.startsWith(mes));
+  }
 
   // ── Totais globais ──
   document.getElementById('summaryCards').innerHTML=`
@@ -4070,8 +4144,15 @@ function renderResumo(){
   const _visitedPB=new Set();
   const _fPrimeiros=f.filter(l=>{const vid=l.vendaId!=null?l.vendaId:l.id;if(!_visitedPB.has(vid)){_visitedPB.add(vid);return true;}return false;});
   document.getElementById('payBreakdown').innerHTML=PAY_FIELDS.map(p=>{
-    const val=_fPrimeiros.reduce((a,b)=>a+(b.pag&&b.pag[p]||0),0);
-    const n=_fPrimeiros.filter(l=>l.pag&&l.pag[p]>0).length;
+    let val=_fPrimeiros.reduce((a,b)=>a+(b.pag&&b.pag[p]||0),0);
+    let n=_fPrimeiros.filter(l=>l.pag&&l.pag[p]>0).length;
+    // soma pagamentos de fiado quitados depois (aba Fiado), sem duplicar
+    const fpKey = Object.keys(FP_TO_PAY).find(k => FP_TO_PAY[k] === p);
+    if (fpKey) {
+      const extras = fiadoPagsFiltrados.filter(pg => pg.formasPag && pg.formasPag[fpKey] > 0);
+      val += extras.reduce((a,pg)=>a+(pg.formasPag[fpKey]||0),0);
+      n   += extras.length;
+    }
     return`<div class="pay-item">
       <div class="pi-label">${PAY_EMOJIS[p]} ${p}</div>
       <div class="pi-val">${fmtVal(val)}</div>
@@ -4082,13 +4163,14 @@ function renderResumo(){
   // ── Cartões por PR ──
   const prsSemDados = [];
   const prsComDados = [];
-  const prsAtivos = [...new Set(f.map(l=>l.pr))].sort();
+  const prsAtivos = [...new Set([...f.map(l=>l.pr), ...fiadoPagsFiltrados.map(p=>p.pr)])].sort();
 
   const grid=document.getElementById('prCardsGrid');
   if(!prsAtivos.length){
     grid.innerHTML='<div class="empty" style="grid-column:1/-1">Nenhum PR com dados para os filtros selecionados.</div>';
   } else {
-    const sobrasSaldos = calcSobrasPorPR(); // saldo acumulado de sobras por PR
+    // Saldo real de fiado por PR (já considera baixas/quitações feitas na aba 📒 Fiado)
+    const fiadoPorPR = await calcFiadoPorPR();
     grid.innerHTML=prsAtivos.map(pr=>{
       const itens=f.filter(l=>l.pr===pr);
       const qtdUltra=itens.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.qtd,0);
@@ -4103,22 +4185,33 @@ function renderResumo(){
       const vistosPS=new Set();
       const itensPrimeiros=itens.filter(l=>{const vid=l.vendaId!=null?l.vendaId:l.id;if(!vistosPS.has(vid)){vistosPS.add(vid);return true;}return false;});
       PAY_FIELDS.forEach(p=>pagSoma[p]=itensPrimeiros.reduce((a,b)=>a+(b.pag&&b.pag[p]||0),0));
+      // soma pagamentos de fiado quitados depois (aba Fiado) para este PR, sem duplicar
+      fiadoPagsFiltrados.filter(pg=>pg.pr===pr).forEach(pg=>{
+        Object.keys(FP_TO_PAY).forEach(fpKey=>{
+          const v = (pg.formasPag && pg.formasPag[fpKey]) || 0;
+          if (v > 0) { const label = FP_TO_PAY[fpKey]; pagSoma[label] = (pagSoma[label]||0) + v; }
+        });
+      });
       const pagRows=PAY_FIELDS.filter(p=>pagSoma[p]>0).map(p=>`
         <div class="pr-pag-row">
-          <span class="pp-name">${PAY_EMOJIS[p]} ${p}</span>
+          <span class="pp-name">${PAY_EMOJIS[p]} ${p}${p==='Fiado'?' <span style="font-weight:400;font-size:10px;color:var(--muted)">(gerado no período)</span>':''}</span>
           <span class="pp-val ${p==='Fiado'?'fiado':''}">${fmtVal(pagSoma[p])}</span>
         </div>`).join('');
 
       const initials=pr.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
 
-      // Sobra acumulada deste PR (de todos os lançamentos, não só do período filtrado)
-      const sobraAcum = sobrasSaldos[pr] || 0;
+      // Saldo de fiado deste PR — TODO o histórico (não só o período filtrado).
+      // saldo > 0 = ainda deve (pendência real); saldo < 0 = pagou/tem crédito a mais.
+      // Vem de calcFiadoPorPR(), que já desconta as baixas registradas na aba 📒 Fiado —
+      // por isso, ao quitar um fiado lá, o valor aqui cai automaticamente.
+      const saldoFiadoPR = (fiadoPorPR[pr] && fiadoPorPR[pr].saldo) || 0;
+      const sobraAcum = -saldoFiadoPR; // inverte sinal p/ reaproveitar a lógica de exibição abaixo (>0 = a favor do PR)
       let sobraHtml = '';
       if (sobraAcum > 0.009) {
         sobraHtml = `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#dcfce7;border:1.5px solid #bbf7d0;border-radius:10px;">
           <span style="font-size:16px">💰</span>
           <div style="flex:1">
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#15803d">Sobra Acumulada</div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#15803d">Crédito / Sobra</div>
             <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#15803d;line-height:1.1">${fmtVal(sobraAcum)}</div>
           </div>
         </div>`;
@@ -4126,7 +4219,7 @@ function renderResumo(){
         sobraHtml = `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;">
           <span style="font-size:16px">⚠️</span>
           <div style="flex:1">
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#dc2626">Pendência</div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#dc2626">Pendência (Saldo de Fiado)</div>
             <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#dc2626;line-height:1.1">${fmtVal(Math.abs(sobraAcum))}</div>
           </div>
         </div>`;
@@ -4605,6 +4698,7 @@ function _buildItemCargaDOM(containerId, i, qtd, prod, marca) {
   const d = document.createElement('div');
   d.className = 'carga-item-row'; d.id = containerId + '_item_' + i;
   const isP13 = prod === 'P 13';
+  const marcaDefault = marca || _tipoCargaAtual(containerId);
   d.innerHTML = `
     <input type="number" id="${containerId}_qtd_${i}" min="0" placeholder="0" value="${qtd||''}" oninput="calcFreteAuto()" />
     <select id="${containerId}_prod_${i}" onchange="calcFreteAuto();_toggleMarcaCarga('${containerId}',${i})">
@@ -4612,8 +4706,8 @@ function _buildItemCargaDOM(containerId, i, qtd, prod, marca) {
       ${PRODUTOS_CARGA_OPTS.map(p=>`<option value="${p}"${prod===p?' selected':''}>${p}</option>`).join('')}
     </select>
     <select id="${containerId}_marca_${i}" style="display:${isP13?'':'none'}">
-      <option value="Ultragaz"${marca!=='Butano'?' selected':''}>🔵 Ultragaz</option>
-      <option value="Butano"${marca==='Butano'?' selected':''}>🟢 Butano</option>
+      <option value="Ultragaz"${marcaDefault!=='Butano'?' selected':''}>🔵 Ultragaz</option>
+      <option value="Butano"${marcaDefault==='Butano'?' selected':''}>🟢 Butano</option>
     </select>
     <button class="btn-rm-linha" onclick="removeItemCarga('${containerId}',${i})" title="Remover">✕</button>`;
   c.appendChild(d);
@@ -4623,6 +4717,26 @@ function _toggleMarcaCarga(containerId, i) {
   const prodEl  = document.getElementById(`${containerId}_prod_${i}`);
   const marcaEl = document.getElementById(`${containerId}_marca_${i}`);
   if (marcaEl) marcaEl.style.display = (prodEl && prodEl.value === 'P 13') ? '' : 'none';
+}
+
+// Retorna o tipo (Ultragaz/Butano) selecionado no campo geral da carga,
+// de acordo com o container (novo lançamento ou edição).
+function _tipoCargaAtual(containerId) {
+  const id = containerId === 'ecItensContainer' ? 'ecTipo' : 'cTipo';
+  const el = document.getElementById(id);
+  return (el && el.value) || 'Ultragaz';
+}
+
+// Ao trocar o Tipo (Ultra/Butano) no cabeçalho da carga, aplica automaticamente
+// a marca em todos os itens P 13 já lançados (o usuário ainda pode ajustar
+// item a item, se precisar misturar marcas na mesma carga).
+function _aplicarTipoCargaAosItens(containerId) {
+  containerId = containerId || 'cItensContainer';
+  const tipo = _tipoCargaAtual(containerId);
+  document.querySelectorAll(`#${containerId} .carga-item-row`).forEach(row => {
+    const marcaEl = row.querySelector('select[id*="_marca_"]');
+    if (marcaEl) marcaEl.value = tipo;
+  });
 }
 
 function buildItensCarga(containerId, itens) {
@@ -4813,7 +4927,7 @@ function renderEstoque() {
     tbody.innerHTML = '<tr><td colspan="8" class="empty">Nenhum dado para o filtro selecionado.</td></tr>';
     return;
   }
-  const ordenado = [...visiveis].reverse(); // mais recente primeiro
+  const ordenado = [...visiveis]; // ordem crescente por data (mais antiga primeiro)
   tbody.innerHTML = ordenado.map(h => {
     const [y, mo, d] = h.data.split('-');
     return `<tr>
@@ -4827,6 +4941,70 @@ function renderEstoque() {
       <td style="text-align:right;font-weight:700">${h.saldoTotal}</td>
     </tr>`;
   }).join('');
+}
+
+// ── Estoque de outros itens (P05, P20, P45, Cotas) — modal ──
+// Entradas: somadas a partir dos itens lançados na aba Cargas.
+// Saídas: somadas a partir dos lançamentos de venda avulsa (marca === 'Produto').
+function _calcEstoqueOutroItem(produto) {
+  const entradasPorDia = {};
+  cargas.forEach(c => {
+    if (!c.data || !c.itens) return;
+    c.itens.filter(it => it.produto === produto).forEach(it => {
+      entradasPorDia[c.data] = (entradasPorDia[c.data] || 0) + (it.qtd || 0);
+    });
+  });
+
+  const saidasPorDia = {};
+  lancamentos.forEach(l => {
+    if (l.marca !== 'Produto' || l.produto !== produto) return;
+    saidasPorDia[l.data] = (saidasPorDia[l.data] || 0) + (l.qtd || 0);
+  });
+
+  const todasDatas = [...new Set([...Object.keys(entradasPorDia), ...Object.keys(saidasPorDia)])].sort(); // ordem crescente
+
+  let saldo = 0;
+  return todasDatas.map(data => {
+    const ent = entradasPorDia[data] || 0;
+    const sai = saidasPorDia[data] || 0;
+    saldo += ent - sai;
+    return { data, ent, sai, saldo };
+  });
+}
+
+function abrirEstoqueOutros(produto) {
+  const historico = _calcEstoqueOutroItem(produto);
+  document.getElementById('estoqueOutrosTitulo').textContent = `📦 Estoque — ${produto}`;
+
+  const totalEnt  = historico.reduce((a, h) => a + h.ent, 0);
+  const totalSai  = historico.reduce((a, h) => a + h.sai, 0);
+  const saldoAtual = historico.length ? historico[historico.length - 1].saldo : 0;
+  document.getElementById('estoqueOutrosCards').innerHTML = `
+    <div class="summary-card"><div class="s-label">📦 Saldo Atual</div><div class="s-value">${saldoAtual}</div></div>
+    <div class="summary-card"><div class="s-label">⬆️ Total Entradas</div><div class="s-value blue">${totalEnt}</div></div>
+    <div class="summary-card"><div class="s-label">⬇️ Total Saídas</div><div class="s-value bgreen">${totalSai}</div></div>
+  `;
+
+  const tbody = document.getElementById('tbodyEstoqueOutros');
+  if (!historico.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">Nenhuma movimentação para este item.</td></tr>';
+  } else {
+    tbody.innerHTML = historico.map(h => {
+      const [y, mo, d] = h.data.split('-');
+      return `<tr>
+        <td>${d}/${mo}/${y}</td>
+        <td style="text-align:right;color:var(--success)">${h.ent > 0 ? '+' + h.ent : '—'}</td>
+        <td style="text-align:right;color:var(--danger)">${h.sai > 0 ? '-' + h.sai : '—'}</td>
+        <td style="text-align:right;font-weight:700">${h.saldo}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('estoqueOutrosModal').classList.add('open');
+}
+
+function fecharEstoqueOutros() {
+  document.getElementById('estoqueOutrosModal').classList.remove('open');
 }
 
 // Configuração de modais de cargas — chamada dentro do _appInit (após Supabase carregar)
@@ -5131,6 +5309,7 @@ async function addCarga() {
     empresa,
     transp:    document.getElementById('cTransp').value,
     caminhao:  document.getElementById('cCaminhao').value,
+    tipo:      document.getElementById('cTipo').value,
     qtd:       qtdTotal,
     valor,
     desconto,
@@ -5178,6 +5357,7 @@ async function finalizarNovaCarga(dados) {
   document.getElementById('cEmpresa').value = '';
   document.getElementById('cTransp').value = 'IVG TRANSPORTES';
   document.getElementById('cCaminhao').value = '';
+  document.getElementById('cTipo').value = 'Ultragaz';
   document.getElementById('cStatus').value = 'A VENCER';
   document.getElementById('cData').value = hojeLocal();
   buildItensCarga('cItensContainer', [{}]);
@@ -5203,6 +5383,7 @@ function abrirEdicaoCarga(id) {
   document.getElementById('ecEmpresa').value       = c.empresa;
   document.getElementById('ecTransp').value        = c.transp || 'IVG TRANSPORTES';
   document.getElementById('ecCaminhao').value      = c.caminhao || '';
+  document.getElementById('ecTipo').value          = c.tipo || 'Ultragaz';
   // Itens: usa array itens se existir, senão cria a partir de produto/qtd antigos
   const itens = c.itens && c.itens.length
     ? c.itens
@@ -5252,6 +5433,7 @@ async function salvarEdicaoCarga() {
     empresa,
     transp:   document.getElementById('ecTransp').value,
     caminhao: document.getElementById('ecCaminhao').value,
+    tipo:     document.getElementById('ecTipo').value,
     qtd:      qtdTotal,
     valor,
     desconto,
@@ -5403,6 +5585,7 @@ function renderCargas() {
     if (c.status === 'PRORROGADO') badgeClass = 'status-avencer';
     const statusLabel = c.status === 'PRORROGADO' ? '📅 PRORROGADO' : c.status;
     const caminhaoLabel = c.caminhao ? `🚛 ${c.caminhao}` : '-';
+    const tipoLabel = c.tipo === 'Butano' ? '🟢 Butano' : '🔵 Ultragaz';
     const vencDisplay = c.venc ? fmtDate(c.venc) : '-';
     const vencStyle = c.status === 'PRORROGADO' ? 'color:var(--ultra);font-weight:700' : 'color:var(--muted)';
     // Monta display de itens
@@ -5415,7 +5598,7 @@ function renderCargas() {
       <td style="color:var(--muted);font-size:11px">${c.nf || '-'}</td>
       <td style="font-weight:700">${c.empresa}</td>
       <td style="color:var(--muted)">${c.transp || '-'}</td>
-      <td style="color:var(--muted);font-size:11px">${caminhaoLabel}</td>
+      <td style="color:var(--muted);font-size:11px">${caminhaoLabel}<br><span style="font-size:10px">${tipoLabel}</span></td>
       <td style="text-align:center;font-family:'Bebas Neue',sans-serif;font-size:18px">${c.qtd || '-'}</td>
       <td class="td-valor">${c.valor > 0 ? fmtVal(c.valor) : '-'}</td>
       <td style="color:var(--danger)">${c.desconto ? fmtVal(c.desconto) : '-'}</td>
