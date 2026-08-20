@@ -3354,22 +3354,25 @@ function imprimirFiado(){
   const statusTxt = statusEl && statusEl.value ? statusEl.options[statusEl.selectedIndex].textContent.replace(/^[^\wÀ-ú]+\s*/,'') : '';
 
   const filtrosPartes = [];
-  filtrosPartes.push(pr ? `PR: ${pr}` : 'Todos os PRs');
-  filtrosPartes.push(mesTxt ? `Mês: ${mesTxt}` : 'Todos os meses');
   filtrosPartes.push(statusTxt ? `Status: ${statusTxt}` : 'Todos os status');
   const filtrosTxt = filtrosPartes.join(' &nbsp;|&nbsp; ');
 
-  // Resumo geral (cards de totais no topo da aba)
-  const resumoEl = document.getElementById('fiadoResumoCards');
-  const resumoConteudo = resumoEl ? resumoEl.innerHTML.replace(/<button[\s\S]*?<\/button>/g, '') : '';
-
-  // Remove botões de ação (não fazem sentido no papel) mantendo o resto do layout
+  // Remove botões de ação (não fazem sentido no papel), atributos de evento
+  // e encurta as datas (dd/mm/aaaa -> dd/mm) para ganhar espaço na tabela.
   const conteudo = cardsEl.innerHTML
     .replace(/<button[\s\S]*?<\/button>/g, '')
-    .replace(/\s(onclick|oninput|onchange)="[^"]*"/g, '');
+    .replace(/\s(onclick|oninput|onchange)="[^"]*"/g, '')
+    .replace(/\b(\d{2})\/(\d{2})\/\d{4}\b/g, '$1/$2');
 
   const agora = new Date().toLocaleString('pt-BR');
   const dataHoraCurta = new Date().toLocaleDateString('pt-BR');
+
+  // Faixa de destaque com o PR e o mês filtrados (substitui os cards de resumo)
+  const destaquePartes = [];
+  destaquePartes.push(`<span class="dq-item"><span class="dq-lbl">PR</span><span class="dq-val">${pr ? pr : 'Todos'}</span></span>`);
+  destaquePartes.push(`<span class="dq-item"><span class="dq-lbl">Mês</span><span class="dq-val">${mesTxt ? mesTxt : 'Todos'}</span></span>`);
+  if (statusTxt) destaquePartes.push(`<span class="dq-item"><span class="dq-lbl">Status</span><span class="dq-val">${statusTxt}</span></span>`);
+  const destaqueHTML = destaquePartes.join('');
 
   const win = window.open('', '_blank');
   win.document.write(`
@@ -3385,60 +3388,82 @@ function imprimirFiado(){
           font-family: Arial, Helvetica, sans-serif;
           color: #111;
           font-size: 12px;
-          padding: 26mm 10mm 18mm 10mm; /* espaço reservado para cabeçalho/rodapé fixos */
+          padding: 22mm 8mm 14mm 8mm; /* espaço reservado para cabeçalho/rodapé fixos */
         }
 
         /* ===== Cabeçalho fixo (repete em toda página impressa) ===== */
         .print-header {
           position: fixed;
           top: 0; left: 0; right: 0;
-          height: 20mm;
-          padding: 6mm 10mm 3mm 10mm;
+          height: 16mm;
+          padding: 5mm 8mm 2mm 8mm;
           border-bottom: 2px solid #d97706;
           background: #fff;
           display: flex;
           align-items: center;
           justify-content: space-between;
         }
-        .print-header .brand { display:flex; align-items:center; gap:8px; }
-        .print-header .brand-title { font-size: 16px; font-weight: 700; margin: 0; color:#111; }
-        .print-header .brand-sub { font-size: 10px; color:#555; margin-top: 2px; }
-        .print-header .filtros { text-align:right; font-size: 10px; color:#444; line-height:1.5; }
+        .print-header .brand-title { font-size: 15px; font-weight: 700; margin: 0; color:#111; }
+        .print-header .brand-sub { font-size: 9px; color:#555; margin-top: 2px; }
+        .print-header .filtros { text-align:right; font-size: 9px; color:#444; line-height:1.4; }
 
         /* ===== Rodapé fixo (repete em toda página impressa) ===== */
         .print-footer {
           position: fixed;
           bottom: 0; left: 0; right: 0;
-          height: 12mm;
-          padding: 3mm 10mm;
+          height: 10mm;
+          padding: 2mm 8mm;
           border-top: 1px solid #ccc;
           background: #fff;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          font-size: 9px;
+          font-size: 8.5px;
           color: #777;
         }
 
-        h2.section-h { font-size: 13px; margin: 4px 0 10px; color:#111; border-left: 4px solid #d97706; padding-left: 8px; }
+        /* ===== Faixa de destaque: PR e mês filtrados ===== */
+        .destaque {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          align-items: center;
+          background: #FFFBEB;
+          border: 1.5px solid #d97706;
+          border-radius: 8px;
+          padding: 8px 12px;
+          margin-bottom: 12px;
+        }
+        .dq-item { display:flex; align-items:baseline; gap:6px; }
+        .dq-lbl { font-size: 9px; text-transform: uppercase; letter-spacing:.5px; color:#92400E; font-weight:700; }
+        .dq-val { font-size: 14px; font-weight: 700; color:#111; }
 
-        /* Resumo geral */
-        .resumo-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-        .resumo-grid > div { flex: 1 1 150px; border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; break-inside: avoid; }
-        .resumo-grid .s-label { font-size: 9px; text-transform: uppercase; letter-spacing:.5px; color:#666; margin-bottom:3px; }
-        .resumo-grid .s-value { font-size: 15px; font-weight: 700; }
+        h2.section-h { font-size: 12px; margin: 4px 0 8px; color:#111; border-left: 4px solid #d97706; padding-left: 7px; }
 
-        .card { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-bottom: 14px; break-inside: avoid; }
+        .card { border: 1px solid #ccc; border-radius: 7px; padding: 9px; margin-bottom: 10px; }
         .card:empty { display: none; }
-        table { width:100%; border-collapse: collapse; font-size: 9.5px; margin-top:8px; }
+        table { width:100%; border-collapse: collapse; font-size: 9px; margin-top:6px; table-layout: fixed; }
         thead { display: table-header-group; } /* repete cabeçalho da tabela em cada página */
         tr { break-inside: avoid; }
-        th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
-        th { background:#f2f2f2; text-transform:uppercase; font-size:8.5px; }
+        th, td { border: 1px solid #ccc; padding: 3px 5px; text-align: left; overflow-wrap: break-word; }
+        th { background:#f2f2f2; text-transform:uppercase; font-size:7.5px; }
         tr:nth-child(even) { background:#fafafa; }
 
+        /* Larguras das colunas: Data e BUT/ULT bem enxutas, Descrição ganha o espaço extra */
+        th:nth-child(1), td:nth-child(1) { width: 7%; white-space: nowrap; }   /* Data (dd/mm) */
+        th:nth-child(2), td:nth-child(2) { width: 12%; }                       /* Tipo */
+        th:nth-child(3), td:nth-child(3) { width: 34%; }                       /* Descrição */
+        th:nth-child(4), td:nth-child(4) { width: 11%; }                       /* Valor */
+        th:nth-child(5), td:nth-child(5) { width: 11%; }                       /* Saldo */
+        th:nth-child(6), td:nth-child(6) { width: 7%; text-align:center; }     /* BUT */
+        th:nth-child(7), td:nth-child(7) { width: 7%; text-align:center; }     /* ULT */
+        th:nth-child(8), td:nth-child(8) { width: 11%; }                       /* Ações (vazio na impressão) */
+
+        /* Cabeçalho do card do PR: evita separar do início da tabela */
+        .card > div:first-child { break-inside: avoid; break-after: avoid; }
+
         @media print {
-          @page { size: A4 landscape; margin: 20mm 10mm 15mm 10mm; }
+          @page { size: A4 landscape; margin: 18mm 8mm 12mm 8mm; }
           .print-header, .print-footer { position: fixed; }
         }
         @media screen {
@@ -3448,11 +3473,9 @@ function imprimirFiado(){
     </head>
     <body>
       <div class="print-header">
-        <div class="brand">
-          <div>
-            <div class="brand-title">📒 Controle Roberto — Relatório de Fiado</div>
-            <div class="brand-sub">Documento gerado automaticamente pelo sistema</div>
-          </div>
+        <div>
+          <div class="brand-title">📒 Controle Roberto — Relatório de Fiado</div>
+          <div class="brand-sub">Documento gerado automaticamente pelo sistema</div>
         </div>
         <div class="filtros">${filtrosTxt}<br>Gerado em ${agora}</div>
       </div>
@@ -3462,8 +3485,7 @@ function imprimirFiado(){
         <span>Emitido em ${dataHoraCurta}</span>
       </div>
 
-      <h2 class="section-h">Resumo Geral</h2>
-      <div class="resumo-grid">${resumoConteudo}</div>
+      <div class="destaque">${destaqueHTML}</div>
 
       <h2 class="section-h">Detalhamento por PR</h2>
       ${conteudo}
