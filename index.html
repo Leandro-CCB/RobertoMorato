@@ -3217,9 +3217,6 @@ async function renderFiado() {
 
   cardsEl.innerHTML = prs.map(pr => {
     const d = dados[pr];
-    const semaforo = d.saldo <= 0 ? '🟢' : '🔴';
-    const corSaldo = d.saldo <= 0 ? 'var(--success)' : 'var(--danger)';
-    const bgCard   = d.saldo <= 0 ? '' : 'border:1.5px solid #fca5a5;';
 
     let historicoFiltrado = mesSelecionado ? d.historico.filter(h => h.data.slice(0,7) === mesSelecionado) : d.historico;
     if (statusSelecionado) {
@@ -3234,8 +3231,28 @@ async function renderFiado() {
       });
     }
 
+    // ✅ "Fiado gerado", "Recebido" e "Saldo em aberto" exibidos no card devem
+    // respeitar o filtro de mês selecionado (e não sempre o total histórico do PR).
+    // Quando um mês é filtrado: Fiado/Recebido somam apenas os lançamentos daquele
+    // mês, e o Saldo em Aberto usa o saldo acumulado (saldoApos) do último
+    // lançamento dentro do mês filtrado — ou seja, o saldo devedor "até aquele mês".
+    let totalFiadoCard, totalPagoCard, saldoCard;
+    if (mesSelecionado) {
+      totalFiadoCard = historicoFiltrado.filter(h => h.tipo === 'fiado').reduce((a,b)=>a+b.valor,0);
+      totalPagoCard  = historicoFiltrado.filter(h => h.tipo === 'pagamento').reduce((a,b)=>a+b.valor,0);
+      saldoCard = historicoFiltrado.length ? historicoFiltrado[historicoFiltrado.length-1].saldoApos : d.saldo;
+    } else {
+      totalFiadoCard = d.totalFiado;
+      totalPagoCard  = d.totalPago;
+      saldoCard = d.saldo;
+    }
+
+    const semaforo = saldoCard <= 0 ? '🟢' : '🔴';
+    const corSaldo = saldoCard <= 0 ? 'var(--success)' : 'var(--danger)';
+    const bgCard   = saldoCard <= 0 ? '' : 'border:1.5px solid #fca5a5;';
+
     if (!historicoFiltrado.length) {
-      return `<div class="card" style="${bgCard}">
+      return `<div class="card" style="${bgCard}" data-pr="${pr}" data-total-fiado="0" data-total-pago="0" data-saldo="0">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <div style="width:38px;height:38px;border-radius:9px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Bebas Neue',sans-serif;font-size:16px;">${pr.substring(0,2).toUpperCase()}</div>
@@ -3315,16 +3332,16 @@ async function renderFiado() {
     }).join('');
 
     return `
-    <div class="card" style="${bgCard}">
+    <div class="card" style="${bgCard}" data-pr="${pr}" data-total-fiado="${totalFiadoCard}" data-total-pago="${totalPagoCard}" data-saldo="${saldoCard}">
       <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
         <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#f5c97a);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:18px;color:#fff;flex-shrink:0;">${pr.slice(0,2)}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:15px;font-weight:700;color:var(--text)">${semaforo} ${pr}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Fiado gerado: ${fmtVal(d.totalFiado)} &nbsp;|&nbsp; Recebido: ${fmtVal(d.totalPago)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Fiado gerado: ${fmtVal(totalFiadoCard)} &nbsp;|&nbsp; Recebido: ${fmtVal(totalPagoCard)}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:2px;">Saldo em aberto</div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${corSaldo};line-height:1">${fmtVal(Math.abs(d.saldo))}${d.saldo<0?' (crédito)':''}</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${corSaldo};line-height:1">${fmtVal(Math.abs(saldoCard))}${saldoCard<0?' (crédito)':''}</div>
         </div>
         ${d.saldo > 0 ? `<button onclick="abrirFiadoPagModal('${pr}',${d.saldo})" style="background:var(--success);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(21,128,61,.25);">💵 Registrar Pagamento</button>` : ''}
       </div>
@@ -3375,6 +3392,35 @@ function imprimirFiado(){
     .replace(/<button[\s\S]*?<\/button>/g, '')
     .replace(/\s(onclick|oninput|onchange)="[^"]*"/g, '')
     .replace(/\b(\d{2})\/(\d{2})\/\d{4}\b/g, '$1/$2');
+
+  // ── Linha de totais (soma os cards de PR atualmente exibidos, já com os filtros aplicados) ──
+  let totalFiadoGeral = 0, totalPagoGeral = 0, totalSaldoGeral = 0, prsComSaldo = 0;
+  cardsEl.querySelectorAll('.card[data-total-fiado]').forEach(card => {
+    totalFiadoGeral += parseFloat(card.getAttribute('data-total-fiado')) || 0;
+    totalPagoGeral  += parseFloat(card.getAttribute('data-total-pago'))  || 0;
+    const saldo = parseFloat(card.getAttribute('data-saldo')) || 0;
+    totalSaldoGeral += saldo;
+    if (saldo > 0) prsComSaldo++;
+  });
+  const totaisHTML = `
+    <table style="margin-top:4px;">
+      <thead>
+        <tr>
+          <th style="width:46%;">Total Geral (${prsComSaldo} PR${prsComSaldo===1?'':'s'} com saldo em aberto)</th>
+          <th style="width:18%;">Fiado Gerado</th>
+          <th style="width:18%;">Recebido</th>
+          <th style="width:18%;">Saldo em Aberto</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:700;">TOTAIS</td>
+          <td style="font-weight:700;">${fmtVal(totalFiadoGeral)}</td>
+          <td style="font-weight:700;color:#166534;">${fmtVal(totalPagoGeral)}</td>
+          <td style="font-weight:700;color:${totalSaldoGeral<0?'#166534':'#b91c1c'};">${fmtVal(Math.abs(totalSaldoGeral))}${totalSaldoGeral<0?' (crédito)':''}</td>
+        </tr>
+      </tbody>
+    </table>`;
 
   const agora = new Date().toLocaleString('pt-BR');
   const dataHoraCurta = new Date().toLocaleDateString('pt-BR');
@@ -3501,6 +3547,9 @@ function imprimirFiado(){
 
       <h2 class="section-h">Detalhamento por PR</h2>
       ${conteudo}
+
+      <h2 class="section-h" style="margin-top:14px;">Totais</h2>
+      ${totaisHTML}
 
       <script>
         window.onload = function(){
