@@ -959,6 +959,12 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
 .btn-sm-edit:hover{border-color:var(--ultra);background:var(--ultra-light);}
 .btn-pdf{background:var(--danger);color:#fff;border:none;padding:11px 22px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .18s;box-shadow:0 2px 8px rgba(220,38,38,.25);}
 .btn-pdf:hover{background:#b91c1c;transform:translateY(-1px);}
+.pill-loc{background:#fff;color:var(--muted,#666);border:1.5px solid #e2e2e2;padding:9px 18px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .18s;}
+.pill-loc:hover{border-color:var(--danger,#dc2626);}
+.pill-loc.active{background:var(--danger,#dc2626);border-color:var(--danger,#dc2626);color:#fff;box-shadow:0 2px 8px rgba(220,38,38,.25);}
+.pill-item{background:#fff;color:var(--muted,#666);border:1.5px solid #e2e2e2;padding:9px 16px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .18s;}
+.pill-item:hover{border-color:var(--danger,#dc2626);}
+.pill-item.active{background:var(--danger,#dc2626);border-color:var(--danger,#dc2626);color:#fff;box-shadow:0 2px 8px rgba(220,38,38,.25);}
 .btn-secondary{background:var(--surface3);color:var(--text);border:1.5px solid var(--border);padding:11px 22px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .18s;}
 .btn-secondary:hover{background:var(--border);transform:translateY(-1px);}
 .btn-success{background:var(--success);color:#fff;border:none;padding:11px 22px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;transition:all .18s;box-shadow:0 2px 8px rgba(22,163,74,.25);}
@@ -1509,6 +1515,13 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
           <option value="Butano">🟢 Butano</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Descarregar em</label>
+        <select id="cDescarga">
+          <option value="Franco da Rocha">📍 Franco da Rocha</option>
+          <option value="Morato">📍 Morato</option>
+        </select>
+      </div>
     </div>
 
     <!-- Itens da Carga -->
@@ -1615,6 +1628,7 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
             <th>Empresa</th>
             <th>Transportadora</th>
             <th>Caminhão</th>
+            <th>Descarga</th>
             <th>Qtd</th>
             <th>Valor Carga</th>
             <th>Desconto</th>
@@ -1627,7 +1641,7 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
           </tr>
         </thead>
         <tbody id="tbodyCargas">
-          <tr><td colspan="15" class="empty">Nenhuma carga registrada ainda.</td></tr>
+          <tr><td colspan="16" class="empty">Nenhuma carga registrada ainda.</td></tr>
         </tbody>
         <tfoot id="tfootCargas"></tfoot>
       </table>
@@ -1686,6 +1700,12 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
           <option value="Butano">🟢 Butano</option>
         </select>
       </div>
+      <div class="form-group"><label>Descarregar em</label>
+        <select id="ecDescarga">
+          <option value="Franco da Rocha">📍 Franco da Rocha</option>
+          <option value="Morato">📍 Morato</option>
+        </select>
+      </div>
     </div>
     <div class="carga-form-3">
       <div class="form-group"><label>Valor Carga (R$) <span style="font-size:9px;color:var(--muted2);font-weight:400">(opcional)</span></label><input type="number" id="ecValor" min="0" step="0.01" oninput="calcEditCargaLiquido()" /></div>
@@ -1738,6 +1758,18 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     </div>
   </div>
 
+  <!-- Local do estoque -->
+  <div class="card">
+    <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <span>📍 Local do Estoque</span>
+      <div style="display:flex;gap:8px;">
+        <button class="pill-loc" id="btnLocalFranco" onclick="trocarLocalEstoque('Franco da Rocha')">📍 Franco da Rocha</button>
+        <button class="pill-loc" id="btnLocalMorato" onclick="trocarLocalEstoque('Morato')">📍 Morato</button>
+      </div>
+    </div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:4px;">As <strong>entradas</strong> de estoque vêm das cargas cujo campo "Onde vai descarregar" (aba 🚛 Cargas) corresponde ao local selecionado. Troque o local para ver a movimentação de cada unidade separadamente.</div>
+  </div>
+
   <!-- Estoque inicial -->
   <div class="card">
     <div class="section-title">🧮 Estoque Inicial (ajuste manual, opcional)</div>
@@ -1785,42 +1817,37 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     </div>
   </div>
 
-  <!-- Estoque de outros itens (modais) -->
+  <!-- Estoque de outros itens (abas com movimentação diária) -->
   <div class="card">
     <div class="section-title">📦 Estoque — Outros Itens</div>
     <div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px;">
-      O foco do controle automático é o <strong>P13</strong>. Para os demais itens, abra o modal correspondente para ver entradas (cargas), saídas (lançamentos) e saldo, dia a dia.
+      Selecione um item abaixo para ver a movimentação diária completa (entradas, saídas e saldo), igual ao controle do P13.
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;">
-      <button class="btn-pdf" onclick="abrirEstoqueOutros('P 05')">🔴 P05</button>
-      <button class="btn-pdf" onclick="abrirEstoqueOutros('P 20')">🔴 P20</button>
-      <button class="btn-pdf" onclick="abrirEstoqueOutros('P 45')">🔴 P45</button>
-      <button class="btn-pdf" onclick="abrirEstoqueOutros('Cota P13')">📋 Cota P13</button>
-      <button class="btn-pdf" onclick="abrirEstoqueOutros('Cota P5')">📋 Cota P5</button>
-      <button class="btn-pdf" onclick="abrirEstoqueOutros('Cota P20')">📋 Cota P20</button>
-      <button class="btn-pdf" onclick="abrirEstoqueOutros('Cota P45')">📋 Cota P45</button>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;" id="estoqueOutrosTabs">
+      <button class="pill-item" data-produto="P 05" onclick="selecionarEstoqueOutro('P 05',this)">🔴 P05</button>
+      <button class="pill-item" data-produto="P 20" onclick="selecionarEstoqueOutro('P 20',this)">🔴 P20</button>
+      <button class="pill-item" data-produto="P 45" onclick="selecionarEstoqueOutro('P 45',this)">🔴 P45</button>
+      <button class="pill-item" data-produto="Cota P13" onclick="selecionarEstoqueOutro('Cota P13',this)">📋 Cota P13</button>
+      <button class="pill-item" data-produto="Cota P5" onclick="selecionarEstoqueOutro('Cota P5',this)">📋 Cota P5</button>
+      <button class="pill-item" data-produto="Cota P20" onclick="selecionarEstoqueOutro('Cota P20',this)">📋 Cota P20</button>
+      <button class="pill-item" data-produto="Cota P45" onclick="selecionarEstoqueOutro('Cota P45',this)">📋 Cota P45</button>
     </div>
-  </div>
-</div>
 
-<!-- Modal: Estoque de outros itens -->
-<div class="modal-overlay" id="estoqueOutrosModal">
-  <div class="modal-box" style="max-width:640px;">
-    <div class="modal-title" id="estoqueOutrosTitulo">📦 Estoque do item</div>
-    <div class="summary-grid" id="estoqueOutrosCards" style="margin-bottom:12px;"></div>
-    <div class="table-wrap" style="max-height:420px;overflow:auto;">
-      <table>
-        <thead>
-          <tr><th>Data</th><th>Entrada</th><th>Saída</th><th>Saldo</th></tr>
-        </thead>
-        <tbody id="tbodyEstoqueOutros">
-          <tr><td colspan="4" class="empty">Nenhum dado.</td></tr>
-        </tbody>
-      </table>
+    <div id="estoqueOutrosConteudo" style="display:none;">
+      <div class="section-title" id="estoqueOutrosTitulo" style="font-size:14px;">📦 Estoque do item</div>
+      <div class="summary-grid" id="estoqueOutrosCards" style="margin-bottom:12px;"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Data</th><th>Entrada</th><th>Saída</th><th>Saldo</th></tr>
+          </thead>
+          <tbody id="tbodyEstoqueOutros">
+            <tr><td colspan="4" class="empty">Nenhum dado.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" onclick="fecharEstoqueOutros()">Fechar</button>
-    </div>
+    <div id="estoqueOutrosVazio" style="font-size:12.5px;color:var(--muted);">Nenhum item selecionado acima.</div>
   </div>
 </div>
 
@@ -1928,6 +1955,12 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">📅 Mês</label>
     <select id="fiadoFiltroMes" onchange="renderFiado()" style="max-width:200px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);background:var(--surface2,#fff);">
       <option value="">Todos os meses</option>
+    </select>
+    <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">📌 Status</label>
+    <select id="fiadoFiltroStatus" onchange="renderFiado()" style="max-width:200px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);background:var(--surface2,#fff);">
+      <option value="">Todos os status</option>
+      <option value="aberto">🔴 Em aberto</option>
+      <option value="quitado">✅ Baixado</option>
     </select>
     <button onclick="imprimirFiado()" style="margin-left:auto;background:var(--accent);color:#fff;border:none;padding:9px 16px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;">🖨️ Imprimir / PDF</button>
   </div>
@@ -3139,6 +3172,15 @@ async function renderFiado() {
     mesSelecionado = mesEl.value;
   }
 
+  // Filtro de Status (Em aberto / Baixado) — aplicado sobre o saldo de cada PR
+  const statusEl = document.getElementById('fiadoFiltroStatus');
+  const statusSelecionado = statusEl ? statusEl.value : '';
+  if (statusSelecionado === 'aberto') {
+    prs = prs.filter(p => dados[p].saldo > 0);
+  } else if (statusSelecionado === 'quitado') {
+    prs = prs.filter(p => dados[p].saldo <= 0);
+  }
+
   // Cards de resumo (sempre com base em todos os PRs, independente do filtro)
   const todosPrs = Object.keys(dados);
   const totalDevendo  = todosPrs.reduce((a,p)=>a+(dados[p].saldo>0?dados[p].saldo:0),0);
@@ -3308,16 +3350,27 @@ function imprimirFiado(){
   const pr  = document.getElementById('fiadoFiltroPr').value;
   const mesEl = document.getElementById('fiadoFiltroMes');
   const mesTxt = mesEl && mesEl.value ? mesEl.options[mesEl.selectedIndex].textContent : '';
+  const statusEl = document.getElementById('fiadoFiltroStatus');
+  const statusTxt = statusEl && statusEl.value ? statusEl.options[statusEl.selectedIndex].textContent.replace(/^[^\wÀ-ú]+\s*/,'') : '';
 
   const filtrosPartes = [];
   filtrosPartes.push(pr ? `PR: ${pr}` : 'Todos os PRs');
   filtrosPartes.push(mesTxt ? `Mês: ${mesTxt}` : 'Todos os meses');
+  filtrosPartes.push(statusTxt ? `Status: ${statusTxt}` : 'Todos os status');
   const filtrosTxt = filtrosPartes.join(' &nbsp;|&nbsp; ');
 
+  // Resumo geral (cards de totais no topo da aba)
+  const resumoEl = document.getElementById('fiadoResumoCards');
+  const resumoConteudo = resumoEl ? resumoEl.innerHTML.replace(/<button[\s\S]*?<\/button>/g, '') : '';
+
   // Remove botões de ação (não fazem sentido no papel) mantendo o resto do layout
-  const conteudo = cardsEl.innerHTML.replace(/<button[\s\S]*?<\/button>/g, '');
+  const conteudo = cardsEl.innerHTML
+    .replace(/<button[\s\S]*?<\/button>/g, '')
+    .replace(/\s(onclick|oninput|onchange)="[^"]*"/g, '');
 
   const agora = new Date().toLocaleString('pt-BR');
+  const dataHoraCurta = new Date().toLocaleDateString('pt-BR');
+
   const win = window.open('', '_blank');
   win.document.write(`
     <!DOCTYPE html>
@@ -3326,28 +3379,99 @@ function imprimirFiado(){
       <meta charset="UTF-8">
       <title>Relatório de Fiado — Controle Roberto</title>
       <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, Helvetica, sans-serif; margin: 24px; color:#111; }
-        h1 { font-size: 18px; margin: 0 0 4px; }
-        .sub { font-size: 12px; color:#555; margin-bottom: 4px; }
-        .gerado { font-size: 10px; color:#999; margin-bottom: 20px; }
-        .card { border: 1px solid #ccc; border-radius: 8px; padding: 14px; margin-bottom: 18px; page-break-inside: avoid; }
-        table { width:100%; border-collapse: collapse; font-size: 10px; margin-top:8px; }
-        th, td { border: 1px solid #ccc; padding: 5px 6px; text-align: left; }
-        th { background:#f2f2f2; text-transform:uppercase; font-size:9px; }
+        * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        html, body { margin: 0; padding: 0; }
+        body {
+          font-family: Arial, Helvetica, sans-serif;
+          color: #111;
+          font-size: 12px;
+          padding: 26mm 10mm 18mm 10mm; /* espaço reservado para cabeçalho/rodapé fixos */
+        }
+
+        /* ===== Cabeçalho fixo (repete em toda página impressa) ===== */
+        .print-header {
+          position: fixed;
+          top: 0; left: 0; right: 0;
+          height: 20mm;
+          padding: 6mm 10mm 3mm 10mm;
+          border-bottom: 2px solid #d97706;
+          background: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .print-header .brand { display:flex; align-items:center; gap:8px; }
+        .print-header .brand-title { font-size: 16px; font-weight: 700; margin: 0; color:#111; }
+        .print-header .brand-sub { font-size: 10px; color:#555; margin-top: 2px; }
+        .print-header .filtros { text-align:right; font-size: 10px; color:#444; line-height:1.5; }
+
+        /* ===== Rodapé fixo (repete em toda página impressa) ===== */
+        .print-footer {
+          position: fixed;
+          bottom: 0; left: 0; right: 0;
+          height: 12mm;
+          padding: 3mm 10mm;
+          border-top: 1px solid #ccc;
+          background: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 9px;
+          color: #777;
+        }
+
+        h2.section-h { font-size: 13px; margin: 4px 0 10px; color:#111; border-left: 4px solid #d97706; padding-left: 8px; }
+
+        /* Resumo geral */
+        .resumo-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .resumo-grid > div { flex: 1 1 150px; border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; break-inside: avoid; }
+        .resumo-grid .s-label { font-size: 9px; text-transform: uppercase; letter-spacing:.5px; color:#666; margin-bottom:3px; }
+        .resumo-grid .s-value { font-size: 15px; font-weight: 700; }
+
+        .card { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-bottom: 14px; break-inside: avoid; }
+        .card:empty { display: none; }
+        table { width:100%; border-collapse: collapse; font-size: 9.5px; margin-top:8px; }
+        thead { display: table-header-group; } /* repete cabeçalho da tabela em cada página */
+        tr { break-inside: avoid; }
+        th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
+        th { background:#f2f2f2; text-transform:uppercase; font-size:8.5px; }
         tr:nth-child(even) { background:#fafafa; }
+
         @media print {
-          @page { size: A4 landscape; margin: 12mm; }
+          @page { size: A4 landscape; margin: 20mm 10mm 15mm 10mm; }
+          .print-header, .print-footer { position: fixed; }
+        }
+        @media screen {
+          body { max-width: 1200px; margin: 0 auto; }
         }
       </style>
     </head>
     <body>
-      <h1>📒 Controle Roberto — Relatório de Fiado</h1>
-      <div class="sub">${filtrosTxt}</div>
-      <div class="gerado">Gerado em ${agora}</div>
+      <div class="print-header">
+        <div class="brand">
+          <div>
+            <div class="brand-title">📒 Controle Roberto — Relatório de Fiado</div>
+            <div class="brand-sub">Documento gerado automaticamente pelo sistema</div>
+          </div>
+        </div>
+        <div class="filtros">${filtrosTxt}<br>Gerado em ${agora}</div>
+      </div>
+
+      <div class="print-footer">
+        <span>Controle Roberto &mdash; Relatório de Fiado</span>
+        <span>Emitido em ${dataHoraCurta}</span>
+      </div>
+
+      <h2 class="section-h">Resumo Geral</h2>
+      <div class="resumo-grid">${resumoConteudo}</div>
+
+      <h2 class="section-h">Detalhamento por PR</h2>
       ${conteudo}
+
       <script>
-        window.onload = function(){ window.print(); };
+        window.onload = function(){
+          setTimeout(function(){ window.print(); }, 150);
+        };
       <\/script>
     </body>
     </html>
@@ -4862,6 +4986,36 @@ function getItensCarga(containerId) {
 //  CONTROLE DE ESTOQUE — P13 (Ultragaz + Butano)
 // ══════════════════════════════════════════════════════
 const LS_ESTOQUE_INICIAL_KEY = 'estoqueInicial_v1';
+const LS_ESTOQUE_LOCAL_KEY = 'estoqueLocalAtual_v1';
+let estoqueOutroAtual = null; // produto atualmente selecionado na seção "Outros Itens"
+
+// Local (unidade) de estoque atualmente selecionado: 'Franco da Rocha' ou 'Morato'
+function getEstoqueLocalAtual() {
+  try {
+    return localStorage.getItem(LS_ESTOQUE_LOCAL_KEY) || 'Franco da Rocha';
+  } catch (e) { return 'Franco da Rocha'; }
+}
+
+function trocarLocalEstoque(local) {
+  try { localStorage.setItem(LS_ESTOQUE_LOCAL_KEY, local); } catch (e) {}
+  atualizarBotoesLocalEstoque();
+  renderEstoque();
+  if (estoqueOutroAtual) renderEstoqueOutro();
+}
+
+function atualizarBotoesLocalEstoque() {
+  const local = getEstoqueLocalAtual();
+  const btnF = document.getElementById('btnLocalFranco');
+  const btnM = document.getElementById('btnLocalMorato');
+  if (btnF) btnF.classList.toggle('active', local === 'Franco da Rocha');
+  if (btnM) btnM.classList.toggle('active', local === 'Morato');
+}
+
+// Uma carga "pertence" ao local se o campo descarga bater; cargas antigas sem
+// o campo preenchido são tratadas como Franco da Rocha (valor padrão do formulário).
+function _cargaPertenceAoLocal(c, local) {
+  return (c.descarga || 'Franco da Rocha') === local;
+}
 
 function getEstoqueInicial() {
   try {
@@ -4915,11 +5069,13 @@ function calcEstoqueDiario() {
     saidasPorDia[l.data][l.marca === 'Ultragaz' ? 'ultragaz' : 'butano'] += (l.qtd || 0);
   });
 
-  // Entradas: itens P 13 de cargas, por dia e marca
+  // Entradas: itens P 13 de cargas, por dia e marca (somente do local selecionado)
+  const local = getEstoqueLocalAtual();
   const entradasPorDia = {};
   cargas.forEach(c => {
     if (!c.data) return;
     if (dataIni && c.data < dataIni) return;
+    if (!_cargaPertenceAoLocal(c, local)) return;
     const itensP13 = (c.itens || []).filter(it => it.produto === 'P 13');
     if (!itensP13.length) return;
     if (!entradasPorDia[c.data]) entradasPorDia[c.data] = { ultragaz: 0, butano: 0 };
@@ -4946,6 +5102,7 @@ function calcEstoqueDiario() {
 }
 
 function renderEstoque() {
+  atualizarBotoesLocalEstoque();
   buildEstoqueMesOptions();
 
   const inicial = getEstoqueInicial();
@@ -5012,9 +5169,11 @@ function renderEstoque() {
 // Entradas: somadas a partir dos itens lançados na aba Cargas.
 // Saídas: somadas a partir dos lançamentos de venda avulsa (marca === 'Produto').
 function _calcEstoqueOutroItem(produto) {
+  const local = getEstoqueLocalAtual();
   const entradasPorDia = {};
   cargas.forEach(c => {
     if (!c.data || !c.itens) return;
+    if (!_cargaPertenceAoLocal(c, local)) return;
     c.itens.filter(it => it.produto === produto).forEach(it => {
       entradasPorDia[c.data] = (entradasPorDia[c.data] || 0) + (it.qtd || 0);
     });
@@ -5037,9 +5196,28 @@ function _calcEstoqueOutroItem(produto) {
   });
 }
 
-function abrirEstoqueOutros(produto) {
+// Seleciona (aba) qual "outro item" mostrar dentro da própria página de Estoque
+function selecionarEstoqueOutro(produto, btnEl) {
+  estoqueOutroAtual = produto;
+  document.querySelectorAll('#estoqueOutrosTabs .pill-item').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  renderEstoqueOutro();
+}
+
+function renderEstoqueOutro() {
+  const produto = estoqueOutroAtual;
+  const conteudo = document.getElementById('estoqueOutrosConteudo');
+  const vazio = document.getElementById('estoqueOutrosVazio');
+  if (!produto) {
+    if (conteudo) conteudo.style.display = 'none';
+    if (vazio) vazio.style.display = '';
+    return;
+  }
+  if (conteudo) conteudo.style.display = '';
+  if (vazio) vazio.style.display = 'none';
+
   const historico = _calcEstoqueOutroItem(produto);
-  document.getElementById('estoqueOutrosTitulo').textContent = `📦 Estoque — ${produto}`;
+  document.getElementById('estoqueOutrosTitulo').textContent = `📦 Estoque — ${produto} (${getEstoqueLocalAtual()})`;
 
   const totalEnt  = historico.reduce((a, h) => a + h.ent, 0);
   const totalSai  = historico.reduce((a, h) => a + h.sai, 0);
@@ -5052,7 +5230,7 @@ function abrirEstoqueOutros(produto) {
 
   const tbody = document.getElementById('tbodyEstoqueOutros');
   if (!historico.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="empty">Nenhuma movimentação para este item.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">Nenhuma movimentação para este item neste local.</td></tr>';
   } else {
     tbody.innerHTML = historico.map(h => {
       const [y, mo, d] = h.data.split('-');
@@ -5064,12 +5242,12 @@ function abrirEstoqueOutros(produto) {
       </tr>`;
     }).join('');
   }
-
-  document.getElementById('estoqueOutrosModal').classList.add('open');
 }
 
-function fecharEstoqueOutros() {
-  document.getElementById('estoqueOutrosModal').classList.remove('open');
+// Alias retrocompatível, caso algo ainda chame o nome antigo.
+function abrirEstoqueOutros(produto) {
+  const btn = document.querySelector(`#estoqueOutrosTabs .pill-item[data-produto="${produto}"]`);
+  selecionarEstoqueOutro(produto, btn);
 }
 
 // Configuração de modais de cargas — chamada dentro do _appInit (após Supabase carregar)
@@ -5375,6 +5553,7 @@ async function addCarga() {
     transp:    document.getElementById('cTransp').value,
     caminhao:  document.getElementById('cCaminhao').value,
     tipo:      document.getElementById('cTipo').value,
+    descarga:  document.getElementById('cDescarga').value,
     qtd:       qtdTotal,
     valor,
     desconto,
@@ -5423,6 +5602,7 @@ async function finalizarNovaCarga(dados) {
   document.getElementById('cTransp').value = 'IVG TRANSPORTES';
   document.getElementById('cCaminhao').value = '';
   document.getElementById('cTipo').value = 'Ultragaz';
+  document.getElementById('cDescarga').value = 'Franco da Rocha';
   document.getElementById('cStatus').value = 'A VENCER';
   document.getElementById('cData').value = hojeLocal();
   buildItensCarga('cItensContainer', [{}]);
@@ -5449,6 +5629,7 @@ function abrirEdicaoCarga(id) {
   document.getElementById('ecTransp').value        = c.transp || 'IVG TRANSPORTES';
   document.getElementById('ecCaminhao').value      = c.caminhao || '';
   document.getElementById('ecTipo').value          = c.tipo || 'Ultragaz';
+  document.getElementById('ecDescarga').value      = c.descarga || 'Franco da Rocha';
   // Itens: usa array itens se existir, senão cria a partir de produto/qtd antigos
   const itens = c.itens && c.itens.length
     ? c.itens
@@ -5499,6 +5680,7 @@ async function salvarEdicaoCarga() {
     transp:   document.getElementById('ecTransp').value,
     caminhao: document.getElementById('ecCaminhao').value,
     tipo:     document.getElementById('ecTipo').value,
+    descarga: document.getElementById('ecDescarga').value,
     qtd:      qtdTotal,
     valor,
     desconto,
@@ -5599,7 +5781,7 @@ function renderCargas() {
   // ── Tabela ──
   const tb = document.getElementById('tbodyCargas');
   if (!f.length) {
-    tb.innerHTML = '<tr><td colspan="15" class="empty">Nenhuma carga para os filtros selecionados.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="16" class="empty">Nenhuma carga para os filtros selecionados.</td></tr>';
     const tfootEl2 = document.getElementById('tfootCargas');
     if (tfootEl2) tfootEl2.innerHTML = '';
     return;
@@ -5629,7 +5811,7 @@ function renderCargas() {
 
   if (tfootEl) {
     tfootEl.innerHTML = `<tr style="background:linear-gradient(90deg,#fff3e0,#fef9e7);font-weight:700;border-top:2px solid var(--accent);">
-      <td style="text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;padding:10px 8px;" colspan="6">TOTAIS (${f.length} registro${f.length!==1?'s':''})</td>
+      <td style="text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;padding:10px 8px;" colspan="7">TOTAIS (${f.length} registro${f.length!==1?'s':''})</td>
       <td style="text-align:center;font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent)">${sumQtd}</td>
       <td style="font-weight:700;color:#0f766e">${fmtVal(sumValor)}</td>
       <td style="color:var(--danger);font-weight:700">${sumDesc > 0 ? fmtVal(sumDesc) : '-'}</td>
@@ -5664,6 +5846,7 @@ function renderCargas() {
       <td style="font-weight:700">${c.empresa}</td>
       <td style="color:var(--muted)">${c.transp || '-'}</td>
       <td style="color:var(--muted);font-size:11px">${caminhaoLabel}<br><span style="font-size:10px">${tipoLabel}</span></td>
+      <td style="color:var(--muted);font-size:11px;white-space:nowrap">📍 ${c.descarga || '-'}</td>
       <td style="text-align:center;font-family:'Bebas Neue',sans-serif;font-size:18px">${c.qtd || '-'}</td>
       <td class="td-valor">${c.valor > 0 ? fmtVal(c.valor) : '-'}</td>
       <td style="color:var(--danger)">${c.desconto ? fmtVal(c.desconto) : '-'}</td>
