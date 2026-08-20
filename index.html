@@ -3400,6 +3400,7 @@ function imprimirFiado(){
     .replace(/\b(\d{2})\/(\d{2})\/\d{4}\b/g, '$1/$2');
 
   // ── Linha de totais (soma os cards de PR atualmente exibidos, já com os filtros aplicados) ──
+  const mesFiltradoAtivo = !!(mesEl && mesEl.value);
   let totalFiadoGeral = 0, totalPagoGeral = 0, totalSaldoGeral = 0, prsComSaldo = 0;
   cardsEl.querySelectorAll('.card[data-total-fiado]').forEach(card => {
     totalFiadoGeral += parseFloat(card.getAttribute('data-total-fiado')) || 0;
@@ -3408,14 +3409,16 @@ function imprimirFiado(){
     totalSaldoGeral += saldo;
     if (saldo > 0) prsComSaldo++;
   });
+  const rotuloSaldoTotal = mesFiltradoAtivo ? 'Saldo do Período' : 'Saldo em Aberto';
   const totaisHTML = `
-    <table style="margin-top:4px;">
+    <div style="overflow-x:auto;">
+    <table style="margin-top:4px;min-width:600px;">
       <thead>
         <tr>
           <th style="width:46%;">Total Geral (${prsComSaldo} PR${prsComSaldo===1?'':'s'} com saldo em aberto)</th>
           <th style="width:18%;">Fiado Gerado</th>
           <th style="width:18%;">Recebido</th>
-          <th style="width:18%;">Saldo em Aberto</th>
+          <th style="width:18%;">${rotuloSaldoTotal}</th>
         </tr>
       </thead>
       <tbody>
@@ -3426,7 +3429,10 @@ function imprimirFiado(){
           <td style="font-weight:700;color:${totalSaldoGeral<0?'#166534':'#b91c1c'};">${fmtVal(Math.abs(totalSaldoGeral))}${totalSaldoGeral<0?' (crédito)':''}</td>
         </tr>
       </tbody>
-    </table>`;
+    </table>
+    </div>
+    ${mesFiltradoAtivo ? `<div style="font-size:9px;color:#6b7280;margin-top:4px;">* "${rotuloSaldoTotal}" = Fiado Gerado − Recebido dentro do mês filtrado. Não representa a dívida acumulada total do PR (que pode incluir saldo de meses anteriores).</div>` : ''}`;
+
 
   const agora = new Date().toLocaleString('pt-BR');
   const dataHoraCurta = new Date().toLocaleDateString('pt-BR');
