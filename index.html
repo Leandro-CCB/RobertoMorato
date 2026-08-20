@@ -3234,17 +3234,22 @@ async function renderFiado() {
     // ✅ "Fiado gerado", "Recebido" e "Saldo em aberto" exibidos no card devem
     // respeitar o filtro de mês selecionado (e não sempre o total histórico do PR).
     // Quando um mês é filtrado: Fiado/Recebido somam apenas os lançamentos daquele
-    // mês, e o Saldo em Aberto usa o saldo acumulado (saldoApos) do último
-    // lançamento dentro do mês filtrado — ou seja, o saldo devedor "até aquele mês".
-    let totalFiadoCard, totalPagoCard, saldoCard;
+    // mês, e o "Saldo em Aberto" do card passa a ser o SALDO DO PERÍODO
+    // (Gerado - Recebido daquele mês), para bater exatamente com os dois números
+    // mostrados ao lado. O saldo ACUMULADO (histórico completo, usado para saber
+    // quanto o PR deve de verdade e habilitar "Registrar Pagamento") continua
+    // disponível em d.saldo e é exibido como informação secundária no card.
+    let totalFiadoCard, totalPagoCard, saldoCard, saldoAcumuladoCard;
     if (mesSelecionado) {
       totalFiadoCard = historicoFiltrado.filter(h => h.tipo === 'fiado').reduce((a,b)=>a+b.valor,0);
       totalPagoCard  = historicoFiltrado.filter(h => h.tipo === 'pagamento').reduce((a,b)=>a+b.valor,0);
-      saldoCard = historicoFiltrado.length ? historicoFiltrado[historicoFiltrado.length-1].saldoApos : d.saldo;
+      saldoCard = Math.round((totalFiadoCard - totalPagoCard) * 100) / 100;
+      saldoAcumuladoCard = historicoFiltrado.length ? historicoFiltrado[historicoFiltrado.length-1].saldoApos : d.saldo;
     } else {
       totalFiadoCard = d.totalFiado;
       totalPagoCard  = d.totalPago;
       saldoCard = d.saldo;
+      saldoAcumuladoCard = null;
     }
 
     const semaforo = saldoCard <= 0 ? '🟢' : '🔴';
@@ -3340,8 +3345,9 @@ async function renderFiado() {
           <div style="font-size:11px;color:var(--muted);margin-top:2px;">Fiado gerado: ${fmtVal(totalFiadoCard)} &nbsp;|&nbsp; Recebido: ${fmtVal(totalPagoCard)}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:2px;">Saldo em aberto</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:2px;">${mesSelecionado ? 'Saldo do período' : 'Saldo em aberto'}</div>
           <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${corSaldo};line-height:1">${fmtVal(Math.abs(saldoCard))}${saldoCard<0?' (crédito)':''}</div>
+          ${mesSelecionado ? `<div style="font-size:10px;color:var(--muted);margin-top:2px;">Acumulado até o mês: <b style="color:${saldoAcumuladoCard<=0?'var(--success)':'var(--danger)'}">${fmtVal(Math.abs(saldoAcumuladoCard))}${saldoAcumuladoCard<0?' (créd.)':''}</b></div>` : ''}
         </div>
         ${d.saldo > 0 ? `<button onclick="abrirFiadoPagModal('${pr}',${d.saldo})" style="background:var(--success);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(21,128,61,.25);">💵 Registrar Pagamento</button>` : ''}
       </div>
