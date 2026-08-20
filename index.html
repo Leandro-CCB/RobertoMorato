@@ -3106,7 +3106,10 @@ async function calcFiadoPorPR(excludeVendaId) {
       else saldo -= h.valor;
       return { ...h, saldoApos: saldo };
     });
-    const totalFiado = hist.filter(h=>h.tipo==='fiado' && h.subtipo!=='sobra_uso').reduce((a,b)=>a+b.valor,0);
+    // ✅ "Fiado gerado" inclui também o uso de sobras anteriores (sobra_uso), pois
+    // esse uso também aumenta o saldo devedor do PR. Sem isso, Gerado - Recebido
+    // não batia com o Saldo em Aberto exibido (a diferença "sumia").
+    const totalFiado = hist.filter(h=>h.tipo==='fiado').reduce((a,b)=>a+b.valor,0);
     const totalPago  = hist.filter(h=>h.tipo==='pagamento').reduce((a,b)=>a+b.valor,0);
     resultado[pr] = { totalFiado, totalPago, saldo: Math.round(saldo*100)/100, historico };
   });
@@ -3172,14 +3175,12 @@ async function renderFiado() {
     mesSelecionado = mesEl.value;
   }
 
-  // Filtro de Status (Em aberto / Baixado) — aplicado sobre o saldo de cada PR
+  // Filtro de Status (Em aberto / Baixado) — aplicado sobre cada venda fiado
+  // individualmente (campo h.status, o mesmo exibido no badge de cada linha),
+  // e não mais sobre o saldo agregado do PR (que é apenas informativo e não
+  // reflete a baixa manual de cada venda).
   const statusEl = document.getElementById('fiadoFiltroStatus');
   const statusSelecionado = statusEl ? statusEl.value : '';
-  if (statusSelecionado === 'aberto') {
-    prs = prs.filter(p => dados[p].saldo > 0);
-  } else if (statusSelecionado === 'quitado') {
-    prs = prs.filter(p => dados[p].saldo <= 0);
-  }
 
   // Cards de resumo (sempre com base em todos os PRs, independente do filtro)
   const todosPrs = Object.keys(dados);
@@ -3220,7 +3221,18 @@ async function renderFiado() {
     const corSaldo = d.saldo <= 0 ? 'var(--success)' : 'var(--danger)';
     const bgCard   = d.saldo <= 0 ? '' : 'border:1.5px solid #fca5a5;';
 
-    const historicoFiltrado = mesSelecionado ? d.historico.filter(h => h.data.slice(0,7) === mesSelecionado) : d.historico;
+    let historicoFiltrado = mesSelecionado ? d.historico.filter(h => h.data.slice(0,7) === mesSelecionado) : d.historico;
+    if (statusSelecionado) {
+      // Vendas fiado (tipo 'fiado', exceto sobra_uso) são filtradas pelo status individual.
+      // Pagamentos/sobras/faltas continuam aparecendo sempre, pois não têm esse status.
+      historicoFiltrado = historicoFiltrado.filter(h => {
+        if (h.tipo === 'fiado' && h.subtipo !== 'sobra_uso') {
+          const st = h.status === 'quitado' ? 'quitado' : 'aberto';
+          return st === statusSelecionado;
+        }
+        return true;
+      });
+    }
 
     if (!historicoFiltrado.length) {
       return `<div class="card" style="${bgCard}">
@@ -3455,9 +3467,9 @@ function imprimirFiado(){
         th:nth-child(3), td:nth-child(3) { width: 34%; }                       /* Descrição */
         th:nth-child(4), td:nth-child(4) { width: 11%; }                       /* Valor */
         th:nth-child(5), td:nth-child(5) { width: 11%; }                       /* Saldo */
-        th:nth-child(6), td:nth-child(6) { width: 7%; text-align:center; }     /* BUT */
-        th:nth-child(7), td:nth-child(7) { width: 7%; text-align:center; }     /* ULT */
-        th:nth-child(8), td:nth-child(8) { width: 11%; }                       /* Ações (vazio na impressão) */
+        th:nth-child(6), td:nth-child(6) { width: 8%; text-align:center; }     /* BUT */
+        th:nth-child(7), td:nth-child(7) { width: 8%; text-align:center; }     /* ULT */
+        th:last-child, td:last-child { display: none; }                       /* Ações: some da impressão (não há botões no papel) */
 
         /* Cabeçalho do card do PR: evita separar do início da tabela */
         .card > div:first-child { break-inside: avoid; break-after: avoid; }
