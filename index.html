@@ -179,6 +179,7 @@ function showTab(name, btn) {
       if (cfg.frete)          await fsSetDoc('config', 'frete', cfg.frete);
       if (cfg.empresa_dias)   await fsSetDoc('config', 'empresa_dias', cfg.empresa_dias);
       if (cfg.prs)            await fsSetDoc('config', 'prs', cfg.prs);
+      if (cfg.estoque_inicial) await fsSetDoc('config', 'estoque_inicial', cfg.estoque_inicial);
 
       alert(`✅ Backup "${nomeBackup}" restaurado!\n📦 ${lancs.length} lançamentos\n🚛 ${cargas.length} cargas\n💰 ${fiados.length} fiados\n\nA página será recarregada.`);
       location.reload();
@@ -229,6 +230,7 @@ function showTab(name, btn) {
       window._freteConfig       = cfgFrete       || {};
       window._empresaDiasConfig = cfgDias        || {};
       window._prsSupabase       = (cfgPRs && cfgPRs.lista && cfgPRs.lista.length) ? cfgPRs.lista : null;
+      if (typeof window.carregarEstoqueInicialSupabase === 'function') await window.carregarEstoqueInicialSupabase();
       if (typeof window._salvarCacheLocal === 'function') window._salvarCacheLocal();
     } catch(e) {
       console.error('Erro ao carregar dados:', e);
@@ -244,7 +246,7 @@ function showTab(name, btn) {
 
   // ── Backup ──────────────────────────────────────────────────────────
   async function executarBackup(label) {
-    const [lancs, cargas, fiados, cfgP, cfgF, cfgD, cfgPRs] = await Promise.all([
+    const [lancs, cargas, fiados, cfgP, cfgF, cfgD, cfgPRs, cfgEstIni] = await Promise.all([
       fsGetCollection('lancamentos'),
       fsGetCollection('cargas'),
       fsGetCollection('fiados'),
@@ -252,6 +254,7 @@ function showTab(name, btn) {
       fsGetDoc('config', 'frete'),
       fsGetDoc('config', 'empresa_dias'),
       fsGetDoc('config', 'prs'),
+      fsGetDoc('config', 'estoque_inicial'),
     ]);
     const backup = {
       data: label,
@@ -259,7 +262,7 @@ function showTab(name, btn) {
       lancamentos: lancs.map(d => { const {_fbId,...r}=d; return r; }),
       cargas:      cargas.map(d => { const {_fbId,...r}=d; return r; }),
       fiados:      fiados.map(d => { const {_fbId,...r}=d; return r; }),
-      config: { precos: cfgP||{}, frete: cfgF||{}, empresa_dias: cfgD||{}, prs: cfgPRs||{} },
+      config: { precos: cfgP||{}, frete: cfgF||{}, empresa_dias: cfgD||{}, prs: cfgPRs||{}, estoque_inicial: cfgEstIni||{} },
       prs: (cfgPRs && cfgPRs.lista) ? cfgPRs.lista : null,
     };
     await fsSetDoc('backups', label, backup);
@@ -3153,12 +3156,20 @@ async function addLancamento(){
     // Remove TODOS os lançamentos antigos do dia/PR
     lancamentos=lancamentos.filter(l=>!(l.data===_editFormData&&l.pr===_editFormPr));
     const now=Date.now();
+    const novosItens=[];
     linhas.forEach((l,idx)=>{
       const id=oldItens[idx]?oldItens[idx].id:(now+idx);
-      lancamentos.push({id,vendaId:vendaIdBase,data,pr,...l,
-        pag:idx===0?pag:Object.fromEntries(PAY_FIELDS.map(f=>[f,0]))});
+      const item={id,vendaId:vendaIdBase,data,pr,...l,
+        pag:idx===0?pag:Object.fromEntries(PAY_FIELDS.map(f=>[f,0]))};
+      lancamentos.push(item);
+      novosItens.push(item);
     });
-    await save(); renderTable(); renderTotals();
+    // ✅ RÁPIDO: só grava os itens alterados; se sobraram ids antigos (linha removida
+    // na edição), remove só esses — evita reescrever a tabela inteira.
+    const idsOrfaos=oldItens.slice(linhas.length).map(l=>l.id);
+    await save({type:'add', items:novosItens});
+    if (idsOrfaos.length) await window._deleteLancamentosIds(idsOrfaos);
+    renderTable(); renderTotals();
     showToast('✓ Venda atualizada!');
     cancelarEdicaoForm();
   } else {
@@ -5153,7 +5164,8 @@ async function salvarEdicao(){
   const idx=lancamentos.findIndex(x=>x.id===id);
   if(idx===-1) return;
   lancamentos[idx]={...lancamentos[idx],data,pr,qtd,preco,total:qtd*preco,marca,pag};
-  await save(); renderTable(); renderTotals();
+  // ✅ RÁPIDO: grava só este registro alterado, não a tabela inteira
+  await save({type:'add', items:[lancamentos[idx]]}); renderTable(); renderTotals();
   fecharModal();
   showToast('✓ Lançamento atualizado!');
 }
@@ -5316,16 +5328,23 @@ async function salvarEdicaoGrupo(){
 
   // Recria com os novos dados
   const now=Date.now();
+  const novosItensEg=[];
   novasLinhas.forEach((l,idx)=>{
     const id=l.origId&&idx<oldItens.length?oldItens[idx].id:(now+idx);
-    lancamentos.push({
+    const item={
       id, vendaId:vendaIdBase, data, pr, qtd:l.qtd, preco:l.preco, total:l.total, marca:l.marca,
       pag: idx===0 ? pag : Object.fromEntries(PAY_FIELDS.map(f=>[f,0]))
-    });
+    };
+    lancamentos.push(item);
+    novosItensEg.push(item);
   });
 
+  // ✅ RÁPIDO: só grava os itens alterados; remove só os ids que sobraram (linhas removidas)
+  const idsOrfaosEg=oldItens.slice(novasLinhas.length).map(l=>l.id);
   _grupoAtualData=data; _grupoAtualPr=pr;
-  await save(); renderTable(); renderTotals();
+  await save({type:'add', items:novosItensEg});
+  if (idsOrfaosEg.length) await window._deleteLancamentosIds(idsOrfaosEg);
+  renderTable(); renderTotals();
   fecharEditGrupoModal();
   showToast('✓ Venda atualizada com sucesso!');
 }
@@ -5519,22 +5538,49 @@ function _cargaPertenceAoLocal(c, local) {
   return (c.descarga || 'Franco da Rocha') === local;
 }
 
-function getEstoqueInicial() {
+function getEstoqueInicialCacheLocal() {
   try {
     return JSON.parse(localStorage.getItem(LS_ESTOQUE_INICIAL_KEY) || '{}');
   } catch (e) { return {}; }
 }
 
-function salvarEstoqueInicial() {
+// ✅ Estoque inicial agora é salvo no Supabase (config/estoque_inicial), não só no localStorage.
+// window._estoqueInicialCache guarda o valor já carregado do Supabase nesta sessão.
+function getEstoqueInicial() {
+  if (window._estoqueInicialCache) return window._estoqueInicialCache;
+  // Enquanto o Supabase não carregou ainda, usa o cache local como fallback temporário
+  return getEstoqueInicialCacheLocal();
+}
+
+async function carregarEstoqueInicialSupabase() {
+  try {
+    const cfg = await window._fbGetDoc('config', 'estoque_inicial');
+    window._estoqueInicialCache = cfg || getEstoqueInicialCacheLocal();
+  } catch (e) {
+    console.warn('[Estoque] Não foi possível carregar estoque inicial do Supabase, usando cache local:', e);
+    window._estoqueInicialCache = getEstoqueInicialCacheLocal();
+  }
+}
+
+async function salvarEstoqueInicial() {
   const cfg = {
     ultragaz: parseFloat(document.getElementById('eEstInicialUltra').value) || 0,
     butano:   parseFloat(document.getElementById('eEstInicialButano').value) || 0,
     data:     document.getElementById('eEstInicialData').value || ''
   };
+  window._estoqueInicialCache = cfg;
   try {
+    // Mantém uma cópia local (funciona offline / carrega instantâneo)
     localStorage.setItem(LS_ESTOQUE_INICIAL_KEY, JSON.stringify(cfg));
+  } catch (e) {}
+  try {
+    // ✅ Salva também no Supabase, para não depender só do navegador local
+    await window._fbSetDoc('config', 'estoque_inicial', cfg);
     showToast('💾 Estoque inicial salvo!');
-  } catch (e) { showToast('⚠ Não foi possível salvar.'); }
+  } catch (e) {
+    console.error('[Estoque] Erro ao salvar estoque inicial no Supabase:', e);
+    showToast('⚠ Salvo localmente, mas houve erro ao salvar no Supabase.');
+  }
   renderEstoque();
 }
 
@@ -7001,6 +7047,7 @@ async function importarBackupJSON(file) {
     if (cfg.precos)        await window._fbSetDoc('config', 'precos', cfg.precos);
     if (cfg.frete)         await window._fbSetDoc('config', 'frete', cfg.frete);
     if (cfg.empresa_dias)  await window._fbSetDoc('config', 'empresa_dias', cfg.empresa_dias);
+    if (cfg.estoque_inicial) await window._fbSetDoc('config', 'estoque_inicial', cfg.estoque_inicial);
     if (prs)               await window._savePRs(prs);
     if (fiadoLegado)       await window._fbSetDoc('config', 'fiado_pagamentos', { lista: fiadoLegado });
 
