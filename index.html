@@ -6,7 +6,7 @@
 <title>Grupo Bertoni — Controle PR Morato</title>
 
 <!-- PWA -->
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#e07b00">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,13 +14,13 @@
 <meta name="apple-mobile-web-app-title" content="Bertoni PR">
 <meta name="application-name" content="Bertoni PR">
 <meta name="msapplication-TileColor" content="#e07b00">
-<meta name="msapplication-TileImage" content="icons/icon-144.png">
+<meta name="msapplication-TileImage" content="/icons/icon-144.png">
 
 <!-- Ícones -->
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
-<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
-<link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
+<link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <!-- ── Funções globais declaradas ANTES dos módulos para evitar ReferenceError ── -->
@@ -45,6 +45,7 @@ function showTab(name, btn) {
   if (name === 'margem') { if (typeof renderMargem === 'function') renderMargem(); }
   if (name === 'fiado')  { if (typeof renderFiado  === 'function') renderFiado(); }
   if (name === 'estoque'){ if (typeof renderEstoque === 'function') renderEstoque(); }
+  if (name === 'usuarios'){ if (window.__auth) window.__auth.listarUsuariosUI(); }
 }
 </script>
 
@@ -301,6 +302,290 @@ function showTab(name, btn) {
     if (navigator.onLine) await verificarEFazerBackup();
     if (window._appInit) window._appInit();
   });
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     MÓDULO DE AUTENTICAÇÃO (Login + Gestão de Usuários)
+     Gate de acesso ao app + aba "Usuários" (somente para o master).
+     Observação de segurança: como este é um app 100% client-side
+     (sem backend próprio), esta autenticação protege o ACESSO À
+     TELA. A chave anônima do Supabase usada para ler/gravar os
+     dados continua embutida no bundle, como já era no app original.
+     Para uma segurança "de verdade" (impedir leitura/gravação dos
+     dados mesmo sem passar pela tela de login) seria necessário um
+     backend com Supabase Auth + Row Level Security por usuário.
+════════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+
+  const AUTH_URL = 'https://zfwcvsaaczbsxxfgzdur.supabase.co';
+  const AUTH_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpmd2N2c2FhY3pic3h4Zmd6ZHVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0Mjk1NzIsImV4cCI6MjEwMTAwNTU3Mn0.g0_N-63t-Wwrm5S2r0u53BRIEnve1NLpvxcpBUBJtLs';
+  const authClient = window.supabase.createClient(AUTH_URL, AUTH_KEY);
+  const TABLE = 'roberto_usuarios';
+
+  const SESSION_KEY = 'bertoni_auth_session';
+  const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 horas
+
+  async function sha256Hex(texto) {
+    const buf = new TextEncoder().encode(texto);
+    const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function getStorage(manter) {
+    return manter ? window.localStorage : window.sessionStorage;
+  }
+
+  function lerSessao() {
+    const raw = window.sessionStorage.getItem(SESSION_KEY) || window.localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    try {
+      const s = JSON.parse(raw);
+      if (!s.ts || (Date.now() - s.ts) > SESSION_TTL_MS) return null;
+      return s;
+    } catch { return null; }
+  }
+
+  function salvarSessao(usuario, isMaster, manter) {
+    const s = { usuario, isMaster: !!isMaster, ts: Date.now() };
+    getStorage(manter).setItem(SESSION_KEY, JSON.stringify(s));
+  }
+
+  function limparSessao() {
+    window.sessionStorage.removeItem(SESSION_KEY);
+    window.localStorage.removeItem(SESSION_KEY);
+  }
+
+  function mostrarErro(msg) {
+    const box = document.getElementById('authErrorBox');
+    box.textContent = msg;
+    box.classList.add('show');
+  }
+  function limparErro() {
+    const box = document.getElementById('authErrorBox');
+    box.textContent = '';
+    box.classList.remove('show');
+  }
+
+  function mostrarApp(sessao) {
+    document.getElementById('authGate').classList.add('hidden');
+    document.getElementById('appHeader').style.display = 'flex';
+    document.getElementById('main-content').style.display = '';
+    document.getElementById('authUserLabel').textContent = '👋 ' + sessao.usuario + (sessao.isMaster ? ' (master)' : '');
+    document.getElementById('tabBtnUsuarios').style.display = sessao.isMaster ? '' : 'none';
+  }
+
+  function mostrarLogin() {
+    document.getElementById('authGate').classList.remove('hidden');
+    document.getElementById('appHeader').style.display = 'none';
+    document.getElementById('main-content').style.display = 'none';
+  }
+
+  async function tentarLogin() {
+    limparErro();
+    const usuario = document.getElementById('authUsuario').value.trim();
+    const senha = document.getElementById('authSenha').value;
+    const manter = document.getElementById('authManterConectado').checked;
+    const btn = document.getElementById('authBtnEntrar');
+
+    if (!usuario || !senha) {
+      mostrarErro('Informe usuário e senha.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Entrando...';
+    try {
+      const senhaHash = await sha256Hex(senha);
+      const { data, error } = await authClient
+        .from(TABLE)
+        .select('usuario, is_master, ativo, senha_hash')
+        .eq('usuario', usuario)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data || !data.ativo || data.senha_hash !== senhaHash) {
+        mostrarErro('Usuário ou senha inválidos.');
+        return;
+      }
+
+      salvarSessao(data.usuario, data.is_master, manter);
+      mostrarApp({ usuario: data.usuario, isMaster: data.is_master });
+      document.getElementById('authSenha').value = '';
+    } catch (e) {
+      console.error(e);
+      mostrarErro('Não foi possível validar o login. Verifique sua conexão.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+    }
+  }
+
+  function logout() {
+    limparSessao();
+    mostrarLogin();
+  }
+
+  // ── Gestão de usuários (aba visível apenas para o master) ──────────
+  async function listarUsuariosUI() {
+    const tbody = document.getElementById('usuariosTableBody');
+    const msg = document.getElementById('usuariosMsg');
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted,#888);padding:20px;">Carregando...</td></tr>';
+    msg.textContent = '';
+    const { data, error } = await authClient
+      .from(TABLE)
+      .select('id, usuario, is_master, ativo, created_at')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#c0392b;padding:20px;">Erro ao carregar usuários.</td></tr>';
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted,#888);padding:20px;">Nenhum usuário cadastrado.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(u => {
+      const criado = u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '—';
+      return `<tr>
+        <td>${u.usuario}</td>
+        <td>${u.is_master ? '<span class="usr-badge master">Master</span>' : '—'}</td>
+        <td><span class="usr-badge ${u.ativo ? 'ativo' : 'inativo'}">${u.ativo ? 'Ativo' : 'Inativo'}</span></td>
+        <td>${criado}</td>
+        <td class="usr-actions">
+          <button title="Redefinir senha" onclick="window.__auth.abrirModalRedefinirSenha('${u.id}','${u.usuario}')">🔑</button>
+          <button title="${u.ativo ? 'Desativar' : 'Ativar'}" onclick="window.__auth.alternarAtivo('${u.id}', ${!u.ativo})">${u.ativo ? '⏸️' : '▶️'}</button>
+          <button title="Excluir" onclick="window.__auth.excluirUsuario('${u.id}','${u.usuario}')">🗑️</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function fecharModalUsr() {
+    const el = document.getElementById('usrModalOverlay');
+    if (el) el.remove();
+  }
+
+  function abrirModalNovoUsuario() {
+    fecharModalUsr();
+    const div = document.createElement('div');
+    div.id = 'usrModalOverlay';
+    div.className = 'usr-modal-overlay';
+    div.innerHTML = `
+      <div class="usr-modal">
+        <h3>+ Novo Usuário</h3>
+        <div class="auth-field">
+          <label>Usuário</label>
+          <input type="text" id="novoUsrNome" autocomplete="off">
+        </div>
+        <div class="auth-field">
+          <label>Senha</label>
+          <input type="password" id="novoUsrSenha" autocomplete="new-password">
+        </div>
+        <label class="auth-remember">
+          <input type="checkbox" id="novoUsrMaster"> Conceder acesso master (gerencia usuários)
+        </label>
+        <div style="display:flex;gap:10px;">
+          <button class="auth-btn" onclick="window.__auth.criarUsuario()">Salvar</button>
+          <button class="auth-btn" style="background:var(--surface3,#eee);color:var(--text,#333);" onclick="window.__auth.fecharModalUsr()">Cancelar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(div);
+  }
+
+  function abrirModalRedefinirSenha(id, usuario) {
+    fecharModalUsr();
+    const div = document.createElement('div');
+    div.id = 'usrModalOverlay';
+    div.className = 'usr-modal-overlay';
+    div.innerHTML = `
+      <div class="usr-modal">
+        <h3>🔑 Redefinir senha — ${usuario}</h3>
+        <div class="auth-field">
+          <label>Nova senha</label>
+          <input type="password" id="redefSenhaValor" autocomplete="new-password">
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="auth-btn" onclick="window.__auth.redefinirSenha('${id}')">Salvar</button>
+          <button class="auth-btn" style="background:var(--surface3,#eee);color:var(--text,#333);" onclick="window.__auth.fecharModalUsr()">Cancelar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(div);
+  }
+
+  async function criarUsuario() {
+    const usuario = document.getElementById('novoUsrNome').value.trim();
+    const senha = document.getElementById('novoUsrSenha').value;
+    const isMaster = document.getElementById('novoUsrMaster').checked;
+    const msg = document.getElementById('usuariosMsg');
+    if (!usuario || !senha) { alert('Preencha usuário e senha.'); return; }
+    if (senha.length < 6) { alert('A senha deve ter pelo menos 6 caracteres.'); return; }
+
+    const senha_hash = await sha256Hex(senha);
+    const { error } = await authClient.from(TABLE).insert({ usuario, senha_hash, is_master: isMaster, ativo: true });
+    fecharModalUsr();
+    if (error) {
+      msg.style.color = '#c0392b';
+      msg.textContent = error.code === '23505' ? 'Já existe um usuário com esse nome.' : 'Erro ao criar usuário.';
+      return;
+    }
+    msg.style.color = '#1f9d55';
+    msg.textContent = 'Usuário criado com sucesso.';
+    listarUsuariosUI();
+  }
+
+  async function redefinirSenha(id) {
+    const novaSenha = document.getElementById('redefSenhaValor').value;
+    if (!novaSenha || novaSenha.length < 6) { alert('A senha deve ter pelo menos 6 caracteres.'); return; }
+    const senha_hash = await sha256Hex(novaSenha);
+    const { error } = await authClient.from(TABLE).update({ senha_hash }).eq('id', id);
+    fecharModalUsr();
+    const msg = document.getElementById('usuariosMsg');
+    msg.style.color = error ? '#c0392b' : '#1f9d55';
+    msg.textContent = error ? 'Erro ao redefinir senha.' : 'Senha redefinida com sucesso.';
+  }
+
+  async function alternarAtivo(id, novoValor) {
+    const { error } = await authClient.from(TABLE).update({ ativo: novoValor }).eq('id', id);
+    const msg = document.getElementById('usuariosMsg');
+    msg.style.color = error ? '#c0392b' : '#1f9d55';
+    msg.textContent = error ? 'Erro ao atualizar status.' : 'Status atualizado.';
+    listarUsuariosUI();
+  }
+
+  async function excluirUsuario(id, usuario) {
+    if (!confirm(`Excluir o usuário "${usuario}"? Esta ação não pode ser desfeita.`)) return;
+    const { error } = await authClient.from(TABLE).delete().eq('id', id);
+    const msg = document.getElementById('usuariosMsg');
+    msg.style.color = error ? '#c0392b' : '#1f9d55';
+    msg.textContent = error ? 'Erro ao excluir usuário.' : 'Usuário excluído.';
+    listarUsuariosUI();
+  }
+
+  // Permite Enter para logar
+  document.addEventListener('DOMContentLoaded', () => {
+    const sessao = lerSessao();
+    if (sessao) {
+      mostrarApp(sessao);
+    } else {
+      mostrarLogin();
+    }
+    ['authUsuario', 'authSenha'].forEach(id => {
+      document.getElementById(id).addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') tentarLogin();
+      });
+    });
+  });
+
+  window.__auth = {
+    tentarLogin, logout, listarUsuariosUI,
+    abrirModalNovoUsuario, abrirModalRedefinirSenha, fecharModalUsr,
+    criarUsuario, redefinirSenha, alternarAtivo, excluirUsuario
+  };
 })();
 </script>
 
@@ -1161,15 +1446,107 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
   .charts-grid{grid-template-columns:1fr;}
   .proximas-list{grid-template-columns:1fr;}
 }
+
+/* ==================== LOGIN / AUTENTICAÇÃO ==================== */
+#authGate{
+  position:fixed; inset:0; z-index:9999;
+  display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg,#1a1a1a 0%,#2a2a2a 100%);
+  padding:20px;
+}
+#authGate.hidden{ display:none; }
+.auth-card{
+  width:100%; max-width:380px;
+  background:var(--surface,#fff); border-radius:16px;
+  padding:36px 30px; box-shadow:0 20px 60px rgba(0,0,0,.4);
+  text-align:center;
+}
+.auth-card img{ width:120px; height:auto; margin-bottom:14px; }
+.auth-card h1{
+  font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:.8px;
+  color:var(--text,#222); margin:0 0 4px;
+}
+.auth-card p.auth-sub{ font-size:12px; color:var(--muted,#888); margin:0 0 22px; }
+.auth-field{ text-align:left; margin-bottom:14px; }
+.auth-field label{ display:block; font-size:12px; font-weight:700; color:var(--text,#333); margin-bottom:5px; }
+.auth-field input{
+  width:100%; box-sizing:border-box; padding:11px 12px; border-radius:9px;
+  border:1.5px solid var(--border,#ddd); font-size:14px; font-family:'DM Sans',sans-serif;
+}
+.auth-field input:focus{ outline:none; border-color:var(--accent,#e07b00); }
+.auth-remember{ display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted,#888); margin-bottom:18px; }
+.auth-btn{
+  width:100%; padding:12px; border:none; border-radius:9px; cursor:pointer;
+  background:var(--accent,#e07b00); color:#fff; font-family:'DM Sans',sans-serif;
+  font-size:14px; font-weight:800; letter-spacing:.3px;
+}
+.auth-btn:disabled{ opacity:.6; cursor:default; }
+.auth-error{
+  background:#fdecea; color:#c0392b; border:1px solid #f5c6cb; border-radius:8px;
+  padding:9px 12px; font-size:12.5px; font-weight:600; margin-bottom:14px; display:none; text-align:left;
+}
+.auth-error.show{ display:block; }
+
+/* Botão logout no header */
+#btnLogout{
+  background:var(--surface3,#f2f2f2); color:var(--text,#333); border:1.5px solid var(--border,#ddd);
+  padding:8px 16px; border-radius:9px; font-family:'DM Sans',sans-serif; font-size:12.5px;
+  font-weight:700; cursor:pointer; margin-left:auto;
+}
+
+/* Aba/gestão de usuários */
+.usr-toolbar{ display:flex; justify-content:flex-end; margin-bottom:16px; }
+.usr-table{ width:100%; border-collapse:collapse; font-size:13px; }
+.usr-table th, .usr-table td{ padding:10px 8px; border-bottom:1px solid var(--border,#eee); text-align:left; }
+.usr-table th{ font-family:'Bebas Neue',sans-serif; letter-spacing:.5px; color:var(--muted,#888); font-weight:400; }
+.usr-badge{ display:inline-block; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:700; }
+.usr-badge.master{ background:#fdf1e0; color:#e07b00; }
+.usr-badge.ativo{ background:#e6f7ee; color:#1f9d55; }
+.usr-badge.inativo{ background:#fdecea; color:#c0392b; }
+.usr-actions button{
+  border:none; background:none; cursor:pointer; font-size:15px; margin-right:6px;
+}
+.usr-modal-overlay{
+  position:fixed; inset:0; z-index:9998; background:rgba(0,0,0,.5);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.usr-modal{
+  background:var(--surface,#fff); border-radius:14px; padding:26px; width:100%; max-width:360px;
+}
+.usr-modal h3{ font-family:'Bebas Neue',sans-serif; letter-spacing:.6px; margin:0 0 16px; }
 </style>
 </head>
 <body>
 
-<header>
+<!-- ==================== TELA DE LOGIN ==================== -->
+<div id="authGate">
+  <div class="auth-card">
+    <img src="/logo.png" alt="Grupo Bertoni" onerror="this.style.display='none'">
+    <h1>Grupo Bertoni — Controle PR Morato</h1>
+    <p class="auth-sub">Acesso restrito. Informe suas credenciais.</p>
+    <div id="authErrorBox" class="auth-error"></div>
+    <form id="authForm" onsubmit="return false;">
+      <div class="auth-field">
+        <label for="authUsuario">Usuário</label>
+        <input type="text" id="authUsuario" autocomplete="username" placeholder="ex: master">
+      </div>
+      <div class="auth-field">
+        <label for="authSenha">Senha</label>
+        <input type="password" id="authSenha" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <label class="auth-remember">
+        <input type="checkbox" id="authManterConectado"> Manter conectado neste dispositivo
+      </label>
+      <button type="submit" id="authBtnEntrar" class="auth-btn" onclick="window.__auth.tentarLogin()">Entrar</button>
+    </form>
+  </div>
+</div>
+
+<header id="appHeader" style="display:none;">
   <div class="logo">
     <img
-      src="logo.png"
-      srcset="logo.png 1x, logo@2x.png 2x"
+      src="/logo.png"
+      srcset="/logo.png 1x, /logo@2x.png 2x"
       alt="Grupo Bertoni — Controle Roberto"
       width="190" height="auto"
       onerror="this.style.display='none';this.nextElementSibling.style.display='block';"
@@ -1184,9 +1561,29 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     <button class="tab-btn" onclick="showTab('margem',this)">📈 Margem</button>
     <button class="tab-btn" onclick="showTab('fiado',this)">📒 Fiado</button>
     <button class="tab-btn" onclick="showTab('config',this)">⚙️ Config</button>
+    <button class="tab-btn" id="tabBtnUsuarios" style="display:none;" onclick="showTab('usuarios',this)">👤 Usuários</button>
   </div>
+  <span id="authUserLabel" style="margin-left:10px;font-size:12px;font-weight:700;color:var(--muted,#888);"></span>
+  <button id="btnLogout" onclick="window.__auth.logout()">🚪 Sair</button>
 </header>
-<div id="main-content">
+<div id="main-content" style="display:none;">
+
+<!-- ==================== USUÁRIOS (somente master) ==================== -->
+<div id="tab-usuarios" class="page">
+  <h2 style="font-family:'Bebas Neue',sans-serif;letter-spacing:.6px;margin-bottom:16px;">👤 Usuários do Sistema</h2>
+  <div class="usr-toolbar">
+    <button class="auth-btn" style="width:auto;padding:10px 18px;" onclick="window.__auth.abrirModalNovoUsuario()">+ Novo Usuário</button>
+  </div>
+  <div id="usuariosMsg" style="font-size:12.5px;font-weight:600;margin-bottom:10px;"></div>
+  <table class="usr-table">
+    <thead>
+      <tr><th>Usuário</th><th>Tipo</th><th>Status</th><th>Criado em</th><th>Ações</th></tr>
+    </thead>
+    <tbody id="usuariosTableBody">
+      <tr><td colspan="5" style="text-align:center;color:var(--muted,#888);padding:20px;">Carregando...</td></tr>
+    </tbody>
+  </table>
+</div>
 
 <!-- ==================== LANÇAMENTO ==================== -->
 <div id="tab-lancamento" class="page active">
@@ -6208,7 +6605,7 @@ function exportarPDFCargas() {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
       console.log('[PWA] Service Worker registrado:', reg.scope);
 
       // Detecta atualização disponível
