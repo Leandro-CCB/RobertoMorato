@@ -169,11 +169,18 @@ function showTab(name, btn) {
 
       const lancs  = backup.lancamentos || [];
       const cargas = backup.cargas || [];
+      const fiados = backup.fiados || [];
+      const cfg    = backup.config || {};
 
       if (lancs.length)  await fsSaveDocs('lancamentos', lancs, l => l.id);
       if (cargas.length) await fsSaveDocs('cargas', cargas, c => c.id);
+      if (fiados.length) await fsSaveDocs('fiados', fiados, f => f.id);
+      if (cfg.precos)        await fsSetDoc('config', 'precos', cfg.precos);
+      if (cfg.frete)          await fsSetDoc('config', 'frete', cfg.frete);
+      if (cfg.empresa_dias)   await fsSetDoc('config', 'empresa_dias', cfg.empresa_dias);
+      if (cfg.prs)            await fsSetDoc('config', 'prs', cfg.prs);
 
-      alert(`✅ Backup "${nomeBackup}" restaurado!\n📦 ${lancs.length} lançamentos\n🚛 ${cargas.length} cargas\n\nA página será recarregada.`);
+      alert(`✅ Backup "${nomeBackup}" restaurado!\n📦 ${lancs.length} lançamentos\n🚛 ${cargas.length} cargas\n💰 ${fiados.length} fiados\n\nA página será recarregada.`);
       location.reload();
     } catch(e) {
       console.error('Erro ao restaurar backup:', e);
@@ -237,20 +244,23 @@ function showTab(name, btn) {
 
   // ── Backup ──────────────────────────────────────────────────────────
   async function executarBackup(label) {
-    const [lancs, cargas, cfgP, cfgF, cfgD] = await Promise.all([
+    const [lancs, cargas, fiados, cfgP, cfgF, cfgD, cfgPRs] = await Promise.all([
       fsGetCollection('lancamentos'),
       fsGetCollection('cargas'),
+      fsGetCollection('fiados'),
       fsGetDoc('config', 'precos'),
       fsGetDoc('config', 'frete'),
       fsGetDoc('config', 'empresa_dias'),
-        fsGetDoc('config', 'prs'),
+      fsGetDoc('config', 'prs'),
     ]);
     const backup = {
       data: label,
       criadoEm: new Date().toISOString(),
       lancamentos: lancs.map(d => { const {_fbId,...r}=d; return r; }),
       cargas:      cargas.map(d => { const {_fbId,...r}=d; return r; }),
-      config: { precos: cfgP||{}, frete: cfgF||{}, empresa_dias: cfgD||{} }
+      fiados:      fiados.map(d => { const {_fbId,...r}=d; return r; }),
+      config: { precos: cfgP||{}, frete: cfgF||{}, empresa_dias: cfgD||{}, prs: cfgPRs||{} },
+      prs: (cfgPRs && cfgPRs.lista) ? cfgPRs.lista : null,
     };
     await fsSetDoc('backups', label, backup);
     const dataPura = String(label).split('_')[0];
@@ -259,6 +269,7 @@ function showTab(name, btn) {
       ultimoLabel: label,
       total_lancamentos: backup.lancamentos.length,
       total_cargas: backup.cargas.length,
+      total_fiados: backup.fiados.length,
     });
     return backup;
   }
@@ -1546,7 +1557,6 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
   <div class="logo">
     <img
       src="/logo.png"
-      srcset="/logo.png 1x, /logo@2x.png 2x"
       alt="Grupo Bertoni — Controle Roberto"
       width="190" height="auto"
       onerror="this.style.display='none';this.nextElementSibling.style.display='block';"
@@ -6968,13 +6978,16 @@ async function importarBackupJSON(file) {
     const cargas = json.cargas      || (json.data && json.data.cargas)      || [];
     const cfg    = json.config      || (json.data && json.data.config)      || {};
     const prs    = json.prs || json.prsSupabase || (cfg.prs && cfg.prs.lista) || null;
-    const fiado  = json.fiadoPagamentos || json.fiado_pagamentos || null;
+    // Formato NOVO: array de registros na tabela roberto_fiados (backups feitos após a correção)
+    const fiadosNovo = json.fiados || (json.data && json.data.fiados) || [];
+    // Formato LEGADO: lista única salva em config.fiado_pagamentos (backups antigos)
+    const fiadoLegado = json.fiadoPagamentos || json.fiado_pagamentos || null;
 
-    if (!lancs.length && !cargas.length) {
-      throw new Error('Arquivo não contém lançamentos nem cargas reconhecíveis.');
+    if (!lancs.length && !cargas.length && !fiadosNovo.length) {
+      throw new Error('Arquivo não contém lançamentos, cargas nem fiados reconhecíveis.');
     }
 
-    if (!confirm(`Importar backup?\n\n📦 ${lancs.length} lançamentos\n🚛 ${cargas.length} cargas\n\nIsso vai GRAVAR esses dados no Supabase (itens com o mesmo id são sobrescritos).`)) {
+    if (!confirm(`Importar backup?\n\n📦 ${lancs.length} lançamentos\n🚛 ${cargas.length} cargas\n💰 ${fiadosNovo.length} fiados\n\nIsso vai GRAVAR esses dados no Supabase (itens com o mesmo id são sobrescritos).`)) {
       msgEl.textContent = '';
       return;
     }
@@ -6984,14 +6997,15 @@ async function importarBackupJSON(file) {
 
     if (lancs.length)      await window._saveLancamentosDocs(lancs);
     if (cargas.length)     await window._saveCargasDocs(cargas);
+    if (fiadosNovo.length) await window._fbSaveCollection('fiados', fiadosNovo, f => f.id || f._fbId);
     if (cfg.precos)        await window._fbSetDoc('config', 'precos', cfg.precos);
     if (cfg.frete)         await window._fbSetDoc('config', 'frete', cfg.frete);
     if (cfg.empresa_dias)  await window._fbSetDoc('config', 'empresa_dias', cfg.empresa_dias);
     if (prs)               await window._savePRs(prs);
-    if (fiado)             await window._fbSetDoc('config', 'fiado_pagamentos', { lista: fiado });
+    if (fiadoLegado)       await window._fbSetDoc('config', 'fiado_pagamentos', { lista: fiadoLegado });
 
     msgEl.style.color = 'var(--success)';
-    msgEl.textContent = `✅ Importado! ${lancs.length} lançamentos, ${cargas.length} cargas.`;
+    msgEl.textContent = `✅ Importado! ${lancs.length} lançamentos, ${cargas.length} cargas, ${fiadosNovo.length} fiados.`;
     showToast('✅ Backup importado! Recarregando...');
     setTimeout(() => location.reload(), 1500);
   } catch(e) {
