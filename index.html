@@ -2530,6 +2530,10 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
         <div class="s-label">💵 Total em Espécie</div>
         <div class="s-value green" id="depTotalEspecie" style="font-size:22px;">R$ 0,00</div>
       </div>
+      <div class="summary-card" style="border:1.5px solid #bbf7d0;background:var(--butano-light)">
+        <div class="s-label">➕ Total de Acréscimos</div>
+        <div class="s-value green" id="depTotalAcrescimos" style="font-size:22px;">R$ 0,00</div>
+      </div>
       <div class="summary-card" style="border:1.5px solid #fca5a5;background:var(--danger-light)">
         <div class="s-label">➖ Total de Descontos</div>
         <div class="s-value red" id="depTotalDescontos" style="font-size:22px;">R$ 0,00</div>
@@ -2540,8 +2544,15 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
       </div>
     </div>
 
-    <div class="section-title" style="font-size:14px;margin-bottom:10px;">➖ Lançar Desconto</div>
+    <div class="section-title" style="font-size:14px;margin-bottom:10px;">➕➖ Lançar Valor</div>
     <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+      <div class="form-group" style="max-width:170px;">
+        <label>Tipo</label>
+        <select id="depTipo">
+          <option value="desconto">➖ Desconto (subtrai)</option>
+          <option value="acrescimo">➕ Acréscimo (soma)</option>
+        </select>
+      </div>
       <div class="form-group" style="max-width:160px;">
         <label>Valor (R$)</label>
         <input type="number" id="depDescValor" min="0" step="0.01" placeholder="0,00" />
@@ -2550,14 +2561,14 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
         <label>Observação</label>
         <input type="text" id="depDescObs" placeholder="Ex: Troco deixado com o PR Fulano" />
       </div>
-      <button class="btn-primary" onclick="adicionarDesconto()">✚ Lançar Desconto</button>
+      <button class="btn-primary" id="depBtnLancar" onclick="adicionarDesconto()">✚ Lançar</button>
       <span id="depDescErr" style="color:var(--danger);font-size:12px;font-weight:600;"></span>
     </div>
 
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Valor</th><th>Observação</th><th>Ações</th></tr></thead>
-        <tbody id="tbodyDepositoDescontos"><tr><td colspan="3" class="empty">Nenhum desconto lançado neste dia.</td></tr></tbody>
+        <thead><tr><th>Tipo</th><th>Valor</th><th>Observação</th><th>Ações</th></tr></thead>
+        <tbody id="tbodyDepositoDescontos"><tr><td colspan="4" class="empty">Nenhum lançamento neste dia.</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -5609,44 +5620,51 @@ async function renderDeposito() {
     totalEspecie += especieFiadoDoDia;
   } catch(e) { console.warn('[deposito] erro ao somar espécie de fiados quitados:', e.message); }
 
-  const descontos = await _loadDepositos();
-  const descontosDia = descontos.filter(d => d.data === dia).sort((a,b) => (a.criadoEm||0) - (b.criadoEm||0));
-  const totalDescontos = descontosDia.reduce((a,d) => a + (d.valor || 0), 0);
-  const totalBanco = totalEspecie - totalDescontos;
+  const lancamentosDep = await _loadDepositos();
+  const dep_dia = lancamentosDep.filter(d => d.data === dia).sort((a,b) => (a.criadoEm||0) - (b.criadoEm||0));
+  const totalDescontos = dep_dia.filter(d => d.tipo !== 'acrescimo').reduce((a,d) => a + (d.valor || 0), 0);
+  const totalAcrescimos = dep_dia.filter(d => d.tipo === 'acrescimo').reduce((a,d) => a + (d.valor || 0), 0);
+  const totalBanco = totalEspecie + totalAcrescimos - totalDescontos;
 
   document.getElementById('depTotalEspecie').textContent = fmtVal(totalEspecie);
+  document.getElementById('depTotalAcrescimos').textContent = fmtVal(totalAcrescimos);
   document.getElementById('depTotalDescontos').textContent = fmtVal(totalDescontos);
   document.getElementById('depTotalBanco').textContent = fmtVal(totalBanco);
 
   const tb = document.getElementById('tbodyDepositoDescontos');
-  if (!descontosDia.length) {
-    tb.innerHTML = '<tr><td colspan="3" class="empty">Nenhum desconto lançado neste dia.</td></tr>';
+  if (!dep_dia.length) {
+    tb.innerHTML = '<tr><td colspan="4" class="empty">Nenhum lançamento neste dia.</td></tr>';
     return;
   }
-  tb.innerHTML = descontosDia.map(d => `
-    <tr>
-      <td style="color:var(--danger);font-weight:700;">${fmtVal(d.valor)}</td>
+  tb.innerHTML = dep_dia.map(d => {
+    const isAcresc = d.tipo === 'acrescimo';
+    return `<tr>
+      <td>${isAcresc ? '<span style="color:var(--success);font-weight:700;">➕ Acréscimo</span>' : '<span style="color:var(--danger);font-weight:700;">➖ Desconto</span>'}</td>
+      <td style="color:${isAcresc?'var(--success)':'var(--danger)'};font-weight:700;">${isAcresc?'+':'-'} ${fmtVal(d.valor)}</td>
       <td>${d.obs || '-'}</td>
       <td><button class="btn-sm-del" onclick="excluirDesconto('${d.id}')">🗑️</button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 async function adicionarDesconto() {
   const dia = document.getElementById('depData').value || hojeLocal();
+  const tipoEl = document.getElementById('depTipo');
   const valorEl = document.getElementById('depDescValor');
   const obsEl = document.getElementById('depDescObs');
   const err = document.getElementById('depDescErr');
+  const tipo = tipoEl ? tipoEl.value : 'desconto';
   const valor = parseFloat(valorEl.value) || 0;
   if (valor <= 0) { err.textContent = '⚠ Informe um valor válido.'; return; }
   err.textContent = '';
 
   const descontos = await _loadDepositos();
-  descontos.push({ id: 'dep_' + Date.now(), data: dia, valor, obs: (obsEl.value || '').trim(), criadoEm: Date.now() });
+  descontos.push({ id: 'dep_' + Date.now(), data: dia, tipo, valor, obs: (obsEl.value || '').trim(), criadoEm: Date.now() });
   await _saveDepositos();
 
   valorEl.value = '';
   obsEl.value = '';
-  showToast('✓ Desconto lançado!');
+  showToast(tipo === 'acrescimo' ? '✓ Acréscimo lançado!' : '✓ Desconto lançado!');
   renderDeposito();
 }
 
