@@ -45,6 +45,8 @@ function showTab(name, btn) {
   if (name === 'margem') { if (typeof renderMargem === 'function') renderMargem(); }
   if (name === 'fiado')  { if (typeof renderFiado  === 'function') renderFiado(); }
   if (name === 'estoque'){ if (typeof renderEstoque === 'function') renderEstoque(); }
+  if (name === 'deposito'){ if (typeof renderDeposito === 'function') renderDeposito(); }
+  if (name === 'config'){ if (typeof renderClientesConfig === 'function') renderClientesConfig(); }
   if (name === 'usuarios'){ if (window.__auth) window.__auth.listarUsuariosUI(); }
 }
 </script>
@@ -69,6 +71,8 @@ function showTab(name, btn) {
     config:      'roberto_config',
     backups:     'roberto_backups',
     fiados:      'roberto_fiados',      // ✅ NOVA TABELA PARA FIADOS (SEGURA)
+    clientes:    'roberto_clientes',    // ✅ Cadastro de clientes (fiado por cliente)
+    depositos:   'roberto_depositos',   // ✅ Descontos do Depósito Bancário
   };
 
   // ── Helpers de baixo nível (cada linha = { id text, data jsonb }) ────
@@ -1573,6 +1577,7 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     <button class="tab-btn" onclick="showTab('estoque',this)">🏭 Estoque</button>
     <button class="tab-btn" onclick="showTab('margem',this)">📈 Margem</button>
     <button class="tab-btn" onclick="showTab('fiado',this)">📒 Fiado</button>
+    <button class="tab-btn" onclick="showTab('deposito',this)">🏦 Depósito Bancário</button>
     <button class="tab-btn" onclick="showTab('config',this)">⚙️ Config</button>
     <button class="tab-btn" id="tabBtnUsuarios" style="display:none;" onclick="showTab('usuarios',this)">👤 Usuários</button>
   </div>
@@ -1607,6 +1612,7 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     <div class="total-card"><div class="t-icon">🔵</div><div class="t-info"><div class="t-label" id="tlUltra" data-base="Ultragaz">Ultragaz Hoje</div><div class="t-value blue" id="tqultra">0</div></div></div>
     <div class="total-card"><div class="t-icon">🟢</div><div class="t-info"><div class="t-label" id="tlButano" data-base="Butano">Butano Hoje</div><div class="t-value bgreen" id="tqbutano">0</div></div></div>
     <div class="total-card"><div class="t-icon">📒</div><div class="t-info"><div class="t-label" id="tlFiado" data-base="Fiado">Fiado Hoje</div><div class="t-value red" id="tfiado">R$ 0,00</div></div></div>
+    <div class="total-card"><div class="t-icon">🎫</div><div class="t-info"><div class="t-label" id="tlValeGas" data-base="Vale Gás">Vale Gás Hoje</div><div class="t-value" id="tvalegas">0</div></div></div>
   </div>
 
   <div class="card">
@@ -1653,13 +1659,31 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
       <div class="pay-col"><label>📱 QR Code</label><input type="number" id="pQrCode" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
       <div class="pay-col"><label>⚡ Pix</label><input type="number" id="pPix" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
       <div class="pay-col"><label>🪙 Moeda</label><input type="number" id="pMoeda" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
-      <div class="pay-col"><label>📒 Fiado</label><input type="number" id="pFiado" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
+      <div class="pay-col"><label>📒 Fiado</label><input type="number" id="pFiado" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal();toggleFiadoClienteBox()" /></div>
       <div class="pay-col"><label>🔥 Gás do Povo</label><input type="number" id="pGasPovo" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
       <div class="pay-col"><label>🏦 Sobras Anteriores</label><input type="number" id="pSobrasAnt" min="0" step="0.01" placeholder="0,00" oninput="calcPagTotal()" /></div>
     </div>
     <div style="margin-top:8px;font-size:12px;color:var(--muted);display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
       Total informado no pagamento: <span id="pagTotal" style="color:var(--accent);font-weight:700">R$ 0,00</span>
       <span id="pagSobra" style="display:none;font-size:12px;font-weight:700;padding:3px 10px;border-radius:6px;"></span>
+    </div>
+
+    <!-- Vale Gás (não é forma de pagamento — apenas contagem informativa de P13) -->
+    <div style="margin-top:14px;display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+      <div class="form-group" style="max-width:200px;">
+        <label>🎫 Vale Gás (qtd de P13)</label>
+        <input type="number" id="pValeGas" min="0" step="1" placeholder="0" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
+      </div>
+      <div style="font-size:11px;color:var(--muted);max-width:320px;">Quantidade de botijões P13 desta venda que foram Vale Gás. Não entra no total de pagamento, é apenas informativo.</div>
+    </div>
+
+    <!-- Atribuição de Fiado a cliente cadastrado -->
+    <div id="fiadoClienteBox" style="display:none;margin-top:14px;padding:12px 16px;border-radius:10px;border:1.5px solid var(--danger);background:var(--danger-light);">
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--danger);margin-bottom:6px;">📒 Atribuir este Fiado a um cliente cadastrado? (opcional)</label>
+      <select id="fFiadoCliente" style="max-width:320px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);background:#fff;">
+        <option value="">— Não, manter no nome do PR —</option>
+      </select>
+      <div style="font-size:11px;color:var(--danger);margin-top:6px;">Se escolher um cliente, este valor de Fiado passa a ficar registrado no cliente (aba 📒 Fiado), e não no PR.</div>
     </div>
 
     <!-- Painel de pergunta: sobra ou falta -->
@@ -1704,7 +1728,7 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
         <thead>
           <tr>
             <th>Data</th><th>PR</th><th>Qtd</th><th>Total Vendas</th>
-            <th>Marcas</th><th>Espécie</th><th>Débito</th><th>Crédito</th><th>QR Code</th><th>Pix</th><th>Moeda</th><th>Fiado</th><th>Gás do Povo</th><th>Sobras Ant.</th><th>Total Pago</th><th>Ações</th>
+            <th>Marcas</th><th>Espécie</th><th>Débito</th><th>Crédito</th><th>QR Code</th><th>Pix</th><th>Moeda</th><th>Fiado</th><th>Gás do Povo</th><th>Sobras Ant.</th><th>Vale Gás</th><th>Total Pago</th><th>Ações</th>
           </tr>
         </thead>
         <tbody id="tbodyLanc">
@@ -1779,6 +1803,17 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
       <div class="pay-col"><label>🏦 Sobras Anteriores</label><input type="number" id="egSobrasAnt" min="0" step="0.01" placeholder="0,00" oninput="egCalcPagTotal()" /></div>
     </div>
     <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:16px;">Total Pago: <span id="egPagTotal">R$ 0,00</span></div>
+
+    <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+      <div class="form-group" style="max-width:180px;">
+        <label>🎫 Vale Gás (qtd de P13)</label>
+        <input type="number" id="egValeGas" min="0" step="1" placeholder="0" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
+      </div>
+      <div class="form-group" style="flex:1;min-width:220px;">
+        <label>📒 Atribuir Fiado a cliente (opcional)</label>
+        <select id="egFiadoCliente"><option value="">— Não, manter no nome do PR —</option></select>
+      </div>
+    </div>
 
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       <button onclick="salvarEdicaoGrupo()" style="background:var(--accent);color:#fff;border:none;padding:11px 28px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(224,123,0,.25);">💾 Salvar Alterações</button>
@@ -1895,7 +1930,6 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
         <label>Empresa (Comprou)</label>
         <select id="cEmpresa" onchange="calcVencimentoAuto()">
           <option value="">— Selecione —</option>
-          <option value="IMPERIO">Imperio</option>
           <option value="BERTONI">Bertoni</option>
           <option value="ROSA">Rosa</option>
           <option value="PINHEIRO">Pinheiro</option>
@@ -2367,6 +2401,9 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
     <select id="fiadoFiltroMes" onchange="renderFiado()" style="max-width:200px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);background:var(--surface2,#fff);">
       <option value="">Todos os meses</option>
     </select>
+    <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">📆 Dia</label>
+    <input type="date" id="fiadoFiltroDia" onchange="renderFiado()" style="max-width:160px;padding:7px 12px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);background:var(--surface2,#fff);" />
+    <button onclick="document.getElementById('fiadoFiltroDia').value='';renderFiado()" style="background:var(--surface3);color:var(--muted);border:1.5px solid var(--border);padding:7px 12px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">✕ Limpar dia</button>
     <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);">📌 Status</label>
     <select id="fiadoFiltroStatus" onchange="renderFiado()" style="max-width:200px;padding:8px 12px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);background:var(--surface2,#fff);">
       <option value="">Todos os status</option>
@@ -2477,6 +2514,55 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
   </div>
 </div>
 
+<!-- ==================== DEPÓSITO BANCÁRIO ==================== -->
+<div id="tab-deposito" class="page">
+  <div class="card">
+    <div class="section-title">🏦 Depósito Bancário</div>
+    <div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+      <div class="form-group" style="max-width:200px;">
+        <label>📅 Dia</label>
+        <input type="date" id="depData" onchange="renderDeposito()" />
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:22px;">
+      <div class="summary-card">
+        <div class="s-label">💵 Total em Espécie</div>
+        <div class="s-value green" id="depTotalEspecie" style="font-size:22px;">R$ 0,00</div>
+      </div>
+      <div class="summary-card" style="border:1.5px solid #fca5a5;background:var(--danger-light)">
+        <div class="s-label">➖ Total de Descontos</div>
+        <div class="s-value red" id="depTotalDescontos" style="font-size:22px;">R$ 0,00</div>
+      </div>
+      <div class="summary-card" style="border:1.5px solid #bbf7d0;background:var(--butano-light)">
+        <div class="s-label">🏦 Levado para o Banco</div>
+        <div class="s-value" id="depTotalBanco" style="font-size:22px;color:var(--success)">R$ 0,00</div>
+      </div>
+    </div>
+
+    <div class="section-title" style="font-size:14px;margin-bottom:10px;">➖ Lançar Desconto</div>
+    <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+      <div class="form-group" style="max-width:160px;">
+        <label>Valor (R$)</label>
+        <input type="number" id="depDescValor" min="0" step="0.01" placeholder="0,00" />
+      </div>
+      <div class="form-group" style="flex:1;min-width:220px;">
+        <label>Observação</label>
+        <input type="text" id="depDescObs" placeholder="Ex: Troco deixado com o PR Fulano" />
+      </div>
+      <button class="btn-primary" onclick="adicionarDesconto()">✚ Lançar Desconto</button>
+      <span id="depDescErr" style="color:var(--danger);font-size:12px;font-weight:600;"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Valor</th><th>Observação</th><th>Ações</th></tr></thead>
+        <tbody id="tbodyDepositoDescontos"><tr><td colspan="3" class="empty">Nenhum desconto lançado neste dia.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- ==================== CONFIG ==================== -->
 <div id="tab-config" class="page">
   <div class="card">
@@ -2489,6 +2575,19 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
       <button class="btn-success" onclick="adicionarNovoPR()">✚ Adicionar PR</button>
       <span id="newPrMsg" style="font-size:13px;font-weight:700;color:var(--success);align-self:center;"></span>
     </div>
+  </div>
+  <div class="card">
+    <div class="section-title">👥 Clientes (para Fiado)</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Cadastre clientes para poder atribuir valores de Fiado diretamente a eles (em vez de ficarem no nome do PR).</p>
+    <div class="add-pr-area">
+      <div class="form-group">
+        <label>Nome do novo cliente</label>
+        <input type="text" id="newClienteInput" placeholder="Ex: MARIA DA SILVA" style="max-width:280px;" oninput="this.value=this.value.toUpperCase()" />
+      </div>
+      <button class="btn-success" onclick="adicionarNovoCliente()">✚ Adicionar Cliente</button>
+      <span id="newClienteMsg" style="font-size:13px;font-weight:700;color:var(--success);align-self:center;"></span>
+    </div>
+    <div id="clientesListDiv" style="margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;"></div>
   </div>
   <div class="card">
     <div class="section-title">⚙️ Preço do P13 por PR</div>
@@ -2726,6 +2825,9 @@ const PRS = [
   'SANTOS','SENEVAIDO','SEU PEDRO','SIQUERA'
 ].sort();
 
+// ── CLIENTES (cadastro para atribuição de Fiado) ──
+let CLIENTES = [];
+
 const PAY_FIELDS = ['Espécie','Débito','Crédito','QR Code','Pix','Moeda','Fiado','Gás do Povo','Sobras Anteriores'];
 const PAY_IDS    = ['pEspecie','pDebito','pCredito','pQrCode','pPix','pMoeda','pFiado','pGasPovo','pSobrasAnt'];
 const PAY_EMOJIS = {'Espécie':'💵','Débito':'💳','Crédito':'💳','QR Code':'📱','Pix':'⚡','Moeda':'🪙','Fiado':'📒','Gás do Povo':'🔥','Sobras Anteriores':'🏦'};
@@ -2779,7 +2881,80 @@ window._appInit = async function() {
   // Fechar modal clicando no overlay
   // clique fora desabilitado
   initCargasUI();
+
+  // Carrega clientes cadastrados (para atribuição de Fiado)
+  try {
+    const cfgClientes = await window._fbGetDoc('config', 'clientes');
+    CLIENTES = (cfgClientes && cfgClientes.lista) ? cfgClientes.lista : [];
+  } catch(e) { console.warn('[clientes] erro ao carregar:', e.message); CLIENTES = []; }
+  popularSelectFiadoCliente();
 }; // end _appInit
+
+// ── CLIENTES ──────────────────────────────────────────────────
+function popularSelectFiadoCliente() {
+  const sel = document.getElementById('fFiadoCliente');
+  if (!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">— Não, manter no nome do PR —</option>' +
+    CLIENTES.map(c => `<option value="${c}">${c}</option>`).join('');
+  sel.value = CLIENTES.includes(atual) ? atual : '';
+}
+
+function toggleFiadoClienteBox() {
+  const box = document.getElementById('fiadoClienteBox');
+  const val = parseFloat(document.getElementById('pFiado')?.value) || 0;
+  if (!box) return;
+  if (val > 0.009) {
+    popularSelectFiadoCliente();
+    box.style.display = 'block';
+  } else {
+    box.style.display = 'none';
+    document.getElementById('fFiadoCliente').value = '';
+  }
+}
+
+async function _salvarClientes() {
+  await window._fbSetDoc('config', 'clientes', { lista: CLIENTES });
+}
+
+function renderClientesConfig() {
+  const div = document.getElementById('clientesListDiv');
+  if (!div) return;
+  if (!CLIENTES.length) {
+    div.innerHTML = '<div style="font-size:12px;color:var(--muted2);">Nenhum cliente cadastrado ainda.</div>';
+    return;
+  }
+  div.innerHTML = CLIENTES.map(c => `
+    <span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;color:var(--text);">
+      👤 ${c}
+      <button onclick="removerCliente('${c.replace(/'/g,"\\'")}')" title="Remover cliente" style="background:transparent;border:none;color:var(--danger);cursor:pointer;font-weight:700;font-size:13px;">✕</button>
+    </span>`).join('');
+}
+
+async function adicionarNovoCliente() {
+  const input = document.getElementById('newClienteInput');
+  const msg = document.getElementById('newClienteMsg');
+  const nome = (input.value || '').trim().toUpperCase();
+  if (!nome) { msg.style.color = 'var(--danger)'; msg.textContent = '⚠ Informe um nome.'; return; }
+  if (CLIENTES.includes(nome)) { msg.style.color = 'var(--danger)'; msg.textContent = '⚠ Cliente já cadastrado.'; return; }
+  CLIENTES.push(nome);
+  CLIENTES.sort();
+  await _salvarClientes();
+  input.value = '';
+  msg.style.color = 'var(--success)';
+  msg.textContent = `✓ Cliente "${nome}" adicionado!`;
+  setTimeout(() => { msg.textContent = ''; }, 3000);
+  renderClientesConfig();
+  popularSelectFiadoCliente();
+}
+
+async function removerCliente(nome) {
+  if (!confirm(`Remover o cliente "${nome}"?\n\nIsso NÃO apaga fiados já atribuídos a ele — apenas remove da lista de cadastro.`)) return;
+  CLIENTES = CLIENTES.filter(c => c !== nome);
+  await _salvarClientes();
+  renderClientesConfig();
+  popularSelectFiadoCliente();
+}
 
 // ── LINHAS ──
 var _numLinhas = 3;
@@ -3071,16 +3246,20 @@ function carregarEdicaoNoForm(data, pr){
   });
 
   // Preenche pagamento — busca em todas as linhas, pega a primeira com algum valor
-  let pagRef={};
+  let pagRef={}, valeGasRef=0, fiadoClienteRef='';
   for(const l of itens){
     const p=l.pag||{};
     const temValor=PAY_FIELDS.some(f=>p[f]>0);
-    if(temValor){pagRef=p;break;}
+    if(temValor){pagRef=p; valeGasRef=l.valeGas||0; fiadoClienteRef=l.fiadoCliente||''; break;}
   }
   PAY_IDS.forEach((id,idx)=>{
     const val=pagRef[PAY_FIELDS[idx]];
     document.getElementById(id).value=(val&&val>0)?val:'';
   });
+  document.getElementById('pValeGas').value = valeGasRef>0 ? valeGasRef : '';
+  popularSelectFiadoCliente();
+  document.getElementById('fFiadoCliente').value = fiadoClienteRef;
+  toggleFiadoClienteBox();
   calcPagTotal();
 
   // Ativa modo edição
@@ -3107,6 +3286,9 @@ function cancelarEdicaoForm(){
   PAY_IDS.forEach(id=>document.getElementById(id).value='');
   calcPagTotal();
   document.getElementById('fPr').value='';
+  document.getElementById('pValeGas').value='';
+  document.getElementById('fFiadoCliente').value='';
+  document.getElementById('fiadoClienteBox').style.display='none';
   document.getElementById('formError').textContent='';
 }
 
@@ -3130,6 +3312,8 @@ async function addLancamento(){
   if(!linhas.length){err.textContent='⚠ Preencha ao menos 1 linha (qtd + preço + marca).';return;}
   const pag={};
   PAY_IDS.forEach((id,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(id).value)||0);
+  const valeGas = parseInt(document.getElementById('pValeGas')?.value, 10) || 0;
+  const fiadoCliente = (pag['Fiado'] > 0.009) ? (document.getElementById('fFiadoCliente')?.value || '') : '';
 
   // ✅ TRAVA: não deixa usar mais sobra do que o PR realmente tem
   const sobrasAntUsadas = pag['Sobras Anteriores'] || 0;
@@ -3161,7 +3345,9 @@ async function addLancamento(){
     linhas.forEach((l,idx)=>{
       const id=oldItens[idx]?oldItens[idx].id:(now+idx);
       const item={id,vendaId:vendaIdBase,data,pr,...l,
-        pag:idx===0?pag:Object.fromEntries(PAY_FIELDS.map(f=>[f,0]))};
+        pag:idx===0?pag:Object.fromEntries(PAY_FIELDS.map(f=>[f,0])),
+        valeGas: idx===0 ? valeGas : 0,
+        fiadoCliente: idx===0 ? fiadoCliente : ''};
       lancamentos.push(item);
       novosItens.push(item);
     });
@@ -3192,7 +3378,9 @@ async function addLancamento(){
     const novasLinhas=[];
     linhas.forEach((l,idx)=>{
       const novoLanc={id:now+idx, vendaId, data, pr, ...l,
-        pag: idx===0 ? pag : Object.fromEntries(PAY_FIELDS.map(f=>[f,0]))};
+        pag: idx===0 ? pag : Object.fromEntries(PAY_FIELDS.map(f=>[f,0])),
+        valeGas: idx===0 ? valeGas : 0,
+        fiadoCliente: idx===0 ? fiadoCliente : ''};
       lancamentos.push(novoLanc);
       novasLinhas.push(novoLanc);
     });
@@ -3219,6 +3407,9 @@ async function addLancamento(){
     ['lTotalQtd','lTotalLinhas'].forEach(id=>document.getElementById(id).textContent='0');
     document.getElementById('lTotalVal').textContent='R$ 0,00';
     document.getElementById('fPr').value='';
+    document.getElementById('pValeGas').value='';
+    document.getElementById('fFiadoCliente').value='';
+    document.getElementById('fiadoClienteBox').style.display='none';
     // Mantém painel visível se há pendente; caso contrário esconde
     if (!_pendenteSobraFalta && painelEl) painelEl.style.display='none';
   }
@@ -3453,7 +3644,7 @@ async function _saveFiadoPag() {
 
 // Retorna { but, ult } com a quantidade de P13 vendida numa venda fiado específica
 function getQtdVendaFiado(pr, vendaId) {
-  const itensVenda = lancamentos.filter(l => (l.vendaId != null ? l.vendaId : l.id) === vendaId && l.pr === pr);
+  const itensVenda = lancamentos.filter(l => (l.vendaId != null ? l.vendaId : l.id) === vendaId);
   let but = 0, ult = 0;
   itensVenda.forEach(l => {
     if (l.marca === 'Butano') but += l.qtd;
@@ -3478,8 +3669,10 @@ async function calcFiadoPorPR(excludeVendaId) {
 
     const vf = (l.pag && l.pag['Fiado']) || 0;
     if (vf > 0) {
-      if (!fiado[l.pr]) fiado[l.pr] = [];
-      fiado[l.pr].push({ data: l.data, valor: vf, tipo: 'fiado', desc: 'Venda fiado', id: vid, status: l.statusFiado || 'aberto' });
+      // ✅ Se o fiado foi atribuído a um cliente cadastrado, fica registrado no cliente (não no PR)
+      const chave = l.fiadoCliente ? ('👤 ' + l.fiadoCliente) : l.pr;
+      if (!fiado[chave]) fiado[chave] = [];
+      fiado[chave].push({ data: l.data, valor: vf, tipo: 'fiado', desc: l.fiadoCliente ? `Venda fiado (PR: ${l.pr})` : 'Venda fiado', id: vid, status: l.statusFiado || 'aberto' });
     }
 
     // ✅ Se a venda usou "Sobras Anteriores", isso CONSOME o crédito do PR —
@@ -3600,6 +3793,8 @@ async function renderFiado() {
   // reflete a baixa manual de cada venda).
   const statusEl = document.getElementById('fiadoFiltroStatus');
   const statusSelecionado = statusEl ? statusEl.value : '';
+  const diaEl = document.getElementById('fiadoFiltroDia');
+  const diaSelecionado = diaEl ? diaEl.value : '';
 
   // Cards de resumo (sempre com base em todos os PRs, independente do filtro)
   const todosPrs = Object.keys(dados);
@@ -3638,6 +3833,7 @@ async function renderFiado() {
     const d = dados[pr];
 
     let historicoFiltrado = mesSelecionado ? d.historico.filter(h => h.data.slice(0,7) === mesSelecionado) : d.historico;
+    if (diaSelecionado) historicoFiltrado = historicoFiltrado.filter(h => h.data === diaSelecionado);
     if (statusSelecionado) {
       // Vendas fiado (tipo 'fiado', exceto sobra_uso) são filtradas pelo status individual.
       // Pagamentos/sobras/faltas continuam aparecendo sempre, pois não têm esse status.
@@ -3659,7 +3855,7 @@ async function renderFiado() {
     // quanto o PR deve de verdade e habilitar "Registrar Pagamento") continua
     // disponível em d.saldo e é exibido como informação secundária no card.
     let totalFiadoCard, totalPagoCard, saldoCard, saldoAcumuladoCard;
-    if (mesSelecionado) {
+    if (mesSelecionado || diaSelecionado) {
       totalFiadoCard = historicoFiltrado.filter(h => h.tipo === 'fiado').reduce((a,b)=>a+b.valor,0);
       totalPagoCard  = historicoFiltrado.filter(h => h.tipo === 'pagamento').reduce((a,b)=>a+b.valor,0);
       saldoCard = Math.round((totalFiadoCard - totalPagoCard) * 100) / 100;
@@ -3997,7 +4193,7 @@ function imprimirFiado(){
 let _vendaFiadoModalPr = '', _vendaFiadoModalId = null, _vendaFiadoModalValor = 0;
 
 function verVendaFiado(pr, vendaId, valor) {
-  const itensVenda = lancamentos.filter(l => (l.vendaId != null ? l.vendaId : l.id) === vendaId && l.pr === pr);
+  const itensVenda = lancamentos.filter(l => (l.vendaId != null ? l.vendaId : l.id) === vendaId);
   if (!itensVenda.length) { showToast('⚠️ Venda não encontrada.'); return; }
 
   _vendaFiadoModalPr = pr;
@@ -4292,7 +4488,7 @@ function renderTable(){
   if(filtData) lista=lista.filter(l=>l.data===filtData);
   if(filtPr) lista=lista.filter(l=>l.pr===filtPr);
 
-  if(!lista.length){tb.innerHTML='<tr><td colspan="14" class="empty">Nenhum lançamento para os filtros selecionados.</td></tr>';renderTotals();return;}
+  if(!lista.length){tb.innerHTML='<tr><td colspan="17" class="empty">Nenhum lançamento para os filtros selecionados.</td></tr>';renderTotals();return;}
 
   // Agrupa por data+PR (ordem: data desc, PR asc)
   const grupos={};
@@ -4313,7 +4509,7 @@ function renderTable(){
 
     // Paga: soma pagamentos únicos por vendaId
     const vistosV=new Set();
-    let totalPago=0,totalFiado=0,pagEspecie=0,pagDebito=0,pagCredito=0,pagQrCode=0,pagPix=0,pagMoeda=0,pagGasPovo=0,pagSobrasAnt=0;
+    let totalPago=0,totalFiado=0,pagEspecie=0,pagDebito=0,pagCredito=0,pagQrCode=0,pagPix=0,pagMoeda=0,pagGasPovo=0,pagSobrasAnt=0,totalValeGas=0;
     g.itens.forEach(l=>{
       const vid=l.vendaId!=null?l.vendaId:l.id;
       if(!vistosV.has(vid)){
@@ -4328,6 +4524,7 @@ function renderTable(){
         pagMoeda+=(l.pag&&l.pag['Moeda']||0);
         pagGasPovo+=(l.pag&&l.pag['Gás do Povo']||0);
         pagSobrasAnt+=(l.pag&&l.pag['Sobras Anteriores']||0);
+        totalValeGas+=(l.valeGas||0);
       }
     });
 
@@ -4361,6 +4558,7 @@ function renderTable(){
       <td style="color:var(--danger);font-weight:${totalFiado>0?'700':'400'}">${totalFiado>0?fmtVal(totalFiado):'-'}</td>
       <td style="color:var(--muted)">${pagGasPovo>0?fmtVal(pagGasPovo):'-'}</td>
       <td style="color:var(--muted)">${pagSobrasAnt>0?fmtVal(pagSobrasAnt):'-'}</td>
+      <td style="color:var(--muted);font-weight:${totalValeGas>0?'700':'400'}">${totalValeGas>0?totalValeGas:'-'}</td>
       <td style="font-weight:700;color:var(--accent)">${totalPago>0?fmtVal(totalPago):'-'}</td>
       <td style="white-space:nowrap">
         <button class="btn-sm-del" title="Excluir lançamento completo" onclick="event.stopPropagation();event.preventDefault();excluirGrupoLanc('${g.data}','${g.pr}');return false;">🗑️</button>
@@ -4438,7 +4636,7 @@ function renderTotals(){
 
   // Atualiza labels dos cards
   const sufixo = filtData ? (() => { const [y,m,d]=diaRef.split('-'); return d+'/'+m; })() : 'Hoje';
-  ['tlBotijoes','tlValor','tlUltra','tlButano','tlFiado'].forEach(id => {
+  ['tlBotijoes','tlValor','tlUltra','tlButano','tlFiado','tlValeGas'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = el.dataset.base + ' ' + sufixo;
   });
@@ -4452,11 +4650,18 @@ function renderTotals(){
     if (!vistosT.has(vid)) { vistosT.add(vid); return a + (l.pag && l.pag['Fiado'] || 0); }
     return a;
   }, 0);
+  const vistosVG = new Set();
+  const totalValeGas = t.reduce((a,l) => {
+    const vid = l.vendaId != null ? l.vendaId : l.id;
+    if (!vistosVG.has(vid)) { vistosVG.add(vid); return a + (l.valeGas || 0); }
+    return a;
+  }, 0);
   document.getElementById('tqtd').textContent    = t.filter(l=>l.marca!=='Produto').reduce((a,b) => a + b.qtd, 0);
   document.getElementById('tval').textContent    = fmtVal(t.reduce((a,b) => a + b.total, 0));
   document.getElementById('tqultra').textContent = t.filter(l => l.marca === 'Ultragaz').reduce((a,b) => a + b.qtd, 0);
   document.getElementById('tqbutano').textContent= t.filter(l => l.marca === 'Butano').reduce((a,b) => a + b.qtd, 0);
   document.getElementById('tfiado').textContent  = fmtVal(totalFiado);
+  document.getElementById('tvalegas').textContent = totalValeGas;
 }
 // Expõe globalmente
 window.renderTotals = renderTotals;
@@ -5194,15 +5399,19 @@ function abrirEdicaoGrupoComDados(data, pr){
 
   // Pagamento — pega da primeira linha única por vendaId
   const vistos=new Set();
-  let pagRef={};
+  let pagRef={}, valeGasRefEg=0, fiadoClienteRefEg='';
   itens.forEach(l=>{
     const vid=l.vendaId!=null?l.vendaId:l.id;
-    if(!vistos.has(vid)){vistos.add(vid);pagRef=l.pag||{};}
+    if(!vistos.has(vid)){vistos.add(vid);pagRef=l.pag||{};valeGasRefEg=l.valeGas||0;fiadoClienteRefEg=l.fiadoCliente||'';}
   });
   EG_PAY_IDS.forEach((eid,idx)=>{
     const val=pagRef[PAY_FIELDS[idx]];
     document.getElementById(eid).value=(val&&val>0)?val:'';
   });
+  document.getElementById('egValeGas').value = valeGasRefEg>0 ? valeGasRefEg : '';
+  const egSelCliente = document.getElementById('egFiadoCliente');
+  egSelCliente.innerHTML = '<option value="">— Não, manter no nome do PR —</option>' + CLIENTES.map(c=>`<option value="${c}">${c}</option>`).join('');
+  egSelCliente.value = fiadoClienteRefEg;
   egCalcPagTotal();
 
   document.getElementById('egErr').textContent='';
@@ -5307,6 +5516,8 @@ async function salvarEdicaoGrupo(){
   // Pagamento
   const pag={};
   EG_PAY_IDS.forEach((eid,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(eid)?.value)||0);
+  const valeGasEg = parseInt(document.getElementById('egValeGas')?.value, 10) || 0;
+  const fiadoClienteEg = (pag['Fiado'] > 0.009) ? (document.getElementById('egFiadoCliente')?.value || '') : '';
 
   // ✅ TRAVA: mesma validação de sobra, agora no modo "Editar Venda Completa"
   const sobrasAntUsadasEg = pag['Sobras Anteriores'] || 0;
@@ -5334,7 +5545,9 @@ async function salvarEdicaoGrupo(){
     const id=l.origId&&idx<oldItens.length?oldItens[idx].id:(now+idx);
     const item={
       id, vendaId:vendaIdBase, data, pr, qtd:l.qtd, preco:l.preco, total:l.total, marca:l.marca,
-      pag: idx===0 ? pag : Object.fromEntries(PAY_FIELDS.map(f=>[f,0]))
+      pag: idx===0 ? pag : Object.fromEntries(PAY_FIELDS.map(f=>[f,0])),
+      valeGas: idx===0 ? valeGasEg : 0,
+      fiadoCliente: idx===0 ? fiadoClienteEg : ''
     };
     lancamentos.push(item);
     novosItensEg.push(item);
@@ -5350,8 +5563,94 @@ async function salvarEdicaoGrupo(){
   showToast('✓ Venda atualizada com sucesso!');
 }
 
+// ══════════════════════════════════════════════════════
+//  DEPÓSITO BANCÁRIO
+// ══════════════════════════════════════════════════════
+let _depositosCache = null;
+
+async function _loadDepositos() {
+  if (_depositosCache) return _depositosCache;
+  try {
+    _depositosCache = await window._fbGetCollection('depositos');
+  } catch(e) {
+    console.warn('[depositos] erro ao carregar:', e.message);
+    _depositosCache = [];
+  }
+  return _depositosCache;
+}
+
+async function _saveDepositos() {
+  await window._fbSaveCollection('depositos', _depositosCache, d => d.id || d._fbId);
+}
+
+async function renderDeposito() {
+  const dataEl = document.getElementById('depData');
+  if (dataEl && !dataEl.value) dataEl.value = hojeLocal();
+  const dia = dataEl ? dataEl.value : hojeLocal();
+
+  // Total em espécie do dia — soma apenas 1x por venda (vendaId)
+  const fonte = (window._lancamentos && window._lancamentos.length) ? window._lancamentos : lancamentos;
+  const doDia = fonte.filter(l => l.data === dia);
+  const vistos = new Set();
+  let totalEspecie = 0;
+  doDia.forEach(l => {
+    const vid = l.vendaId != null ? l.vendaId : l.id;
+    if (!vistos.has(vid)) { vistos.add(vid); totalEspecie += (l.pag && l.pag['Espécie']) || 0; }
+  });
+
+  const descontos = await _loadDepositos();
+  const descontosDia = descontos.filter(d => d.data === dia).sort((a,b) => (a.criadoEm||0) - (b.criadoEm||0));
+  const totalDescontos = descontosDia.reduce((a,d) => a + (d.valor || 0), 0);
+  const totalBanco = totalEspecie - totalDescontos;
+
+  document.getElementById('depTotalEspecie').textContent = fmtVal(totalEspecie);
+  document.getElementById('depTotalDescontos').textContent = fmtVal(totalDescontos);
+  document.getElementById('depTotalBanco').textContent = fmtVal(totalBanco);
+
+  const tb = document.getElementById('tbodyDepositoDescontos');
+  if (!descontosDia.length) {
+    tb.innerHTML = '<tr><td colspan="3" class="empty">Nenhum desconto lançado neste dia.</td></tr>';
+    return;
+  }
+  tb.innerHTML = descontosDia.map(d => `
+    <tr>
+      <td style="color:var(--danger);font-weight:700;">${fmtVal(d.valor)}</td>
+      <td>${d.obs || '-'}</td>
+      <td><button class="btn-sm-del" onclick="excluirDesconto('${d.id}')">🗑️</button></td>
+    </tr>`).join('');
+}
+
+async function adicionarDesconto() {
+  const dia = document.getElementById('depData').value || hojeLocal();
+  const valorEl = document.getElementById('depDescValor');
+  const obsEl = document.getElementById('depDescObs');
+  const err = document.getElementById('depDescErr');
+  const valor = parseFloat(valorEl.value) || 0;
+  if (valor <= 0) { err.textContent = '⚠ Informe um valor válido.'; return; }
+  err.textContent = '';
+
+  const descontos = await _loadDepositos();
+  descontos.push({ id: 'dep_' + Date.now(), data: dia, valor, obs: (obsEl.value || '').trim(), criadoEm: Date.now() });
+  await _saveDepositos();
+
+  valorEl.value = '';
+  obsEl.value = '';
+  showToast('✓ Desconto lançado!');
+  renderDeposito();
+}
+
+async function excluirDesconto(id) {
+  if (!confirm('Remover este desconto?')) return;
+  const descontos = await _loadDepositos();
+  _depositosCache = descontos.filter(d => d.id !== id);
+  await window._fbDeleteDoc('depositos', id);
+  showToast('✓ Desconto removido!');
+  renderDeposito();
+}
+
 // ── ADICIONAR NOVO PR ──
 async function adicionarNovoPR(){
+
   const input=document.getElementById('newPrInput');
   const nome=input.value.trim().toUpperCase();
   const msg=document.getElementById('newPrMsg');
