@@ -2839,17 +2839,17 @@ async function renderDeposito() {
   const tb = document.getElementById('tbodyDepositoDescontos');
   if (!dep_dia.length) {
     tb.innerHTML = '<tr><td colspan="4" class="empty">Nenhum lançamento neste dia.</td></tr>';
-    return;
+  } else {
+    tb.innerHTML = dep_dia.map(d => {
+      const isAcresc = d.tipo === 'acrescimo';
+      return `<tr>
+        <td>${isAcresc ? '<span style="color:var(--success);font-weight:700;">➕ Acréscimo</span>' : '<span style="color:var(--danger);font-weight:700;">➖ Desconto</span>'}</td>
+        <td style="color:${isAcresc?'var(--success)':'var(--danger)'};font-weight:700;">${isAcresc?'+':'-'} ${fmtVal(d.valor)}</td>
+        <td>${d.obs || '-'}</td>
+        <td><button class="btn-sm-del" onclick="excluirDesconto('${d.id}')">🗑️</button></td>
+      </tr>`;
+    }).join('');
   }
-  tb.innerHTML = dep_dia.map(d => {
-    const isAcresc = d.tipo === 'acrescimo';
-    return `<tr>
-      <td>${isAcresc ? '<span style="color:var(--success);font-weight:700;">➕ Acréscimo</span>' : '<span style="color:var(--danger);font-weight:700;">➖ Desconto</span>'}</td>
-      <td style="color:${isAcresc?'var(--success)':'var(--danger)'};font-weight:700;">${isAcresc?'+':'-'} ${fmtVal(d.valor)}</td>
-      <td>${d.obs || '-'}</td>
-      <td><button class="btn-sm-del" onclick="excluirDesconto('${d.id}')">🗑️</button></td>
-    </tr>`;
-  }).join('');
 
   // ── Histórico completo (todos os lançamentos, de todos os dias) ──
   const histMesEl = document.getElementById('depHistFiltroMes');
