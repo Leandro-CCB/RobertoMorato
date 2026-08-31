@@ -33,6 +33,7 @@ export default function App() {
         <TabConfig />
       </div>
       <BackupModal />
+      <div id="toast"></div>
     </>
   );
 }
