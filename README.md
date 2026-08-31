@@ -1,79 +1,100 @@
-# Grupo Bertoni — Controle PR Morato (Vite + Login)
+# Grupo Bertoni — Controle PR Morato (React + Vite)
 
-App migrado para um projeto **Vite**, agora com **tela de login** protegendo
-o acesso, um **usuário master** e uma aba **"Usuários"** (visível somente
-para o master) para cadastrar/editar/desativar/excluir usuários.
+Migração do app original (um único `index.html` monolítico com ~7.900 linhas
+de JS/HTML/CSS misturados) para **React + Vite**, mantendo **estrutura e
+lógica idênticas** ao original.
 
-## 1. Instalar e rodar localmente
+## Como rodar
 
 ```bash
 npm install
-npm run dev       # ambiente de desenvolvimento (http://localhost:5173)
-npm run build     # gera a pasta dist/ pronta para publicar
-npm run preview   # testa o build de produção localmente
+npm run dev       # desenvolvimento (http://localhost:5173)
+npm run build     # gera a pasta dist/ para produção
+npm run preview   # serve a build de produção localmente
 ```
-
-## 2. Configurar o banco (Supabase)
-
-Rode os scripts SQL **nesta ordem**, no SQL Editor do Supabase:
-
-1. `supabase_setup.sql` — cria as tabelas originais do app
-   (`roberto_lancamentos`, `roberto_cargas`, `roberto_config`,
-   `roberto_backups`, etc.).
-2. `import_backup_2026-07-30.sql` — importa o backup antigo (se quiser).
-3. **`security_setup.sql`** (novo) — cria a tabela `roberto_usuarios`
-   usada pelo login, e já cadastra o usuário master:
-   - **usuário:** `master`
-   - **senha:** `Bertoni@Master2026`
-
-   ⚠️ **Troque essa senha assim que entrar pela primeira vez**, usando a
-   própria aba "Usuários" → ícone 🔑 no seu usuário master.
-
-## 3. Como funciona o login
-
-- Ao abrir o app, aparece a tela de login. Sem usuário/senha válidos
-  (cadastrados na tabela `roberto_usuarios`), o conteúdo não é exibido.
-- A sessão fica salva no navegador por até 12h (ou até você marcar
-  "Manter conectado", que grava em `localStorage` em vez de
-  `sessionStorage`).
-- Usuários com `is_master = true` veem a aba extra **👤 Usuários**, onde
-  podem:
-  - Cadastrar novos usuários (usuário + senha, com ou sem acesso master);
-  - Redefinir senha de qualquer usuário;
-  - Ativar/desativar um usuário (login bloqueado quando inativo);
-  - Excluir um usuário.
-- As senhas nunca são gravadas em texto puro: o navegador calcula um
-  hash SHA-256 antes de enviar/comparar com o banco.
-
-### ⚠️ Importante sobre segurança
-
-Este continua sendo um app 100% front-end (sem servidor próprio) — a
-chave anônima do Supabase permanece embutida no código, como já
-acontecia no projeto original. A tela de login impede que qualquer
-pessoa **abra e use o app** sem credenciais, mas **não substitui** uma
-segurança de backend completa (isso exigiria Supabase Auth "de
-verdade" + Row Level Security por usuário no banco). Para o uso interno
-da empresa, esse nível de proteção já resolve bem o problema de "alguém
-achar o link e mexer no sistema sem permissão".
-
-## 4. Publicar (GitHub Pages, Vercel, Netlify, etc.)
-
-Depois de `npm run build`, publique o conteúdo da pasta `dist/`. Se for
-usar GitHub Pages, configure a Action de build do Vite ou suba o
-conteúdo de `dist/` para a branch/pasta usada pelo Pages.
 
 ## Estrutura do projeto
 
 ```
-morato-app/
-├── index.html              # app inteiro (login + telas) — entrada do Vite
-├── public/
-│   ├── icons/               # ícones do PWA
-│   ├── logo.png
-│   ├── manifest.json
-│   └── sw.js                 # service worker (PWA/offline)
-├── supabase_setup.sql        # tabelas originais do app
-├── security_setup.sql        # tabela de usuários + usuário master (NOVO)
-├── import_backup_2026-07-30.sql
-└── package.json
+index.html                 -> shell HTML (CDNs do Chart.js/Supabase + scripts legados + <div id="root">)
+src/
+  main.jsx                 -> ponto de entrada React
+  App.jsx                  -> monta AuthGate + AppHeader + todas as abas + BackupModal
+  styles/legacy.css         -> todo o CSS original, sem alterações
+  components/
+    AuthGate.jsx            -> tela de login (aba de acesso)
+    AppHeader.jsx            -> cabeçalho com os botões das abas
+    TabLancamento.jsx        -> aba "Lançamento"
+    TabResumo.jsx             -> aba "Resumo"
+    TabCargas.jsx              -> aba "Cargas"
+    TabEstoque.jsx              -> aba "Estoque"
+    TabMargem.jsx                -> aba "Margem"
+    TabFiado.jsx                  -> aba "Fiado"
+    TabDeposito.jsx                -> aba "Depósito Bancário"
+    TabConfig.jsx                    -> aba "Config"
+    TabUsuarios.jsx                    -> aba "Usuários" (somente master)
+    BackupModal.jsx                      -> modal de backup/restauração
+public/
+  legacy/                    -> os módulos JS ORIGINAIS (inalterados na lógica), divididos por responsabilidade:
+    01_head_globals.js        -> hojeLocal() e showTab()
+    02_supabase_module.js      -> camada de dados (Supabase: coleções, backups, cache)
+    03_auth_module.js           -> login, sessão, gestão de usuários
+    04_offline_sync.js           -> fila de sincronização offline (localStorage)
+    05_security_indexeddb.js      -> snapshots locais de segurança (IndexedDB)
+    06_core_logic.js               -> TODA a lógica de negócio original (render de cada
+                                       aba, cálculos de margem/fiado/estoque, gráficos
+                                       Chart.js, modais, PRS, clientes etc.)
+  manifest.json, sw.js, icons/, logo.png -> PWA (idêntico ao original)
 ```
+
+## Por que esse formato (e não uma reescrita 100% "React idiomático")
+
+O app original guarda **todo o estado da aplicação em variáveis globais**
+(`window._lancamentos`, `window._cargas`, `window._configPrecos` etc.) e
+manipula o DOM diretamente (`document.getElementById`, `showTab()`,
+`innerHTML`), com uma fila própria de sincronização offline e backup local.
+Reescrever isso do zero em `useState`/`useReducer` seria uma reformulação
+completa da aplicação, com alto risco de introduzir bugs sutis na
+sincronização com o Supabase, no cache offline e no cálculo financeiro.
+
+Para cumprir "estrutura e lógica idênticas" com segurança, a migração:
+
+1. Preserva **os módulos de lógica originais inalterados**, apenas
+   reorganizados em arquivos separados (`public/legacy/*.js`), carregados
+   como `<script>` clássicos — exatamente como no `index.html` original.
+2. Preserva **o HTML de cada aba 1:1** (mesmos `id`s, mesmos `onclick`,
+   mesmas classes), agora dentro de um componente `.jsx` próprio por aba.
+3. O React só é responsável por **montar essa marcação na tela**; a troca
+   de aba continua sendo feita pela função global `showTab()` (a mesma de
+   sempre), e cada aba dispara seu próprio `renderX()` do jeito que sempre
+   disparou.
+
+Na prática: é o mesmo app, agora com Vite como bundler/dev-server e cada aba
+isolada em seu próprio arquivo `.jsx`, em vez de um único HTML gigante.
+
+## O que foi testado neste ambiente
+
+- ✅ `npm install` e `npm run build` completam sem erros (Vite + esbuild).
+- ✅ Todos os 6 arquivos em `public/legacy/` passam em `node --check`
+  (sintaxe JS válida).
+- ✅ Servidor local (`vite preview`) responde 200 para `index.html` e para
+  todos os scripts legados.
+- ✅ Os módulos legados executam corretamente no carregamento da página:
+  `window.showTab`, `window._appInit`, `window.hojeLocal()` e
+  `window.__auth` ficam definidos como esperado.
+- ⚠️ Este ambiente de execução **não tem acesso à internet externa**
+  (bloqueia `cdnjs.cloudflare.com`, `jsdelivr.net`, Supabase, Google Fonts),
+  então não foi possível abrir o app de ponta a ponta num navegador real
+  aqui dentro. Ao rodar `npm run dev`/`npm run build` na sua máquina (com
+  internet), o Chart.js, o Supabase e as fontes vão carregar normalmente,
+  igual ao app original. **Recomendo testar `npm run dev` localmente e
+  clicar em cada aba antes de publicar**, já que a verificação visual final
+  (login, gráficos, cálculos) depende dessas conexões externas.
+
+## Observações
+
+- As credenciais do Supabase (URL + anon key) estão nos mesmos lugares de
+  sempre, dentro de `02_supabase_module.js` e `03_auth_module.js` — não
+  foram alteradas.
+- `supabase_setup.sql` e `security_setup.sql` foram mantidos na raiz, iguais
+  ao projeto original, caso precise recriar o banco.
