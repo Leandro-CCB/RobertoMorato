@@ -8,6 +8,11 @@ function hojeLocal() {
   return `${y}-${m}-${dd}`;
 }
 
+// toggleSidebar — mostra/oculta a sidebar (header) através de uma classe no body
+function toggleSidebar() {
+  document.body.classList.toggle('sidebar-collapsed');
+}
+
 // showTab — declarada aqui para estar disponível nos onclick dos botões de aba
 function showTab(name, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));

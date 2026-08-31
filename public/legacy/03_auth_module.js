@@ -55,6 +55,8 @@
     document.getElementById('authGate').classList.add('hidden');
     document.getElementById('appHeader').style.display = 'flex';
     document.getElementById('main-content').style.display = '';
+    const btnSb = document.getElementById('btnSidebarToggle');
+    if (btnSb) btnSb.style.display = 'flex';
     document.getElementById('authUserLabel').textContent = '👋 ' + sessao.usuario + (sessao.isMaster ? ' (master)' : '');
     document.getElementById('tabBtnUsuarios').style.display = sessao.isMaster ? '' : 'none';
   }
@@ -63,6 +65,8 @@
     document.getElementById('authGate').classList.remove('hidden');
     document.getElementById('appHeader').style.display = 'none';
     document.getElementById('main-content').style.display = 'none';
+    const btnSb = document.getElementById('btnSidebarToggle');
+    if (btnSb) btnSb.style.display = 'none';
   }
 
   async function tentarLogin() {
