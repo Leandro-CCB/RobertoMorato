@@ -3063,14 +3063,14 @@ async function gerarRelatorioDiario() {
           <tr><td>Entradas em espécie</td><td style="text-align:right;font-weight:700;color:#16a34a">+ R$ ${fmtNum(totalEspecie)}</td></tr>
           <tr><td>Acréscimos recebidos</td><td style="text-align:right;font-weight:700;color:#16a34a">+ R$ ${fmtNum(totalAcrescimos)}</td></tr>
           <tr><td>Saídas em espécie</td><td style="text-align:right;font-weight:700;color:#dc2626">− R$ ${fmtNum(totalDescontos)}</td></tr>
-          <tr><td>Valor levado/depositado no banco</td><td style="text-align:right;font-weight:700;color:#dc2626">− R$ ${fmtNum(totalLevadoBanco)}</td></tr>
+          <tr><td>Valor levado/depositado no banco</td><td style="text-align:right;font-weight:700;color:#16a34a">R$ ${fmtNum(totalLevadoBanco)}</td></tr>
           <tr style="background:#fff3e0;font-weight:700;border-top:3px solid #e07b00">
             <td style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e07b00">SALDO EM ESPÉCIE ESPERADO</td>
             <td style="text-align:right;color:#e07b00">R$ ${fmtNum(saldoEspecieEsperado)}</td>
           </tr>
         </tbody>
       </table>
-      <div style="font-size:9px;color:#6b7280;margin-top:4px;">* "Valor levado ao banco" é calculado com a mesma fórmula da aba 🏦 Depósito Bancário (Entradas + Acréscimos − Saídas) para esta data.</div>`;
+      <div style="font-size:9px;color:#6b7280;margin-top:4px;">* "Valor levado ao banco" é o mesmo total que a aba 🏦 Depósito Bancário já calcula (Entradas + Acréscimos − Saídas) e mostra em verde como "Levado para o Banco" — não é um débito, é o dinheiro que efetivamente saiu do caixa para o banco. Por isso, se o valor calculado nessa aba for igual ao efetivamente depositado, o "Saldo em Espécie Esperado" fecha em R$ 0,00 (nada deveria sobrar no caixa).</div>`;
 
     // ══ Monta o documento final — mesmo CSS/estrutura do relatório da aba Resumo ══
     const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
