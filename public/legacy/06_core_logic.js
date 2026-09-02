@@ -1053,6 +1053,27 @@ async function renderFiado() {
   const todosPrs = Object.keys(dados);
   const filtroPeriodoAtivo = !!(mesSelecionado || diaSelecionado);
 
+  // Quando há filtro de dia/mês/status ativo, remove da lista os PRs que
+  // não têm NENHUM registro dentro desse recorte — antes, eles continuavam
+  // aparecendo como um card vazio ("Sem lançamentos no período"), dando a
+  // impressão de que o filtro de data não estava funcionando.
+  if (filtroPeriodoAtivo || statusSelecionado) {
+    prs = prs.filter(pr => {
+      let hist = mesSelecionado ? dados[pr].historico.filter(h => h.data.slice(0,7) === mesSelecionado) : dados[pr].historico;
+      if (diaSelecionado) hist = hist.filter(h => h.data === diaSelecionado);
+      if (statusSelecionado) {
+        hist = hist.filter(h => {
+          if (h.tipo === 'fiado' && h.subtipo !== 'sobra_uso') {
+            const st = h.status === 'quitado' ? 'quitado' : 'aberto';
+            return st === statusSelecionado;
+          }
+          return true;
+        });
+      }
+      return hist.length > 0;
+    });
+  }
+
   let totalDevendo, totalPRs, totalGerado, totalRecebido;
   if (filtroPeriodoAtivo || statusSelecionado) {
     totalGerado = 0; totalRecebido = 0; totalDevendo = 0; totalPRs = 0;
@@ -1104,7 +1125,7 @@ async function renderFiado() {
 
   if (!prs.length) {
     cardsEl.innerHTML = todosPrs.length
-      ? '<div style="text-align:center;padding:40px;color:var(--muted2);font-size:13px;">Nenhum resultado para o PR selecionado.</div>'
+      ? `<div style="text-align:center;padding:40px;color:var(--muted2);font-size:13px;">Nenhum fiado encontrado para os filtros selecionados${diaSelecionado ? ' (data: ' + fmtDate(diaSelecionado) + ')' : ''}.</div>`
       : '<div style="text-align:center;padding:40px;color:var(--muted2);font-size:13px;">Nenhum fiado registrado ainda. Os valores de fiado aparecem automaticamente a partir dos lançamentos.</div>';
     return;
   }
@@ -2827,6 +2848,249 @@ async function excluirDesconto(id) {
   await window._fbDeleteDoc('depositos', id);
   showToast('✓ Desconto removido!');
   renderDeposito();
+}
+
+// ══════════════════════════════════════════════════════════
+//  RELATÓRIOS — RELATÓRIO DIÁRIO
+//  Reaproveita 100% de dados/funções já existentes:
+//   - lançamentos (window._lancamentos / lancamentos) para a seção 1
+//   - calcFiadoPorPR() para a seção 2 (mesma função usada na aba Fiado)
+//   - a MESMA lógica de fechamento de caixa da aba 🏦 Depósito Bancário
+//     (renderDeposito) para a seção 3, sem duplicar a regra de cálculo.
+// ══════════════════════════════════════════════════════════
+let _relatorioDiarioHTML = null; // guarda o HTML já montado, para o botão Imprimir
+
+function abrirModalRelatorioDiario() {
+  const modal = document.getElementById('relatorioDiarioModal');
+  if (!modal) return;
+  const dataEl = document.getElementById('relDiaData');
+  if (dataEl && !dataEl.value) dataEl.value = hojeLocal();
+  const conteudoEl = document.getElementById('relatorioDiarioConteudo');
+  if (conteudoEl) conteudoEl.innerHTML = '';
+  const btnImprimir = document.getElementById('btnImprimirRelatorioDiario');
+  if (btnImprimir) btnImprimir.style.display = 'none';
+  _relatorioDiarioHTML = null;
+  modal.style.display = 'flex';
+}
+
+function fecharModalRelatorioDiario() {
+  const modal = document.getElementById('relatorioDiarioModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function gerarRelatorioDiario() {
+  const dataEl = document.getElementById('relDiaData');
+  const dia = dataEl ? dataEl.value : '';
+  const conteudoEl = document.getElementById('relatorioDiarioConteudo');
+  const btnImprimir = document.getElementById('btnImprimirRelatorioDiario');
+  if (!dia) { showToast('⚠ Selecione uma data.'); return; }
+  if (!conteudoEl) return;
+  conteudoEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Gerando relatório...</div>';
+  if (btnImprimir) btnImprimir.style.display = 'none';
+
+  try {
+    // ── 1. LANÇAMENTOS DO DIA ──────────────────────────────────
+    const fonte = (window._lancamentos && window._lancamentos.length) ? window._lancamentos : lancamentos;
+    const doDia = fonte.filter(l => l.data === dia);
+
+    const gruposVenda = {};
+    doDia.forEach(l => {
+      const vid = l.vendaId != null ? l.vendaId : l.id;
+      if (!gruposVenda[vid]) gruposVenda[vid] = { vid, pr: l.pr, itens: [], pag: null };
+      gruposVenda[vid].itens.push(l);
+      if (l.pag && Object.values(l.pag).some(v => v > 0)) gruposVenda[vid].pag = l.pag;
+    });
+    const vendasDoDia = Object.values(gruposVenda).sort((a,b) => Number(a.vid) - Number(b.vid));
+
+    let totalLancamentosDia = 0;
+    const linhasLancHTML = vendasDoDia.map(v => {
+      const ts = Number(v.vid);
+      const horario = (ts && !isNaN(ts)) ? new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
+      const marcas = [...new Set(v.itens.map(l => l.marca))];
+      const tipo = marcas.length > 1 ? 'Mix' : (marcas[0] === 'Produto' ? 'Produto' : (marcas[0] || '-'));
+      const descricao = v.itens.map(l => {
+        const nome = l.marca === 'Produto' ? (l.produto || 'Produto') : l.marca;
+        return `${l.qtd}× ${nome}`;
+      }).join(' + ');
+      const totalVenda = v.itens.reduce((s,l) => s + (l.total != null ? l.total : l.qtd * l.preco), 0);
+      totalLancamentosDia += totalVenda;
+      const formaPag = v.pag
+        ? Object.entries(PAY_EMOJIS).filter(([k]) => v.pag[k] > 0).map(([k,emoji]) => `${emoji} ${k}: ${fmtVal(v.pag[k])}`).join(', ')
+        : '-';
+      return `<tr>
+        <td style="padding:6px 8px;font-size:11px;color:var(--muted);white-space:nowrap;">${horario}</td>
+        <td style="padding:6px 8px;font-weight:600;">${v.pr} — ${descricao}</td>
+        <td style="padding:6px 8px;">${tipo}</td>
+        <td style="padding:6px 8px;font-size:11px;">${formaPag || '-'}</td>
+        <td style="padding:6px 8px;font-weight:700;color:var(--success);text-align:right;white-space:nowrap;">${fmtVal(totalVenda)}</td>
+      </tr>`;
+    }).join('');
+
+    const lancamentosHTML = vendasDoDia.length ? `
+      <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead style="background:var(--surface3);">
+          <tr>
+            <th style="padding:6px 8px;text-align:left;font-size:9px;text-transform:uppercase;color:var(--muted);">Horário</th>
+            <th style="padding:6px 8px;text-align:left;font-size:9px;text-transform:uppercase;color:var(--muted);">Descrição</th>
+            <th style="padding:6px 8px;text-align:left;font-size:9px;text-transform:uppercase;color:var(--muted);">Tipo</th>
+            <th style="padding:6px 8px;text-align:left;font-size:9px;text-transform:uppercase;color:var(--muted);">Forma de Pagamento</th>
+            <th style="padding:6px 8px;text-align:right;font-size:9px;text-transform:uppercase;color:var(--muted);">Valor</th>
+          </tr>
+        </thead>
+        <tbody>${linhasLancHTML}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" style="padding:8px;font-weight:700;text-align:right;border-top:2px solid var(--border);">TOTAL DO DIA</td>
+            <td style="padding:8px;font-weight:700;text-align:right;color:var(--success);border-top:2px solid var(--border);white-space:nowrap;">${fmtVal(totalLancamentosDia)}</td>
+          </tr>
+        </tfoot>
+      </table>
+      </div>` : '<div style="padding:16px;color:var(--muted2);font-size:12px;">Nenhum lançamento registrado nesta data.</div>';
+
+    // ── 2. FIADOS (reaproveita calcFiadoPorPR, mesma função da aba Fiado) ──
+    const dadosFiado = await calcFiadoPorPR();
+    const fiadosDoDia = [];
+    Object.keys(dadosFiado).forEach(chave => {
+      dadosFiado[chave].historico.forEach(h => {
+        if (h.data === dia && h.tipo === 'fiado') {
+          fiadosDoDia.push({ cliente: chave.replace(/^👤\s*/, ''), desc: h.desc, valor: h.valor });
+        }
+      });
+    });
+    const totalFiadosDia = fiadosDoDia.reduce((s,f) => s + f.valor, 0);
+    const fiadosHTML = fiadosDoDia.length ? `
+      <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead style="background:var(--surface3);">
+          <tr>
+            <th style="padding:6px 8px;text-align:left;font-size:9px;text-transform:uppercase;color:var(--muted);">Cliente</th>
+            <th style="padding:6px 8px;text-align:left;font-size:9px;text-transform:uppercase;color:var(--muted);">Descrição</th>
+            <th style="padding:6px 8px;text-align:right;font-size:9px;text-transform:uppercase;color:var(--muted);">Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${fiadosDoDia.map(f => `<tr>
+            <td style="padding:6px 8px;font-weight:600;">${f.cliente}</td>
+            <td style="padding:6px 8px;font-size:11px;color:var(--muted);">${f.desc}</td>
+            <td style="padding:6px 8px;font-weight:700;text-align:right;color:var(--danger);white-space:nowrap;">${fmtVal(f.valor)}</td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" style="padding:8px;font-weight:700;text-align:right;border-top:2px solid var(--border);">TOTAL DE FIADOS</td>
+            <td style="padding:8px;font-weight:700;text-align:right;color:var(--danger);border-top:2px solid var(--border);white-space:nowrap;">${fmtVal(totalFiadosDia)}</td>
+          </tr>
+        </tfoot>
+      </table>
+      </div>` : '<div style="padding:16px;color:var(--muted2);font-size:12px;">Nenhum fiado registrado nesta data.</div>';
+
+    // ── 3. FECHAMENTO DO CAIXA EM ESPÉCIE ──────────────────────
+    // Mesma lógica/fórmula já usada em renderDeposito() (aba 🏦 Depósito
+    // Bancário): Entradas em espécie = vendas em espécie do dia + espécie
+    // recebida em pagamentos de fiado quitados no dia. Acréscimos/Saídas =
+    // lançamentos feitos na aba Depósito Bancário para esse dia.
+    const vistosEsp = new Set();
+    let totalEspecie = 0;
+    doDia.forEach(l => {
+      const vid = l.vendaId != null ? l.vendaId : l.id;
+      if (!vistosEsp.has(vid)) { vistosEsp.add(vid); totalEspecie += (l.pag && l.pag['Espécie']) || 0; }
+    });
+    try {
+      const _todosFiadoPags = await _loadFiadoPag();
+      const especieFiadoDoDia = _todosFiadoPags
+        .filter(p => p.tipo !== 'sobra' && p.tipo !== 'falta_fiado' && p.formasPag && p.data === dia)
+        .reduce((a,p) => a + (p.formasPag.especie || 0), 0);
+      totalEspecie += especieFiadoDoDia;
+    } catch(e) { console.warn('[relatorioDiario] erro ao somar espécie de fiados quitados:', e.message); }
+
+    const lancamentosDep = await _loadDepositos();
+    const dep_dia = lancamentosDep.filter(d => d.data === dia);
+    const totalDescontos = dep_dia.filter(d => d.tipo !== 'acrescimo').reduce((a,d) => a + (d.valor || 0), 0);
+    const totalAcrescimos = dep_dia.filter(d => d.tipo === 'acrescimo').reduce((a,d) => a + (d.valor || 0), 0);
+    // "Valor levado ao banco" = o mesmo total que a aba Depósito Bancário calcula e chama de "Levado para o Banco".
+    const totalLevadoBanco = totalEspecie + totalAcrescimos - totalDescontos;
+    const saldoEspecieEsperado = totalEspecie + totalAcrescimos - totalDescontos - totalLevadoBanco;
+
+    const caixaHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <tbody>
+          <tr><td style="padding:6px 8px;">Entradas em espécie</td><td style="padding:6px 8px;text-align:right;color:var(--success);font-weight:700;white-space:nowrap;">+ ${fmtVal(totalEspecie)}</td></tr>
+          <tr><td style="padding:6px 8px;">Acréscimos recebidos</td><td style="padding:6px 8px;text-align:right;color:var(--success);font-weight:700;white-space:nowrap;">+ ${fmtVal(totalAcrescimos)}</td></tr>
+          <tr><td style="padding:6px 8px;">Saídas em espécie</td><td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;white-space:nowrap;">− ${fmtVal(totalDescontos)}</td></tr>
+          <tr><td style="padding:6px 8px;">Valor levado/depositado no banco</td><td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;white-space:nowrap;">− ${fmtVal(totalLevadoBanco)}</td></tr>
+          <tr>
+            <td style="padding:8px;font-weight:700;font-size:14px;border-top:2px solid var(--border);">= Saldo em espécie esperado</td>
+            <td style="padding:8px;text-align:right;font-weight:700;font-size:16px;border-top:2px solid var(--border);color:${saldoEspecieEsperado < 0 ? 'var(--danger)' : 'var(--success)'};white-space:nowrap;">${fmtVal(saldoEspecieEsperado)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;">* "Valor levado ao banco" é calculado com a mesma fórmula da aba 🏦 Depósito Bancário (Entradas + Acréscimos − Saídas) para esta data.</div>`;
+
+    // ── Monta relatório completo ────────────────────────────────
+    const agora = new Date().toLocaleString('pt-BR');
+    const html = `
+      <div style="border:1.5px solid var(--border);border-radius:10px;padding:16px 18px;background:#fff;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;border-bottom:2px solid var(--accent);padding-bottom:10px;margin-bottom:16px;">
+          <div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent);">Controle Roberto — Relatório Diário</div>
+            <div style="font-size:11px;color:var(--muted);">Documento gerado automaticamente pelo sistema</div>
+          </div>
+          <div style="text-align:right;font-size:11px;color:var(--muted);">
+            <div><strong style="font-size:14px;color:var(--text);">${fmtDate(dia)}</strong></div>
+            <div>Gerado em ${agora}</div>
+          </div>
+        </div>
+
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--accent);border-left:4px solid var(--accent);padding-left:8px;margin-bottom:8px;">1. Lançamentos do Dia</div>
+        <div style="margin-bottom:20px;">${lancamentosHTML}</div>
+
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--danger);border-left:4px solid var(--danger);padding-left:8px;margin-bottom:8px;">2. Fiados</div>
+        <div style="margin-bottom:20px;">${fiadosHTML}</div>
+
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--success);border-left:4px solid var(--success);padding-left:8px;margin-bottom:8px;">3. Fechamento do Caixa em Espécie</div>
+        <div>${caixaHTML}</div>
+      </div>`;
+
+    _relatorioDiarioHTML = html;
+    conteudoEl.innerHTML = html;
+    if (btnImprimir) btnImprimir.style.display = '';
+  } catch(e) {
+    console.error('[gerarRelatorioDiario] erro:', e);
+    conteudoEl.innerHTML = `<div style="padding:20px;color:var(--danger);font-size:13px;font-weight:700;">⚠ Erro ao gerar relatório: ${e.message}</div>`;
+  }
+}
+
+function imprimirRelatorioDiario() {
+  if (!_relatorioDiarioHTML) { showToast('⚠ Gere o relatório primeiro.'); return; }
+  const dia = document.getElementById('relDiaData').value;
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>Relatório Diário — ${fmtDate(dia)} — Controle Roberto</title>
+      <style>
+        * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        html, body { margin: 0; padding: 0; }
+        body { font-family: Arial, Helvetica, sans-serif; color:#111; font-size:12px; padding: 14mm 10mm; }
+        table { width:100%; border-collapse:collapse; }
+        th, td { border:1px solid #ccc; }
+        thead th { background:#f2f2f2 !important; }
+        @media print { @page { size: A4 portrait; margin: 14mm 10mm; } }
+        @media screen { body { max-width: 900px; margin:0 auto; } }
+      </style>
+    </head>
+    <body>
+      ${_relatorioDiarioHTML}
+      <script>
+        window.onload = function(){ setTimeout(function(){ window.print(); }, 150); };
+      <\/script>
+    </body>
+    </html>
+  `);
+  win.document.close();
 }
 
 // ── ADICIONAR NOVO PR ──

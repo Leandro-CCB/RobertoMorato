@@ -8,6 +8,7 @@ import TabEstoque from './components/TabEstoque.jsx';
 import TabMargem from './components/TabMargem.jsx';
 import TabFiado from './components/TabFiado.jsx';
 import TabDeposito from './components/TabDeposito.jsx';
+import TabRelatorios from './components/TabRelatorios.jsx';
 import TabConfig from './components/TabConfig.jsx';
 import BackupModal from './components/BackupModal.jsx';
 
@@ -30,6 +31,7 @@ export default function App() {
         <TabMargem />
         <TabFiado />
         <TabDeposito />
+        <TabRelatorios />
         <TabConfig />
       </div>
       <BackupModal />
