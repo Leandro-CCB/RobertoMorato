@@ -55,9 +55,31 @@ window._appInit = async function() {
   // Carrega clientes cadastrados (para atribuição de Fiado)
   // OBS: isto roda ANTES das demais inicializações de propósito — se alguma
   // etapa abaixo lançar um erro, a lista de clientes já estará carregada.
+  //
+  // Armazenamento: 1 linha por cliente na tabela roberto_clientes (em vez de
+  // 1 único registro JSON com a lista inteira). Assim, adicionar/remover um
+  // cliente é uma operação isolada no banco — nunca sobrescreve nem apaga
+  // os demais cadastrados, mesmo com múltiplas abas/dispositivos abertos.
   try {
-    const cfgClientes = await window._fbGetDoc('config', 'clientes');
-    CLIENTES = (cfgClientes && cfgClientes.lista) ? cfgClientes.lista : [];
+    let linhas = await window._fbGetCollection('clientes');
+    let nomes = (linhas || []).map(r => r._fbId).filter(Boolean);
+    if (!nomes.length) {
+      // Migração automática (única vez): se a tabela nova está vazia mas
+      // existe o cadastro antigo (config/clientes, lista única em JSON),
+      // copia cada nome para roberto_clientes. Não apaga o registro antigo.
+      try {
+        const legado = await window._fbGetDoc('config', 'clientes');
+        const listaLegado = (legado && legado.lista) ? legado.lista : [];
+        if (listaLegado.length) {
+          for (const nomeLegado of listaLegado) {
+            await window._fbSetDoc('clientes', nomeLegado, {});
+          }
+          nomes = listaLegado.slice();
+          console.log(`[clientes] Migrados ${listaLegado.length} cliente(s) do cadastro antigo para roberto_clientes.`);
+        }
+      } catch (eMig) { console.warn('[clientes] migração automática falhou:', eMig.message); }
+    }
+    CLIENTES = nomes.sort();
   } catch(e) { console.warn('[clientes] erro ao carregar:', e.message); CLIENTES = []; }
   popularSelectFiadoCliente();
   if (typeof renderClientesConfig === 'function') renderClientesConfig();
@@ -158,20 +180,12 @@ function atualizarResumoFiadoDist() {
   }
 }
 
-async function _salvarClientes() {
-  await window._fbSetDoc('config', 'clientes', { lista: CLIENTES });
-}
-
-// Revalida a lista de clientes contra o banco ANTES de salvar qualquer
-// alteração (add/remove). Isso evita que uma sessão com a lista local
-// desatualizada (ex.: outra aba/dispositivo cadastrou um cliente enquanto
-// esta tela estava aberta) sobrescreva e apague clientes já salvos.
+// Cada cliente é 1 linha própria na tabela roberto_clientes — adicionar/
+// remover grava/apaga só aquela linha, sem tocar nos demais cadastrados.
 async function _sincronizarClientesDoBanco() {
   try {
-    const atual = await window._fbGetDoc('config', 'clientes');
-    const doBanco = (atual && atual.lista) ? atual.lista : [];
-    const uniao = Array.from(new Set([...doBanco, ...CLIENTES]));
-    CLIENTES = uniao.sort();
+    const linhas = await window._fbGetCollection('clientes');
+    CLIENTES = (linhas || []).map(r => r._fbId).filter(Boolean).sort();
   } catch(e) {
     console.warn('[clientes] não foi possível revalidar lista antes de salvar:', e.message);
   }
@@ -198,9 +212,13 @@ async function adicionarNovoCliente() {
   if (!nome) { msg.style.color = 'var(--danger)'; msg.textContent = '⚠ Informe um nome.'; return; }
   await _sincronizarClientesDoBanco();
   if (CLIENTES.includes(nome)) { msg.style.color = 'var(--danger)'; msg.textContent = '⚠ Cliente já cadastrado.'; return; }
+  try {
+    await window._fbSetDoc('clientes', nome, {});
+  } catch(e) {
+    msg.style.color = 'var(--danger)'; msg.textContent = '⚠ Erro ao salvar: ' + e.message; return;
+  }
   CLIENTES.push(nome);
   CLIENTES.sort();
-  await _salvarClientes();
   input.value = '';
   msg.style.color = 'var(--success)';
   msg.textContent = `✓ Cliente "${nome}" adicionado!`;
@@ -212,8 +230,12 @@ async function adicionarNovoCliente() {
 async function removerCliente(nome) {
   if (!confirm(`Remover o cliente "${nome}"?\n\nIsso NÃO apaga fiados já atribuídos a ele — apenas remove da lista de cadastro.`)) return;
   await _sincronizarClientesDoBanco();
+  try {
+    await window._fbDeleteDoc('clientes', nome);
+  } catch(e) {
+    showToast('⚠ Erro ao remover cliente: ' + e.message); return;
+  }
   CLIENTES = CLIENTES.filter(c => c !== nome);
-  await _salvarClientes();
   renderClientesConfig();
   popularSelectFiadoCliente();
 }

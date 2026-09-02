@@ -131,3 +131,30 @@ create policy "anon_full_access" on public.roberto_backups
 --  4. Se você tinha dados antigos no Firebase e quer importá-los,
 --     me envie um export JSON dos dados que eu gero o INSERT.
 -- ══════════════════════════════════════════════════════════════
+
+-- ══════════════════════════════════════════════════════════════
+--  Tabela: roberto_clientes (cadastro de clientes para Fiado)
+--  1 LINHA POR CLIENTE (id = nome do cliente em maiúsculas), em vez
+--  de um único registro com a lista inteira em JSON — assim, cada
+--  adição/remoção de cliente é uma operação isolada no banco e
+--  nunca sobrescreve/apaga os demais já cadastrados.
+--  Script idempotente: pode rodar mesmo se a tabela já existir.
+-- ══════════════════════════════════════════════════════════════
+create table if not exists public.roberto_clientes (
+  id          text primary key,
+  data        jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+drop trigger if exists trg_roberto_clientes_updated on public.roberto_clientes;
+create trigger trg_roberto_clientes_updated
+  before update on public.roberto_clientes
+  for each row execute function public.roberto_set_updated_at();
+
+alter table public.roberto_clientes enable row level security;
+
+drop policy if exists "anon_full_access" on public.roberto_clientes;
+create policy "anon_full_access" on public.roberto_clientes
+  for all to anon using (true) with check (true);
+
