@@ -6,6 +6,11 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aWppaHJ1bGh4YWdudnF1ZGF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MjYwOTgsImV4cCI6MjA5NzUwMjA5OH0.1XVsA684DU4j8sZ1Ajr7yd1i7SU0mxQeTbC5z9WQIp0';
 
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // Exposto para outros módulos (ex.: 03_auth_module.js) reaproveitarem a
+  // MESMA instância, evitando o aviso "Multiple GoTrueClient instances
+  // detected" do Supabase quando dois createClient() apontam para o
+  // mesmo projeto/chave.
+  window._sbSharedClient = sb;
 
   // Mapeia as "coleções" antigas do Firestore para as tabelas do Supabase
   const TABLES = {

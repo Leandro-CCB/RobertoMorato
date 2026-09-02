@@ -4,7 +4,9 @@
 
   const AUTH_URL = 'https://bvijihrulhxagnvqudaw.supabase.co';
   const AUTH_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2aWppaHJ1bGh4YWdudnF1ZGF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5MjYwOTgsImV4cCI6MjA5NzUwMjA5OH0.1XVsA684DU4j8sZ1Ajr7yd1i7SU0mxQeTbC5z9WQIp0';
-  const authClient = window.supabase.createClient(AUTH_URL, AUTH_KEY);
+  // Reaproveita a instância criada em 02_supabase_module.js (mesmo projeto/chave)
+  // para evitar múltiplas instâncias de GoTrueClient no mesmo navegador.
+  const authClient = window._sbSharedClient || window.supabase.createClient(AUTH_URL, AUTH_KEY);
   const TABLE = 'roberto_usuarios';
 
   const SESSION_KEY = 'bertoni_auth_session';
@@ -252,17 +254,35 @@
     listarUsuariosUI();
   }
 
-  // Permite Enter para logar
-  document.addEventListener('DOMContentLoaded', () => {
-    const sessao = lerSessao();
-    if (sessao) {
-      mostrarApp(sessao);
+  // Permite Enter para logar.
+  // OBS: o React (main.jsx) monta #authGate/#authUsuario/#authSenha de forma
+  // assíncrona (script type="module"), então DOMContentLoaded pode disparar
+  // antes desses elementos existirem — por isso aguardamos eles aparecerem
+  // antes de chamar mostrarApp()/mostrarLogin(), evitando o erro
+  // "Cannot read properties of null (reading 'classList')".
+  function _aguardarAuthDOM(cb, tentativas) {
+    tentativas = tentativas || 0;
+    if (document.getElementById('authGate') && document.getElementById('authUsuario') && document.getElementById('authSenha')) {
+      cb();
+    } else if (tentativas < 200) {
+      requestAnimationFrame(() => _aguardarAuthDOM(cb, tentativas + 1));
     } else {
-      mostrarLogin();
+      console.warn('[auth] elementos de autenticação não apareceram no DOM a tempo.');
     }
-    ['authUsuario', 'authSenha'].forEach(id => {
-      document.getElementById(id).addEventListener('keydown', (ev) => {
-        if (ev.key === 'Enter') tentarLogin();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    _aguardarAuthDOM(() => {
+      const sessao = lerSessao();
+      if (sessao) {
+        mostrarApp(sessao);
+      } else {
+        mostrarLogin();
+      }
+      ['authUsuario', 'authSenha'].forEach(id => {
+        document.getElementById(id).addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') tentarLogin();
+        });
       });
     });
   });

@@ -64,18 +64,18 @@ header{
 
 /* ── SIDEBAR TOGGLE (sanduíche) ── */
 #btnSidebarToggle{
-  position:fixed;top:14px;left:14px;z-index:250;
-  width:36px;height:36px;border-radius:9px;
+  position:fixed;top:8px;left:8px;z-index:260;
+  width:32px;height:32px;border-radius:8px;
   background:#fff;border:1.5px solid var(--border);
-  box-shadow:var(--shadow);
-  font-size:18px;line-height:1;cursor:pointer;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);
+  font-size:16px;line-height:1;cursor:pointer;
   align-items:center;justify-content:center;
   color:var(--text);transition:background .15s;
 }
 #btnSidebarToggle:hover{background:var(--surface3);}
 body.sidebar-collapsed header{display:none;}
 @media(max-width:700px){
-  #btnSidebarToggle{top:10px;left:10px;width:34px;height:34px;font-size:16px;}
+  #btnSidebarToggle{top:8px;left:8px;width:30px;height:30px;font-size:14px;}
 }
 
 /* ── PAGES ── */

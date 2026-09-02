@@ -162,6 +162,21 @@ async function _salvarClientes() {
   await window._fbSetDoc('config', 'clientes', { lista: CLIENTES });
 }
 
+// Revalida a lista de clientes contra o banco ANTES de salvar qualquer
+// alteração (add/remove). Isso evita que uma sessão com a lista local
+// desatualizada (ex.: outra aba/dispositivo cadastrou um cliente enquanto
+// esta tela estava aberta) sobrescreva e apague clientes já salvos.
+async function _sincronizarClientesDoBanco() {
+  try {
+    const atual = await window._fbGetDoc('config', 'clientes');
+    const doBanco = (atual && atual.lista) ? atual.lista : [];
+    const uniao = Array.from(new Set([...doBanco, ...CLIENTES]));
+    CLIENTES = uniao.sort();
+  } catch(e) {
+    console.warn('[clientes] não foi possível revalidar lista antes de salvar:', e.message);
+  }
+}
+
 function renderClientesConfig() {
   const div = document.getElementById('clientesListDiv');
   if (!div) return;
@@ -181,6 +196,7 @@ async function adicionarNovoCliente() {
   const msg = document.getElementById('newClienteMsg');
   const nome = (input.value || '').trim().toUpperCase();
   if (!nome) { msg.style.color = 'var(--danger)'; msg.textContent = '⚠ Informe um nome.'; return; }
+  await _sincronizarClientesDoBanco();
   if (CLIENTES.includes(nome)) { msg.style.color = 'var(--danger)'; msg.textContent = '⚠ Cliente já cadastrado.'; return; }
   CLIENTES.push(nome);
   CLIENTES.sort();
@@ -195,6 +211,7 @@ async function adicionarNovoCliente() {
 
 async function removerCliente(nome) {
   if (!confirm(`Remover o cliente "${nome}"?\n\nIsso NÃO apaga fiados já atribuídos a ele — apenas remove da lista de cadastro.`)) return;
+  await _sincronizarClientesDoBanco();
   CLIENTES = CLIENTES.filter(c => c !== nome);
   await _salvarClientes();
   renderClientesConfig();
@@ -445,8 +462,6 @@ function carregarEdicaoNoForm(data, pr){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-lancamento').classList.add('active');
   document.querySelector('.tab-btn').classList.add('active');
-
-  document.getElementById('grupoLancModal').style.display='none';
 
   document.getElementById('fData').value=data;
   document.getElementById('fPr').value=pr;
@@ -1424,6 +1439,12 @@ function darBaixaVendaFiado() {
     document.getElementById('fpEspecie').value = _vendaFiadoModalValor;
     calcFiadoPagTotal();
   }
+}
+
+// Alias: o botão "Registrar Pagamento" do modal de Detalhes da Venda
+// (aba Fiado) chama pagarFiadoDaVenda() — reaproveita a mesma lógica.
+function pagarFiadoDaVenda() {
+  darBaixaVendaFiado();
 }
 
 let _fiadoPagPrAtual = '', _fiadoPagSaldoAtual = 0, _fiadoPagEditId = null;
