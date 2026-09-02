@@ -13,6 +13,33 @@ function toggleSidebar() {
   document.body.classList.toggle('sidebar-collapsed');
 }
 
+// atualizarPrograma — botão "🔄 Atualizar Programa" na sidebar.
+// Faz o equivalente a um Ctrl+Shift+R: desregistra o Service Worker,
+// apaga os caches dele e recarrega a página forçando buscar tudo de novo
+// da rede (bypass do cache do navegador).
+async function atualizarPrograma() {
+  const btn = document.getElementById('btnAtualizarPrograma');
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Atualizando...'; }
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    if (window.caches && caches.keys) {
+      const nomes = await caches.keys();
+      await Promise.all(nomes.map(n => caches.delete(n)));
+    }
+  } catch(e) {
+    console.warn('[atualizarPrograma] erro ao limpar cache/Service Worker:', e);
+  } finally {
+    // Cache-bust: força o navegador a tratar como uma navegação nova,
+    // ignorando qualquer cópia em cache (equivalente ao Ctrl+Shift+R).
+    const url = new URL(window.location.href);
+    url.searchParams.set('_upd', Date.now());
+    window.location.replace(url.toString());
+  }
+}
+
 // showTab — declarada aqui para estar disponível nos onclick dos botões de aba
 function showTab(name, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));

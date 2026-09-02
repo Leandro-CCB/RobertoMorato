@@ -73,7 +73,11 @@ header{
   color:var(--text);transition:background .15s;
 }
 #btnSidebarToggle:hover{background:var(--surface3);}
-body.sidebar-collapsed header{display:none;}
+/* !important necessário: o header recebe display:flex como estilo
+   INLINE via JS (mostrarApp em 03_auth_module.js), que tem prioridade
+   sobre qualquer regra de CSS comum — sem o !important aqui, o botão
+   sanduíche nunca conseguia ocultar a sidebar. */
+body.sidebar-collapsed header{display:none !important;}
 @media(max-width:700px){
   #btnSidebarToggle{top:8px;left:8px;width:30px;height:30px;font-size:14px;}
 }
@@ -528,6 +532,15 @@ td{padding:6px 5px;vertical-align:middle;white-space:nowrap;}
   padding:8px 16px; border-radius:9px; font-family:'DM Sans',sans-serif; font-size:12.5px;
   font-weight:700; cursor:pointer; margin-left:auto;
 }
+
+/* Botão "Atualizar Programa" no rodapé da sidebar */
+#btnAtualizarPrograma{
+  background:var(--surface2,#f7f7f7); color:var(--muted,#666); border:1.5px solid var(--border,#ddd);
+  padding:8px 12px; margin:4px 10px 0; border-radius:9px; font-family:'DM Sans',sans-serif; font-size:12px;
+  font-weight:700; cursor:pointer; text-align:center; width:calc(100% - 20px);
+}
+#btnAtualizarPrograma:hover{ background:var(--surface3,#eee); color:var(--text,#333); }
+#btnAtualizarPrograma:disabled{ opacity:.6; cursor:default; }
 
 /* Aba/gestão de usuários */
 .usr-toolbar{ display:flex; justify-content:flex-end; margin-bottom:16px; }

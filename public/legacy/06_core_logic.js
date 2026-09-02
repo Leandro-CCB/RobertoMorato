@@ -2405,10 +2405,29 @@ async function saveConfig(){
   setTimeout(()=>m.textContent='',3000);
   showToast('✓ Configurações salvas!');
 }
+// Revalida a lista de PRs contra o banco ANTES de adicionar/excluir um PR.
+// Mesma lógica de segurança usada nos clientes: evita que uma sessão com a
+// lista local desatualizada (outra aba/dispositivo já alterou a lista nesse
+// meio tempo) sobrescreva o cadastro salvo no Supabase.
+async function _sincronizarPRSDoBanco() {
+  try {
+    const atual = await window._fbGetDoc('config', 'prs');
+    const doBanco = (atual && atual.lista) ? atual.lista : [];
+    if (doBanco.length) {
+      const uniao = Array.from(new Set([...doBanco, ...PRS])).sort();
+      PRS.length = 0;
+      uniao.forEach(p => PRS.push(p));
+    }
+  } catch(e) {
+    console.warn('[prs] não foi possível revalidar lista antes de salvar:', e.message);
+  }
+}
+
 async function excluirPR(pr){
   const temLanc=lancamentos.some(l=>l.pr===pr);
   const aviso=temLanc?`\n⚠️ Atenção: existe(m) lançamento(s) registrado(s) para este PR.\nEles NÃO serão excluídos, mas o PR não aparecerá mais para novos lançamentos.`:'';
   if(!confirm(`Deseja excluir o PR "${pr}"?${aviso}`)) return;
+  await _sincronizarPRSDoBanco();
   const idx=PRS.indexOf(pr);
   if(idx===-1) return;
   PRS.splice(idx,1);
@@ -2816,6 +2835,7 @@ async function adicionarNovoPR(){
   const nome=input.value.trim().toUpperCase();
   const msg=document.getElementById('newPrMsg');
   if(!nome){msg.style.color='var(--danger)';msg.textContent='⚠ Informe o nome do PR.';return;}
+  await _sincronizarPRSDoBanco();
   if(PRS.includes(nome)){msg.style.color='var(--danger)';msg.textContent='⚠ PR já existe na lista.';return;}
   PRS.push(nome);
   PRS.sort();
