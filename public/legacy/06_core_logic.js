@@ -1,4 +1,3 @@
-
 const PRS = [
   'ABIDIAS','ADEMIR','ADRIANO','ALMEIDA','AVULSO','BOM GAS','BUIU','C. FINAL',
   'CABERÃO','CLAYTON','COSTELA','ECONOMIA','EMANUEL','EVERTON','FABIANO',
@@ -14,9 +13,6 @@ let CLIENTES = [];
 const PAY_FIELDS = ['Espécie','Débito','Crédito','QR Code','Pix','Moeda','Fiado','Gás do Povo','Sobras Anteriores'];
 const PAY_IDS    = ['pEspecie','pDebito','pCredito','pQrCode','pPix','pMoeda','pFiado','pGasPovo','pSobrasAnt'];
 const PAY_EMOJIS = {'Espécie':'💵','Débito':'💳','Crédito':'💳','QR Code':'📱','Pix':'⚡','Moeda':'🪙','Fiado':'📒','Gás do Povo':'🔥','Sobras Anteriores':'🏦'};
-
-// ── hojeLocal() — declarada globalmente no <head> para ser acessível a todos os módulos ──
-// (definição movida para o primeiro <script> do <head> — veja o início do arquivo)
 
 // Variáveis de estado — preenchidas pelo módulo Supabase antes de _appInit
 let lancamentos  = [];
@@ -61,8 +57,6 @@ window._appInit = async function() {
 
   renderTable();
   renderTotals();
-  // Fechar modal clicando no overlay
-  // clique fora desabilitado
   initCargasUI();
 
   // Carrega clientes cadastrados (para atribuição de Fiado)
@@ -157,7 +151,6 @@ const PRODUTOS_AVULSOS = [
   { label: 'Kit',       cat: 'acessorio' },
   { label: 'Bomba de Água', cat: 'acessorio' },
 ];
-
 function _criarLinhaEl(i) {
   const chipsHtml = PRODUTOS_AVULSOS.map(p =>
     `<button class="prod-chip" data-prod="${p.label}" onclick="selecionarProduto(${i},this,'${p.label}')">${p.label}</button>`
@@ -180,10 +173,8 @@ function _criarLinhaEl(i) {
 }
 
 function selecionarProduto(i, el, prod) {
-  // Desmarca todos os chips da linha
   document.querySelectorAll(`#l${i}_chips .prod-chip`).forEach(c => c.classList.remove('ativo'));
   el.classList.add('ativo');
-  // Guarda no dataset da linha para recuperar depois
   document.getElementById('linha_'+i).dataset.produtoSelecionado = prod;
 }
 
@@ -213,10 +204,8 @@ function selectLinhaBrand(i,brand) {
   document.getElementById(`l${i}_ultra`).classList.toggle('active',brand==='Ultragaz');
   document.getElementById(`l${i}_butano`).classList.toggle('active',brand==='Butano');
   document.getElementById(`l${i}_produto`).classList.toggle('active',brand==='Produto');
-  // Mostra/esconde chips de produto
   const chipsRow = document.getElementById(`l${i}_chips`);
   if (chipsRow) chipsRow.style.display = brand==='Produto' ? 'flex' : 'none';
-  // Reseta produto selecionado se mudou de tipo
   if (brand !== 'Produto') {
     const linhaEl = document.getElementById('linha_'+i);
     if (linhaEl) delete linhaEl.dataset.produtoSelecionado;
@@ -228,21 +217,17 @@ function selectLinhaBrand(i,brand) {
   }
   calcLinha(i);
 }
+
 async function onPrChange() {
   for(let i=0;i<_numLinhas;i++){
     if(document.getElementById(`l${i}_ultra`).classList.contains('active')) selectLinhaBrand(i,'Ultragaz');
     if(document.getElementById(`l${i}_butano`).classList.contains('active')) selectLinhaBrand(i,'Butano');
-    // Produto: não preenche preço automático
   }
-  // Exibe saldo de fiado do PR selecionado — usa o MESMO cálculo da aba 📒 Fiado
-  // (calcFiadoPorPR), que já desconta baixas/quitações e sobras registradas lá.
-  // Assim, o que aparece aqui é sempre igual ao que está na aba Fiado, sem risco
-  // de cobrar errado do cliente.
   const pr = document.getElementById('fPr').value;
   const infoEl = document.getElementById('prSobraInfo');
   if (pr && infoEl) {
     const fiadoPorPR = await calcFiadoPorPR();
-    const saldoFiado = (fiadoPorPR[pr] && fiadoPorPR[pr].saldo) || 0; // >0 = deve; <0 = crédito a favor
+    const saldoFiado = (fiadoPorPR[pr] && fiadoPorPR[pr].saldo) || 0; 
     const sobra = -saldoFiado;
     if (sobra > 0.009) {
       infoEl.style.display = 'flex';
@@ -263,6 +248,7 @@ async function onPrChange() {
     infoEl.style.display = 'none';
   }
 }
+
 function calcLinha(i) {
   const qtd=parseFloat(document.getElementById(`l${i}_qtd`).value)||0;
   const p  =parseFloat(document.getElementById(`l${i}_preco`).value)||0;
@@ -270,16 +256,19 @@ function calcLinha(i) {
   document.getElementById(`l${i}_total`).value=t>0?'R$ '+fmtNum(t):'';
   calcLinhaTotais();
 }
+
 function getLinhaBrand(i){
   if(document.getElementById(`l${i}_ultra`).classList.contains('active')) return 'Ultragaz';
   if(document.getElementById(`l${i}_butano`).classList.contains('active')) return 'Butano';
   if(document.getElementById(`l${i}_produto`).classList.contains('active')) return 'Produto';
   return '';
 }
+
 function getLinhaProduto(i){
   const linhaEl = document.getElementById('linha_'+i);
   return (linhaEl && linhaEl.dataset.produtoSelecionado) || '';
 }
+
 function calcLinhaTotais(){
   let q=0,v=0,n=0;
   for(let i=0;i<_numLinhas;i++){
@@ -287,7 +276,7 @@ function calcLinhaTotais(){
     const pp=parseFloat(document.getElementById(`l${i}_preco`).value)||0;
     const marca=getLinhaBrand(i);
     if(qq>0){
-      if(marca!=='Produto') q+=qq; // só conta botijões
+      if(marca!=='Produto') q+=qq; 
       v+=qq*pp;
       n++;
     }
@@ -295,14 +284,13 @@ function calcLinhaTotais(){
   document.getElementById('lTotalQtd').textContent=q;
   document.getElementById('lTotalVal').textContent='R$ '+fmtNum(v);
   document.getElementById('lTotalLinhas').textContent=n;
-  calcPagTotal(); // atualiza sobra/falta ao mudar linhas
+  calcPagTotal();
 }
 
 // ── PAGAMENTO ──
 function calcPagTotal(){
   let t=0; PAY_IDS.forEach(id=>t+=parseFloat(document.getElementById(id).value)||0);
   document.getElementById('pagTotal').textContent='R$ '+fmtNum(t);
-  // Calcula sobra/troco vs total da venda
   const totalVendaEl=document.getElementById('lTotalVal');
   const totalVenda=totalVendaEl?parseFloat(totalVendaEl.textContent.replace(/[^\d,]/g,'').replace(',','.'))||0:0;
   const sobraEl=document.getElementById('pagSobra');
@@ -367,10 +355,8 @@ async function _registrarSobraFaltaNoFiado({ tipo, valor, pr, data }) {
   const pags = await _loadFiadoPag();
   const id = Date.now();
   if (tipo === 'sobra') {
-    // Sobra = pagamento/crédito a favor do PR (abate futuro fiado)
     pags.push({ id, pr, data, valor, obs: `💰 Sobra de troco registrada automaticamente`, formasPag: null, tipo: 'sobra' });
   } else {
-    // Falta = novo fiado gerado
     pags.push({ id, pr, data, valor, obs: `⚠️ Falta de pagamento registrada como fiado`, formasPag: null, tipo: 'falta_fiado' });
   }
   window._fiadoPagamentos = pags;
@@ -380,26 +366,22 @@ async function _registrarSobraFaltaNoFiado({ tipo, valor, pr, data }) {
 }
 
 // ── MODO EDIÇÃO NO FORMULÁRIO ──
-let _editFormData=null, _editFormPr=null; // quando não-null, estamos editando
+let _editFormData=null, _editFormPr=null;
 
 function carregarEdicaoNoForm(data, pr){
   const itens=lancamentos.filter(l=>l.data===data&&l.pr===pr);
   if(!itens.length) return;
 
-  // Muda para aba lançamento
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-lancamento').classList.add('active');
   document.querySelector('.tab-btn').classList.add('active');
 
-  // Fecha modais se abertos
   document.getElementById('grupoLancModal').style.display='none';
 
-  // Preenche data e PR
   document.getElementById('fData').value=data;
   document.getElementById('fPr').value=pr;
 
-  // Usa TODAS as linhas do dia/PR, removendo duplicatas de ID
   const vistoIds2=new Set();
   const itensDedupe=itens.filter(l=>{ if(vistoIds2.has(l.id)) return false; vistoIds2.add(l.id); return true; });
   const cont=document.getElementById('linhas-container');
@@ -414,7 +396,6 @@ function carregarEdicaoNoForm(data, pr){
     document.getElementById(`l${i}_ultra`).classList.toggle('active',l.marca==='Ultragaz');
     document.getElementById(`l${i}_butano`).classList.toggle('active',l.marca==='Butano');
     document.getElementById(`l${i}_produto`).classList.toggle('active',l.marca==='Produto');
-    // Restaura chips de produto
     const chipsRow = document.getElementById(`l${i}_chips`);
     if (chipsRow) {
       chipsRow.style.display = l.marca==='Produto' ? 'flex' : 'none';
@@ -428,7 +409,6 @@ function carregarEdicaoNoForm(data, pr){
     calcLinha(i);
   });
 
-  // Preenche pagamento — busca em todas as linhas, pega a primeira com algum valor
   let pagRef={}, valeGasRef=0, fiadoClienteRef='';
   for(const l of itens){
     const p=l.pag||{};
@@ -445,14 +425,12 @@ function carregarEdicaoNoForm(data, pr){
   toggleFiadoClienteBox();
   calcPagTotal();
 
-  // Ativa modo edição
   _editFormData=data; _editFormPr=pr;
   document.getElementById('btnRegistrar').textContent='💾 Salvar Alterações';
   document.getElementById('btnCancelarEdicao').style.display='';
   document.getElementById('formEditLabel').style.display='';
   document.getElementById('formError').textContent='';
 
-  // Rola até o formulário
   document.getElementById('tab-lancamento').scrollIntoView({behavior:'smooth'});
   document.querySelector('.card').scrollIntoView({behavior:'smooth'});
 }
@@ -474,7 +452,6 @@ function cancelarEdicaoForm(){
   document.getElementById('fiadoClienteBox').style.display='none';
   document.getElementById('formError').textContent='';
 }
-
 // ── REGISTRAR / SALVAR ──
 async function addLancamento(){
   const data=document.getElementById('fData').value;
@@ -498,7 +475,6 @@ async function addLancamento(){
   const valeGas = parseInt(document.getElementById('pValeGas')?.value, 10) || 0;
   const fiadoCliente = (pag['Fiado'] > 0.009) ? (document.getElementById('fFiadoCliente')?.value || '') : '';
 
-  // ✅ TRAVA: não deixa usar mais sobra do que o PR realmente tem
   const sobrasAntUsadas = pag['Sobras Anteriores'] || 0;
   if (sobrasAntUsadas > 0.009) {
     let excludeVid = null;
@@ -516,12 +492,9 @@ async function addLancamento(){
   }
 
   if(_editFormData!==null){
-    // ── MODO EDIÇÃO: substitui TODOS os lançamentos do dia/PR ──
     const oldItens=lancamentos.filter(l=>l.data===_editFormData&&l.pr===_editFormPr);
-    // Usa o menor vendaId existente como base (ou gera novo)
     const comVendaId=oldItens.filter(l=>l.vendaId!=null);
     const vendaIdBase=comVendaId.length?Math.min(...comVendaId.map(l=>Number(l.vendaId))):(oldItens.length?oldItens[0].id:Date.now());
-    // Remove TODOS os lançamentos antigos do dia/PR
     lancamentos=lancamentos.filter(l=>!(l.data===_editFormData&&l.pr===_editFormPr));
     const now=Date.now();
     const novosItens=[];
@@ -534,8 +507,6 @@ async function addLancamento(){
       lancamentos.push(item);
       novosItens.push(item);
     });
-    // ✅ RÁPIDO: só grava os itens alterados; se sobraram ids antigos (linha removida
-    // na edição), remove só esses — evita reescrever a tabela inteira.
     const idsOrfaos=oldItens.slice(linhas.length).map(l=>l.id);
     await save({type:'add', items:novosItens});
     if (idsOrfaos.length) await window._deleteLancamentosIds(idsOrfaos);
@@ -543,16 +514,13 @@ async function addLancamento(){
     showToast('✓ Venda atualizada!');
     cancelarEdicaoForm();
   } else {
-    // ── MODO NOVO — verifica duplicata ──
     const jaExiste=lancamentos.filter(l=>l.data===data&&l.pr===pr);
     if(jaExiste.length>0){
-      // Compara linhas existentes com as novas
       const existLinhas=jaExiste.map(l=>l.qtd+'|'+l.preco+'|'+l.marca).sort().join(';');
       const novasLinhasKey=linhas.map(l=>l.qtd+'|'+l.preco+'|'+l.marca).sort().join(';');
       if(existLinhas===novasLinhasKey){
         if(!confirm(`⚠️ Já existe um lançamento para ${pr} em ${fmtDate(data)} com exatamente as mesmas linhas e valores.\n\nDeseja registrar mesmo assim?`)) return;
       } else {
-        // Mesmo dia/PR mas linhas diferentes — avisa mais suavemente
         if(!confirm(`ℹ️ ${pr} já possui lançamento em ${fmtDate(data)}.\n\nDeseja adicionar mais uma venda neste mesmo dia?`)) return;
       }
     }
@@ -569,7 +537,6 @@ async function addLancamento(){
     });
     await save({type:'add', items:novasLinhas}); renderTable(); renderTotals();
 
-    // Captura sobra/falta antes de limpar o formulário
     const painelEl = document.getElementById('painelSobraFalta');
     if (painelEl && painelEl.style.display !== 'none' && painelEl.dataset.tipo && painelEl.dataset.valor) {
       _pendenteSobraFalta = {
@@ -578,7 +545,6 @@ async function addLancamento(){
         pr,
         data
       };
-      // Mantém o painel visível para a pergunta
     } else {
       _pendenteSobraFalta = null;
     }
@@ -593,7 +559,6 @@ async function addLancamento(){
     document.getElementById('pValeGas').value='';
     document.getElementById('fFiadoCliente').value='';
     document.getElementById('fiadoClienteBox').style.display='none';
-    // Mantém painel visível se há pendente; caso contrário esconde
     if (!_pendenteSobraFalta && painelEl) painelEl.style.display='none';
   }
 }
@@ -618,27 +583,19 @@ async function excluirGrupoLanc(data, pr){
 }
 
 // ── SAVE (Supabase) ──
-// _saveContext: { type: 'add', items: [...] }   → salva só os novos/alterados
-//               { type: 'delete', ids: [...] }  → remove só os deletados
-//               { type: 'full' }                → reescreve tudo (fallback)
 async function save(_saveContext) {
-  window._lancamentos = lancamentos; // sincroniza antes de salvar
+  window._lancamentos = lancamentos;
   try {
     if (_saveContext && _saveContext.type === 'add' && _saveContext.items && _saveContext.items.length) {
-      // RÁPIDO: salva só os docs novos/alterados
       await window._saveLancamentosDocs(_saveContext.items);
     } else if (_saveContext && _saveContext.type === 'delete' && _saveContext.ids && _saveContext.ids.length) {
-      // RÁPIDO: remove só os docs deletados
       await window._deleteLancamentosIds(_saveContext.ids);
     } else {
-      // FALLBACK: reescreve tudo (ex: edição complexa)
       await window._saveLancamentos();
     }
-    // Snapshot local automático a cada salvamento no Supabase
     if (window._salvarSnapshotLocal) window._salvarSnapshotLocal('auto');
   } catch(e) {
     console.error('Erro ao salvar lançamentos:', e);
-    // Mesmo se o Supabase falhar, salva snapshot local de emergência
     if (window._salvarSnapshotLocal) window._salvarSnapshotLocal('emergencia-supabase-falhou');
     showToast('\u26a0\ufe0f Erro ao salvar no Supabase! C\u00f3pia local salva.');
   }
@@ -651,8 +608,6 @@ function fmtDate(d){const[y,m,dd]=d.split('-');return`${dd}/${m}/${y}`;}
 function sumPag(pag){return Object.values(pag||{}).reduce((a,b)=>a+b,0);}
 
 // ── SOBRAS POR PR ──
-// Para cada venda (vendaId único): sobra gerada = totalPago − totalVenda.
-// Sobras Anteriores utilizadas debitam do saldo acumulado do PR.
 function calcSobrasPorPR() {
   const saldo = {};
   const vendas = {};
@@ -678,7 +633,7 @@ function calcSobrasPorPR() {
   return saldo;
 }
 
-// ── DIAGNÓSTICO (acesse pelo console do navegador: diagnosticoPag()) ──
+// ── DIAGNÓSTICO ──
 window.diagnosticoPag=function(){
   const grupos={};
   lancamentos.forEach(l=>{
@@ -702,9 +657,8 @@ window.diagnosticoPag=function(){
 window.corrigirPagDuplicado=async function(){
   let n=0;
   const grupos={};
-  // Agrupa por PR+Data+pagamento idêntico, mantém o de MAIOR total, zera os demais
   [...lancamentos]
-    .sort((a,b)=>b.total-a.total) // maior total primeiro = fica com o pagamento
+    .sort((a,b)=>b.total-a.total)
     .forEach(l=>{
       const temPag=PAY_FIELDS.some(p=>l.pag&&l.pag[p]>0);
       if(!temPag) return;
@@ -712,7 +666,6 @@ window.corrigirPagDuplicado=async function(){
       const key=l.pr+'|'+l.data+'|'+pagJson;
       if(!grupos[key]){grupos[key]=l;}
       else{
-        // Zera o pagamento deste (que tem total menor ou igual, vem depois no sort)
         l.pag=Object.fromEntries(PAY_FIELDS.map(p=>[p,0]));n++;
       }
     });
@@ -724,10 +677,7 @@ window.corrigirPagDuplicado=async function(){
   showToast('✅ '+n+' pagamento(s) duplicado(s) corrigido(s)!');
 };
 
-// ── DIAGNÓSTICO DE VENDAS DUPLICADAS (QTD) ──
-// Detecta vendaIds diferentes para o mesmo PR+Data com linhas idênticas (qtd+preco+marca)
 window.diagnosticoQtd=function(){
-  // Agrupa lançamentos por vendaId
   const porVenda={};
   lancamentos.forEach(l=>{
     const vid=l.vendaId!=null?l.vendaId:l.id;
@@ -735,7 +685,6 @@ window.diagnosticoQtd=function(){
     porVenda[vid].itens.push(l);
   });
 
-  // Cria chave de assinatura por venda (PR+Data+linhas ordenadas)
   const assinaturas={};
   Object.entries(porVenda).forEach(([vid,v])=>{
     const linhasKey=v.itens.map(l=>l.qtd+'|'+l.preco+'|'+l.marca).sort().join(';');
@@ -754,13 +703,11 @@ window.diagnosticoQtd=function(){
   return duplicados;
 };
 
-// Remove vendas duplicadas (mantém a mais antiga = menor vendaId)
 window.corrigirVendasDuplicadas=async function(){
   const duplicados=window.diagnosticoQtd();
   if(!duplicados||!duplicados.length){console.log('✅ Nada para corrigir!');return;}
   const idsRemover=new Set();
   duplicados.forEach(([key,vendas])=>{
-    // Mantém o menor vendaId (mais antigo), remove os demais
     const sorted=[...vendas].sort((a,b)=>a.vendaId-b.vendaId);
     sorted.slice(1).forEach(v=>{
       v.itens.forEach(l=>idsRemover.add(l.id));
@@ -775,8 +722,6 @@ window.corrigirVendasDuplicadas=async function(){
   showToast('✅ Vendas duplicadas removidas!');
 };
 
-// Zera pag de um lançamento específico pelo ID
-// Uso: zerarPagId(1780943337673)
 window.zerarPagId=async function(id){
   const l=lancamentos.find(x=>x.id==id);
   if(!l){console.error('ID não encontrado:',id);return;}
@@ -788,23 +733,15 @@ window.zerarPagId=async function(id){
   console.log('✅ Pag zerado para id',id,'e salvo!');
   showToast('✅ Pagamento corrigido!');
 };
-
-
 // ══════════════════════════════════════════════════════════════
 // ── MÓDULO FIADO ──────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════
 
-// pagamentos de fiado ficam em window._fiadoPagamentos (array)
-// cada item: { id, pr, data, valor, obs, status, tipo, status }
-// ✅ AGORA SALVO NA TABELA SEPARADA 'fiados' (não mais em config!)
-
 async function _loadFiadoPag() {
   if (!window._fiadoPagamentos) {
     try {
-      // Carrega da tabela separada 'fiados' — TODOS OS FIADOS (não apenas pagamentos!)
       const fiados = await window._fbGetCollection('fiados');
-      // ✅ CARREGA TUDO: fiados dos lançamentos + pagamentos + sobras + faltas
-      window._fiadoPagamentos = fiados;  // ✅ CORRIGIDO!
+      window._fiadoPagamentos = fiados;
     } catch(e) {
       console.warn('[_loadFiadoPag] Erro ao carregar fiados:', e.message);
       window._fiadoPagamentos = [];
@@ -815,7 +752,6 @@ async function _loadFiadoPag() {
 
 async function _saveFiadoPag() {
   try {
-    // Salva TODOS os fiados na tabela separada
     if (window._fiadoPagamentos && window._fiadoPagamentos.length > 0) {
       await window._fbSaveCollection('fiados', window._fiadoPagamentos, f => f.id || f._fbId);
     }
@@ -825,7 +761,6 @@ async function _saveFiadoPag() {
   }
 }
 
-// Retorna { but, ult } com a quantidade de P13 vendida numa venda fiado específica
 function getQtdVendaFiado(pr, vendaId) {
   const itensVenda = lancamentos.filter(l => (l.vendaId != null ? l.vendaId : l.id) === vendaId);
   let but = 0, ult = 0;
@@ -836,39 +771,32 @@ function getQtdVendaFiado(pr, vendaId) {
   return { but, ult };
 }
 
-// Calcula saldo de fiado por PR
-// Retorna { PR: { totalFiado, totalPago, saldo, historico[] } }
 async function calcFiadoPorPR(excludeVendaId) {
   const pags = await _loadFiadoPag();
 
-  // Agrega fiado gerado dos lançamentos (1 linha por vendaId)
-  const fiado = {}; // PR -> array de { data, valor, origem:'lancamento', id }
+  const fiado = {}; 
   const vistos = new Set();
   lancamentos.forEach(l => {
     const vid = l.vendaId != null ? l.vendaId : l.id;
-    if (excludeVendaId != null && vid === excludeVendaId) return; // usado na validação (edição)
+    if (excludeVendaId != null && vid === excludeVendaId) return;
     if (vistos.has(vid)) return;
     vistos.add(vid);
 
     const vf = (l.pag && l.pag['Fiado']) || 0;
     if (vf > 0) {
-      // ✅ Se o fiado foi atribuído a um cliente cadastrado, fica registrado no cliente (não no PR)
       const chave = l.fiadoCliente ? ('👤 ' + l.fiadoCliente) : l.pr;
       if (!fiado[chave]) fiado[chave] = [];
       fiado[chave].push({ data: l.data, valor: vf, tipo: 'fiado', desc: l.fiadoCliente ? `Venda fiado (PR: ${l.pr})` : 'Venda fiado', id: vid, status: l.statusFiado || 'aberto' });
     }
 
-    // ✅ Se a venda usou "Sobras Anteriores", isso CONSOME o crédito do PR —
-    // precisa aparecer no fiado como um lançamento que aumenta o saldo
-    // (reduz a sobra disponível), mantendo Fiado e Sobra sempre sincronizados.
     const sobraUsada = (l.pag && l.pag['Sobras Anteriores']) || 0;
     if (sobraUsada > 0.009) {
       if (!fiado[l.pr]) fiado[l.pr] = [];
       fiado[l.pr].push({
         data: l.data,
         valor: sobraUsada,
-        tipo: 'fiado',              // mesma direção contábil de um "fiado" (aumenta saldo / reduz crédito)
-        subtipo: 'sobra_uso',       // marcador para o render tratar como algo diferente de venda fiado real
+        tipo: 'fiado',
+        subtipo: 'sobra_uso',
         desc: '📤 Sobra anterior utilizada nesta venda',
         id: vid + '_sobraUso',
         formasPag: null
@@ -876,34 +804,26 @@ async function calcFiadoPorPR(excludeVendaId) {
     }
   });
 
-  // Agrega pagamentos registrados
   pags.forEach(p => {
     if (!fiado[p.pr]) fiado[p.pr] = [];
     if (p.tipo === 'sobra') {
-      // Sobra = crédito a favor do PR (reduz saldo devedor, como pagamento)
       fiado[p.pr].push({ data: p.data, valor: p.valor, tipo: 'pagamento', desc: p.obs || '💰 Sobra de troco', id: p.id, formasPag: null });
     } else if (p.tipo === 'falta_fiado') {
-      // Falta = novo fiado gerado
       fiado[p.pr].push({ data: p.data, valor: p.valor, tipo: 'fiado', desc: p.obs || '⚠️ Falta registrada como fiado', id: p.id, formasPag: null });
     } else {
       fiado[p.pr].push({ data: p.data, valor: p.valor, tipo: 'pagamento', desc: p.obs || 'Pagamento recebido', id: p.id, formasPag: p.formasPag || null });
     }
   });
 
-  // Monta resultado por PR
   const resultado = {};
   Object.keys(fiado).forEach(pr => {
     const hist = [...fiado[pr]].sort((a,b) => a.data.localeCompare(b.data) || String(a.id).localeCompare(String(b.id)));
     let saldo = 0;
     const historico = hist.map(h => {
-      // ✅ Status do fiado (Em aberto / Baixado) é apenas informativo — NÃO altera o cálculo do saldo
       if (h.tipo === 'fiado') saldo += h.valor;
       else saldo -= h.valor;
       return { ...h, saldoApos: saldo };
     });
-    // ✅ "Fiado gerado" inclui também o uso de sobras anteriores (sobra_uso), pois
-    // esse uso também aumenta o saldo devedor do PR. Sem isso, Gerado - Recebido
-    // não batia com o Saldo em Aberto exibido (a diferença "sumia").
     const totalFiado = hist.filter(h=>h.tipo==='fiado').reduce((a,b)=>a+b.valor,0);
     const totalPago  = hist.filter(h=>h.tipo==='pagamento').reduce((a,b)=>a+b.valor,0);
     resultado[pr] = { totalFiado, totalPago, saldo: Math.round(saldo*100)/100, historico };
@@ -912,19 +832,14 @@ async function calcFiadoPorPR(excludeVendaId) {
   return resultado;
 }
 
-// Retorna quanto de sobra (crédito) o PR tem disponível agora.
-// excludeVendaId: usado ao validar uma EDIÇÃO, para não contar a sobra que
-// a própria venda em edição já havia consumido (senão a validação ficaria
-// presa comparando contra um saldo que já a desconta).
 async function getSobraDisponivelPR(pr, excludeVendaId) {
   if (!pr) return 0;
   const fiadoPorPR = await calcFiadoPorPR(excludeVendaId);
   const saldo = (fiadoPorPR[pr] && fiadoPorPR[pr].saldo) || 0;
-  const sobra = -saldo; // saldo negativo = crédito (sobra) a favor do PR
+  const sobra = -saldo;
   return Math.max(0, Math.round(sobra * 100) / 100);
 }
 
-// ── Renderiza a aba FIADO ──
 async function renderFiado() {
   const resumoEl = document.getElementById('fiadoResumoCards');
   const cardsEl  = document.getElementById('fiadoPrCards');
@@ -935,7 +850,6 @@ async function renderFiado() {
   window._fiadoDadosCache = dados;
   let prs = Object.keys(dados).sort((a,b) => dados[b].saldo - dados[a].saldo);
 
-  // Popula/atualiza o filtro de PR mantendo a seleção atual
   const filtroEl = document.getElementById('fiadoFiltroPr');
   if (filtroEl) {
     const selecionado = filtroEl.value;
@@ -949,7 +863,6 @@ async function renderFiado() {
     if (filtroEl.value) prs = prs.filter(p => p === filtroEl.value);
   }
 
-  // Popula/atualiza o filtro de Mês mantendo a seleção atual
   const mesEl = document.getElementById('fiadoFiltroMes');
   let mesSelecionado = '';
   if (mesEl) {
@@ -970,18 +883,11 @@ async function renderFiado() {
     mesSelecionado = mesEl.value;
   }
 
-  // Filtro de Status (Em aberto / Baixado) — aplicado sobre cada venda fiado
-  // individualmente (campo h.status, o mesmo exibido no badge de cada linha),
-  // e não mais sobre o saldo agregado do PR (que é apenas informativo e não
-  // reflete a baixa manual de cada venda).
   const statusEl = document.getElementById('fiadoFiltroStatus');
   const statusSelecionado = statusEl ? statusEl.value : '';
   const diaEl = document.getElementById('fiadoFiltroDia');
   const diaSelecionado = diaEl ? diaEl.value : '';
 
-  // Cards de resumo — respeitam os filtros de Mês/Dia/Status ativos (mas sempre
-  // consideram todos os PRs, mesmo se um PR específico estiver selecionado no
-  // filtro de PR, para dar uma visão geral do período filtrado).
   const todosPrs = Object.keys(dados);
   const filtroPeriodoAtivo = !!(mesSelecionado || diaSelecionado);
 
@@ -1047,8 +953,6 @@ async function renderFiado() {
     let historicoFiltrado = mesSelecionado ? d.historico.filter(h => h.data.slice(0,7) === mesSelecionado) : d.historico;
     if (diaSelecionado) historicoFiltrado = historicoFiltrado.filter(h => h.data === diaSelecionado);
     if (statusSelecionado) {
-      // Vendas fiado (tipo 'fiado', exceto sobra_uso) são filtradas pelo status individual.
-      // Pagamentos/sobras/faltas continuam aparecendo sempre, pois não têm esse status.
       historicoFiltrado = historicoFiltrado.filter(h => {
         if (h.tipo === 'fiado' && h.subtipo !== 'sobra_uso') {
           const st = h.status === 'quitado' ? 'quitado' : 'aberto';
@@ -1058,14 +962,6 @@ async function renderFiado() {
       });
     }
 
-    // ✅ "Fiado gerado", "Recebido" e "Saldo em aberto" exibidos no card devem
-    // respeitar o filtro de mês selecionado (e não sempre o total histórico do PR).
-    // Quando um mês é filtrado: Fiado/Recebido somam apenas os lançamentos daquele
-    // mês, e o "Saldo em Aberto" do card passa a ser o SALDO DO PERÍODO
-    // (Gerado - Recebido daquele mês), para bater exatamente com os dois números
-    // mostrados ao lado. O saldo ACUMULADO (histórico completo, usado para saber
-    // quanto o PR deve de verdade e habilitar "Registrar Pagamento") continua
-    // disponível em d.saldo e é exibido como informação secundária no card.
     let totalFiadoCard, totalPagoCard, saldoCard, saldoAcumuladoCard;
     if (mesSelecionado || diaSelecionado) {
       totalFiadoCard = historicoFiltrado.filter(h => h.tipo === 'fiado').reduce((a,b)=>a+b.valor,0);
@@ -1102,7 +998,6 @@ async function renderFiado() {
       const isFiado = h.tipo === 'fiado' && !isSobraUso;
       const isSobra = h.desc && h.desc.startsWith('💰 Sobra');
       const isFaltaFiado = h.desc && h.desc.startsWith('⚠️ Falta');
-      // Badge visual
       let badgeBg, badgeColor, badgeLabel;
       if (isSobraUso) {
         badgeBg='#FFFBEB'; badgeColor='#92400E'; badgeLabel='📤 Sobra Usada';
@@ -1115,7 +1010,6 @@ async function renderFiado() {
       } else {
         badgeBg='var(--success-light)'; badgeColor='var(--success)'; badgeLabel='✅ Pagamento';
       }
-      // Monta resumo das formas de pagamento
       let formasPagHTML = '';
       if (!isFiado && !isFaltaFiado && h.formasPag) {
         const fp = h.formasPag;
@@ -1128,9 +1022,7 @@ async function renderFiado() {
       }
       const sinalValor = isFiado || isFaltaFiado || isSobraUso ? '+' : '-';
       const corValor   = isFiado || isFaltaFiado || isSobraUso ? 'var(--danger)' : 'var(--success)';
-      // Botões: pagamentos manuais, sobras e faltas_fiado podem ser excluídos (sobra_uso não, é derivada do lançamento)
       const podeExcluir = (!isFiado || isFaltaFiado) && !isSobraUso;
-      // Quantidade de P13 (só faz sentido para vendas fiado ligadas a um lançamento real)
       const qtd = (isFiado && !isFaltaFiado && !isSobraUso) ? getQtdVendaFiado(pr, h.id) : null;
       const butCell = qtd ? (qtd.but > 0 ? qtd.but : '-') : '-';
       const ultCell = qtd ? (qtd.ult > 0 ? qtd.ult : '-') : '-';
@@ -1179,7 +1071,6 @@ async function renderFiado() {
         ${d.saldo > 0 ? `<button onclick="abrirFiadoPagModal('${pr}',${d.saldo})" style="background:var(--success);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(21,128,61,.25);">💵 Registrar Pagamento</button>` : ''}
       </div>
 
-      <!-- Histórico -->
       <div style="margin-top:14px;">
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px;">Histórico</div>
         <div style="overflow-x:auto;border-radius:8px;border:1px solid var(--border);">
@@ -1203,8 +1094,6 @@ async function renderFiado() {
     </div>`;
   }).join('');
 }
-
-// ── Imprimir / gerar PDF do relatório de Fiado (respeita os filtros ativos) ──
 function imprimirFiado(){
   const cardsEl = document.getElementById('fiadoPrCards');
   if (!cardsEl || !cardsEl.innerHTML.trim()) { showToast('⚠️ Não há dados para imprimir.'); return; }
@@ -1219,14 +1108,11 @@ function imprimirFiado(){
   filtrosPartes.push(statusTxt ? `Status: ${statusTxt}` : 'Todos os status');
   const filtrosTxt = filtrosPartes.join(' &nbsp;|&nbsp; ');
 
-  // Remove botões de ação (não fazem sentido no papel), atributos de evento
-  // e encurta as datas (dd/mm/aaaa -> dd/mm) para ganhar espaço na tabela.
   const conteudo = cardsEl.innerHTML
     .replace(/<button[\s\S]*?<\/button>/g, '')
     .replace(/\s(onclick|oninput|onchange)="[^"]*"/g, '')
     .replace(/\b(\d{2})\/(\d{2})\/\d{4}\b/g, '$1/$2');
 
-  // ── Linha de totais (soma os cards de PR atualmente exibidos, já com os filtros aplicados) ──
   const mesFiltradoAtivo = !!(mesEl && mesEl.value);
   let totalFiadoGeral = 0, totalPagoGeral = 0, totalSaldoGeral = 0, prsComSaldo = 0;
   cardsEl.querySelectorAll('.card[data-total-fiado]').forEach(card => {
@@ -1260,11 +1146,9 @@ function imprimirFiado(){
     </div>
     ${mesFiltradoAtivo ? `<div style="font-size:9px;color:#6b7280;margin-top:4px;">* "${rotuloSaldoTotal}" = Fiado Gerado − Recebido dentro do mês filtrado. Não representa a dívida acumulada total do PR (que pode incluir saldo de meses anteriores).</div>` : ''}`;
 
-
   const agora = new Date().toLocaleString('pt-BR');
   const dataHoraCurta = new Date().toLocaleDateString('pt-BR');
 
-  // Faixa de destaque com o PR e o mês filtrados (substitui os cards de resumo)
   const destaquePartes = [];
   destaquePartes.push(`<span class="dq-item"><span class="dq-lbl">PR</span><span class="dq-val">${pr ? pr : 'Todos'}</span></span>`);
   destaquePartes.push(`<span class="dq-item"><span class="dq-lbl">Mês</span><span class="dq-val">${mesTxt ? mesTxt : 'Todos'}</span></span>`);
@@ -1285,87 +1169,36 @@ function imprimirFiado(){
           font-family: Arial, Helvetica, sans-serif;
           color: #111;
           font-size: 12px;
-          padding: 22mm 8mm 14mm 8mm; /* espaço reservado para cabeçalho/rodapé fixos */
+          padding: 22mm 8mm 14mm 8mm;
         }
-
-        /* ===== Cabeçalho fixo (repete em toda página impressa) ===== */
-        .print-header {
-          position: fixed;
-          top: 0; left: 0; right: 0;
-          height: 16mm;
-          padding: 5mm 8mm 2mm 8mm;
-          border-bottom: 2px solid #d97706;
-          background: #fff;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
+        .print-header { position: fixed; top: 0; left: 0; right: 0; height: 16mm; padding: 5mm 8mm 2mm 8mm; border-bottom: 2px solid #d97706; background: #fff; display: flex; align-items: center; justify-content: space-between; }
         .print-header .brand-title { font-size: 15px; font-weight: 700; margin: 0; color:#111; }
         .print-header .brand-sub { font-size: 9px; color:#555; margin-top: 2px; }
         .print-header .filtros { text-align:right; font-size: 9px; color:#444; line-height:1.4; }
-
-        /* ===== Rodapé fixo (repete em toda página impressa) ===== */
-        .print-footer {
-          position: fixed;
-          bottom: 0; left: 0; right: 0;
-          height: 10mm;
-          padding: 2mm 8mm;
-          border-top: 1px solid #ccc;
-          background: #fff;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          font-size: 8.5px;
-          color: #777;
-        }
-
-        /* ===== Faixa de destaque: PR e mês filtrados ===== */
-        .destaque {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-          align-items: center;
-          background: #FFFBEB;
-          border: 1.5px solid #d97706;
-          border-radius: 8px;
-          padding: 8px 12px;
-          margin-bottom: 12px;
-        }
+        .print-footer { position: fixed; bottom: 0; left: 0; right: 0; height: 10mm; padding: 2mm 8mm; border-top: 1px solid #ccc; background: #fff; display: flex; align-items: center; justify-content: space-between; font-size: 8.5px; color: #777; }
+        .destaque { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: #FFFBEB; border: 1.5px solid #d97706; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; }
         .dq-item { display:flex; align-items:baseline; gap:6px; }
         .dq-lbl { font-size: 9px; text-transform: uppercase; letter-spacing:.5px; color:#92400E; font-weight:700; }
         .dq-val { font-size: 14px; font-weight: 700; color:#111; }
-
         h2.section-h { font-size: 12px; margin: 4px 0 8px; color:#111; border-left: 4px solid #d97706; padding-left: 7px; }
-
         .card { border: 1px solid #ccc; border-radius: 7px; padding: 9px; margin-bottom: 10px; }
-        .card:empty { display: none; }
         table { width:100%; border-collapse: collapse; font-size: 9px; margin-top:6px; table-layout: fixed; }
-        thead { display: table-header-group; } /* repete cabeçalho da tabela em cada página */
+        thead { display: table-header-group; }
         tr { break-inside: avoid; }
         th, td { border: 1px solid #ccc; padding: 3px 5px; text-align: left; overflow-wrap: break-word; }
         th { background:#f2f2f2; text-transform:uppercase; font-size:7.5px; }
         tr:nth-child(even) { background:#fafafa; }
-
-        /* Larguras das colunas: Data e BUT/ULT bem enxutas, Descrição ganha o espaço extra */
-        th:nth-child(1), td:nth-child(1) { width: 7%; white-space: nowrap; }   /* Data (dd/mm) */
-        th:nth-child(2), td:nth-child(2) { width: 12%; }                       /* Tipo */
-        th:nth-child(3), td:nth-child(3) { width: 34%; }                       /* Descrição */
-        th:nth-child(4), td:nth-child(4) { width: 11%; }                       /* Valor */
-        th:nth-child(5), td:nth-child(5) { width: 11%; }                       /* Saldo */
-        th:nth-child(6), td:nth-child(6) { width: 8%; text-align:center; }     /* BUT */
-        th:nth-child(7), td:nth-child(7) { width: 8%; text-align:center; }     /* ULT */
-        th:last-child, td:last-child { display: none; }                       /* Ações: some da impressão (não há botões no papel) */
-
-        /* Cabeçalho do card do PR: evita separar do início da tabela */
+        th:nth-child(1), td:nth-child(1) { width: 7%; white-space: nowrap; }
+        th:nth-child(2), td:nth-child(2) { width: 12%; }
+        th:nth-child(3), td:nth-child(3) { width: 34%; }
+        th:nth-child(4), td:nth-child(4) { width: 11%; }
+        th:nth-child(5), td:nth-child(5) { width: 11%; }
+        th:nth-child(6), td:nth-child(6) { width: 8%; text-align:center; }
+        th:nth-child(7), td:nth-child(7) { width: 8%; text-align:center; }
+        th:last-child, td:last-child { display: none; }
         .card > div:first-child { break-inside: avoid; break-after: avoid; }
-
-        @media print {
-          @page { size: A4 landscape; margin: 18mm 8mm 12mm 8mm; }
-          .print-header, .print-footer { position: fixed; }
-        }
-        @media screen {
-          body { max-width: 1200px; margin: 0 auto; }
-        }
+        @media print { @page { size: A4 landscape; margin: 18mm 8mm 12mm 8mm; } .print-header, .print-footer { position: fixed; } }
+        @media screen { body { max-width: 1200px; margin: 0 auto; } }
       </style>
     </head>
     <body>
@@ -1401,7 +1234,6 @@ function imprimirFiado(){
   win.document.close();
 }
 
-// ── Modal detalhes da venda (itens + formas de pagamento) ──
 let _vendaFiadoModalPr = '', _vendaFiadoModalId = null, _vendaFiadoModalValor = 0;
 
 function verVendaFiado(pr, vendaId, valor) {
@@ -1412,7 +1244,6 @@ function verVendaFiado(pr, vendaId, valor) {
   _vendaFiadoModalId = vendaId;
   _vendaFiadoModalValor = valor || 0;
 
-  // Agrupa por marca/produto + preço, somando quantidades
   const grupos = {};
   itensVenda.forEach(l => {
     const nome = l.marca === 'Produto' ? (l.produto || 'Produto') : l.marca;
@@ -1441,7 +1272,6 @@ function verVendaFiado(pr, vendaId, valor) {
     </table>`;
   document.getElementById('fiadoVendaModalItens').innerHTML = itensHTML;
 
-  // Formas de pagamento lançadas na venda (soma pag de todos os itens, geralmente só o 1º item tem valores)
   const pagTotais = {};
   itensVenda.forEach(l => {
     if (!l.pag) return;
@@ -1458,7 +1288,6 @@ function verVendaFiado(pr, vendaId, valor) {
   document.getElementById('fiadoVendaModal').style.display = 'flex';
 }
 
-// ── Dar baixa a partir do modal de detalhes da venda ──
 function darBaixaVendaFiado() {
   const pr = _vendaFiadoModalPr;
   if (!pr) return;
@@ -1466,14 +1295,12 @@ function darBaixaVendaFiado() {
   const d = (window._fiadoDadosCache || {})[pr];
   const saldo = d ? d.saldo : _vendaFiadoModalValor;
   abrirFiadoPagModal(pr, saldo);
-  // Pré-preenche o valor daquele dia em Espécie, como ponto de partida
   if (_vendaFiadoModalValor > 0) {
     document.getElementById('fpEspecie').value = _vendaFiadoModalValor;
     calcFiadoPagTotal();
   }
 }
 
-// ── Modal pagamento ──
 let _fiadoPagPrAtual = '', _fiadoPagSaldoAtual = 0, _fiadoPagEditId = null;
 
 const FP_IDS = ['fpEspecie','fpPix','fpDebito','fpCredito','fpQrcode','fpGasPovo'];
@@ -1522,13 +1349,11 @@ function abrirFiadoPagEditModal(pag) {
   document.getElementById('fiadoPagSaldoInfo').style.borderColor = '#bfdbfe';
   document.getElementById('fiadoPagSaldoInfo').style.color = 'var(--ultra)';
   _limparFiadoPagForm();
-  // Preenche formas de pagamento salvas
   const fp = pag.formasPag || {};
   FP_FIELDS.forEach((f,i) => {
     const v = fp[f] || 0;
     if (v > 0) document.getElementById(FP_IDS[i]).value = v;
   });
-  // Compatibilidade: se só tem 'valor' antigo, coloca em espécie
   if (!Object.values(fp).some(v=>v>0) && pag.valor > 0) {
     document.getElementById('fpEspecie').value = pag.valor;
   }
@@ -1544,8 +1369,6 @@ function fecharFiadoPagModal() {
   document.getElementById('fiadoPagSaldoInfo').style.color = 'var(--danger)';
 }
 
-// ✅ NOVAS FUNÇÕES: Alterar Status do Fiado (por linha, direto no lançamento)
-// Não mexe em valores nem cria pagamentos — apenas marca a venda-fiado como Baixa ou Em Aberto.
 let _fiadoStatusVendaId = null;
 let _fiadoStatusPr = null;
 
@@ -1558,7 +1381,6 @@ function abrirModalStatusFiado(pr, vendaId, statusAtual) {
     Status atual: <strong style="color:${statusAtual==='quitado'?'var(--success)':'var(--danger)'}">${statusAtual==='quitado' ? '✅ Baixado' : '📌 Em aberto'}</strong>
   `;
 
-  // Destaca a ação recomendada (a oposta ao status atual)
   const btnBaixar  = document.getElementById('btnFiadoBaixar');
   const btnReabrir = document.getElementById('btnFiadoReabrir');
   btnBaixar.style.opacity  = statusAtual === 'quitado' ? '0.5' : '1';
@@ -1574,7 +1396,6 @@ async function definirStatusFiado(novoStatus) {
   }
 
   try {
-    // Encontra TODOS os lançamentos que pertencem a essa venda (mesmo vendaId, ou id direto)
     const alvos = lancamentos.filter(l => (l.vendaId != null ? l.vendaId : l.id) === _fiadoStatusVendaId);
 
     if (!alvos.length) {
@@ -1584,7 +1405,6 @@ async function definirStatusFiado(novoStatus) {
 
     alvos.forEach(l => { l.statusFiado = novoStatus; });
 
-    // Sincroniza e salva só os itens alterados (mais rápido e seguro)
     window._lancamentos = lancamentos;
     if (typeof window._saveLancamentosDocs === 'function') {
       await window._saveLancamentosDocs(alvos);
@@ -1623,7 +1443,6 @@ async function confirmarPagFiado() {
 
   const pags = await _loadFiadoPag();
   if (_fiadoPagEditId !== null) {
-    // Edição
     const idx = pags.findIndex(p => p.id === _fiadoPagEditId);
     if (idx !== -1) {
       pags[idx] = { ...pags[idx], data, obs, formasPag, valor: total };
@@ -1633,7 +1452,6 @@ async function confirmarPagFiado() {
     fecharFiadoPagModal();
     showToast(`✅ Pagamento atualizado!`);
   } else {
-    // Novo
     const novoPag = { id: Date.now(), pr: _fiadoPagPrAtual, data, valor: total, obs, formasPag };
     pags.push(novoPag);
     window._fiadoPagamentos = pags;
@@ -1642,8 +1460,6 @@ async function confirmarPagFiado() {
     showToast(`✅ Pagamento de ${fmtVal(total)} registrado para ${_fiadoPagPrAtual}!`);
   }
   renderFiado();
-  // ✅ O valor em Espécie deste pagamento entra no caixa do dia — atualiza o
-  // Depósito Bancário na hora, sem precisar sair e voltar na aba.
   if (typeof renderDeposito === 'function') renderDeposito();
 }
 
@@ -1663,14 +1479,6 @@ async function editarPagFiado(id) {
   if (!pag) return;
   abrirFiadoPagEditModal(pag);
 }
-
-// Fecha modal clicando fora
-document.addEventListener('DOMContentLoaded', function(){
-  const m = document.getElementById('fiadoPagModal');
-  // clique fora desabilitado
-});
-
-// ── FIM MÓDULO FIADO ──────────────────────────────────────────
 // ── FILTROS LANÇAMENTOS ──
 function limparFiltrosLanc(){
   const d=document.getElementById('lFiltData');
@@ -1680,7 +1488,6 @@ function limparFiltrosLanc(){
   renderTable();
 }
 
-// Popula select de PR no filtro da tabela de lançamentos
 function populateLancFiltPr(){
   const sel=document.getElementById('lFiltPr');
   if(!sel) return;
@@ -1696,7 +1503,6 @@ function renderTable(){
   const tb=document.getElementById('tbodyLanc');
   if(!lancamentos.length){tb.innerHTML='<tr><td colspan="8" class="empty">Nenhum lançamento ainda.</td></tr>';return;}
 
-  // Filtros
   const filtData=document.getElementById('lFiltData')?.value||'';
   const filtPr=document.getElementById('lFiltPr')?.value||'';
 
@@ -1706,7 +1512,6 @@ function renderTable(){
 
   if(!lista.length){tb.innerHTML='<tr><td colspan="17" class="empty">Nenhum lançamento para os filtros selecionados.</td></tr>';renderTotals();return;}
 
-  // Agrupa por data+PR (ordem: data desc, PR asc)
   const grupos={};
   lista.forEach(l=>{
     const key=l.data+'__'+l.pr;
@@ -1715,15 +1520,14 @@ function renderTable(){
   });
 
   const gruposArr=Object.values(grupos).sort((a,b)=>{
-    if(b.data!==a.data) return b.data.localeCompare(a.data); // data desc
-    return a.pr.localeCompare(b.pr); // PR asc (alfabético)
+    if(b.data!==a.data) return b.data.localeCompare(a.data);
+    return a.pr.localeCompare(b.pr);
   });
 
   tb.innerHTML=gruposArr.map(g=>{
     const qtdTotal=g.itens.filter(l=>l.marca==='Ultragaz'||l.marca==='Butano').reduce((s,l)=>s+l.qtd,0);
     const valorTotal=g.itens.reduce((s,l)=>s+l.total,0);
 
-    // Paga: soma pagamentos únicos por vendaId
     const vistosV=new Set();
     let totalPago=0,totalFiado=0,pagEspecie=0,pagDebito=0,pagCredito=0,pagQrCode=0,pagPix=0,pagMoeda=0,pagGasPovo=0,pagSobrasAnt=0,totalValeGas=0;
     g.itens.forEach(l=>{
@@ -1744,7 +1548,6 @@ function renderTable(){
       }
     });
 
-    // Marcas distintas
     const marcas=[...new Set(g.itens.map(l=>l.marca))];
     const marcaBadges=marcas.map(m=>{
       if(m==='Ultragaz') return `<span class="badge badge-ultra">Ultra</span>`;
@@ -1755,9 +1558,6 @@ function renderTable(){
       }
       return `<span class="badge">${m}</span>`;
     }).join(' ');
-
-    // Key para o botão (escapado para JSON)
-    const keyEsc=JSON.stringify(g.data+'__'+g.pr).replace(/'/g,"\'");
 
   return `<tr>
       <td>${fmtDate(g.data)}</td>
@@ -1784,7 +1584,6 @@ function renderTable(){
   renderTotals();
 }
 
-// ── MODAL GRUPO ──
 let _grupoAtualData='', _grupoAtualPr='';
 function abrirGrupoLanc(data, pr){
   _grupoAtualData=data; _grupoAtualPr=pr;
@@ -1827,7 +1626,6 @@ async function deleteLancGrupo(id,data,pr){
   if(!confirm('Remover este lançamento?')) return;
   lancamentos=lancamentos.filter(l=>l.id!==id);
   await save({type:'delete', ids:[id]}); renderTable(); renderTotals();
-  // Reabre modal se ainda há itens do grupo
   const restantes=lancamentos.filter(l=>l.data===data&&l.pr===pr);
   if(restantes.length) abrirGrupoLanc(data,pr);
   else fecharGrupoLanc();
@@ -1838,19 +1636,14 @@ function fecharGrupoLanc(){
   document.getElementById('grupoLancModal').style.display='none';
 }
 
-
-
 // ── TOTALS BAR ──
 function renderTotals(){
-  // Usa sempre window._lancamentos (fonte primária do Supabase)
   const fonte = (window._lancamentos && window._lancamentos.length) ? window._lancamentos : lancamentos;
 
-  // Se houver filtro de data ativo, usa essa data; senão usa hoje
   const filtDataEl = document.getElementById('lFiltData');
   const filtData = filtDataEl ? filtDataEl.value : '';
   const diaRef = filtData || hojeLocal();
 
-  // Atualiza labels dos cards
   const sufixo = filtData ? (() => { const [y,m,d]=diaRef.split('-'); return d+'/'+m; })() : 'Hoje';
   ['tlBotijoes','tlValor','tlUltra','tlButano','tlFiado','tlValeGas'].forEach(id => {
     const el = document.getElementById(id);
@@ -1859,7 +1652,6 @@ function renderTotals(){
 
   const t = fonte.filter(l => l.data === diaRef);
 
-  // Para fiado: soma apenas a 1ª linha de cada grupo (evita duplicação)
   const vistosT = new Set();
   const totalFiado = t.reduce((a,l) => {
     const vid = l.vendaId != null ? l.vendaId : l.id;
@@ -1879,12 +1671,10 @@ function renderTotals(){
   document.getElementById('tfiado').textContent  = fmtVal(totalFiado);
   document.getElementById('tvalegas').textContent = totalValeGas;
 }
-// Expõe globalmente
 window.renderTotals = renderTotals;
 
 // ── LIMPAR FIADOS ──────────────────────────────────────────────
 function abrirModalLimparFiado() {
-  // Reseta o modal para o estado inicial
   document.getElementById('limparFiadoStep1').style.display = '';
   document.getElementById('limparFiadoStep2').style.display = 'none';
   document.querySelectorAll('input[name="limparOpcao"]').forEach(r => r.checked = false);
@@ -1894,7 +1684,6 @@ function abrirModalLimparFiado() {
   if (travaEl) travaEl.value = '';
   const confirmBtn = document.getElementById('btnLimparFiadoConfirmar');
   if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.opacity = '.4'; }
-  // Reseta bordas dos labels
   ['optPagLabel','optTudoLabel'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.borderColor = 'var(--border)';
@@ -1911,7 +1700,6 @@ function limparFiadoOpcaoChange() {
   const btn = document.getElementById('btnLimparFiadoProximo');
   btn.disabled = !val;
   btn.style.opacity = val ? '1' : '.4';
-  // Destaca a opção selecionada
   document.getElementById('optPagLabel').style.borderColor  = val==='pagamentos' ? 'var(--danger)' : 'var(--border)';
   document.getElementById('optTudoLabel').style.borderColor = val==='tudo'        ? 'var(--danger)' : 'var(--border)';
 }
@@ -1946,12 +1734,10 @@ async function executarLimparFiado() {
   showToast('⏳ Limpando...');
 
   try {
-    // Sempre limpa os pagamentos/sobras/faltas manuais
     window._fiadoPagamentos = [];
     await window._fbSetDoc('config', 'fiado_pagamentos', { lista: [] });
 
     if (opcao === 'tudo') {
-      // Zera o campo Fiado de todos os lançamentos
       lancamentos.forEach(l => {
         if (l.pag && l.pag['Fiado'] > 0) {
           l.pag['Fiado'] = 0;
@@ -1966,7 +1752,6 @@ async function executarLimparFiado() {
       showToast('✅ Pagamentos e registros de fiado apagados!');
     }
 
-    // Atualiza a aba fiado se estiver aberta
     if (typeof renderFiado === 'function' && document.getElementById('tab-fiado')?.classList.contains('active')) {
       renderFiado();
     }
@@ -1975,13 +1760,6 @@ async function executarLimparFiado() {
     showToast('❌ Erro ao limpar. Tente novamente.');
   }
 }
-
-// Fecha clicando fora do modal
-document.addEventListener('DOMContentLoaded', function(){
-  const m = document.getElementById('limparFiadoModal');
-  // clique fora desabilitado
-});
-
 // ── CHART INSTANCES ──
 let chartUltraInst=null, chartButanoInst=null, chartPRInst=null;
 
@@ -2017,7 +1795,6 @@ function renderCharts(f){
     if(l.marca==='Butano')   dataButano[mo]+=l.qtd;
   });
 
-  // Rótulo dentro da barra (center) para não ser cortado; se barra muito pequena, acima
   function makeDatalabels(color){
     return{
       display:ctx=>ctx.dataset.data[ctx.dataIndex]>0,
@@ -2037,7 +1814,6 @@ function renderCharts(f){
     y:{beginAtZero:true,ticks:{stepSize:1,font:{size:10}},grid:{color:'#f0f2f7'},grace:'15%'}
   };
 
-  // Gráfico Ultragaz
   chartUltraInst=new Chart(document.getElementById('chartUltra'),{
     type:'bar',
     data:{
@@ -2060,7 +1836,6 @@ function renderCharts(f){
     }
   });
 
-  // Gráfico Butano
   chartButanoInst=new Chart(document.getElementById('chartButano'),{
     type:'bar',
     data:{
@@ -2083,7 +1858,6 @@ function renderCharts(f){
     }
   });
 
-  // Gráfico por PR — HORIZONTAL, quantidade de botijões
   const prQtds={};
   f.forEach(l=>{prQtds[l.pr]=(prQtds[l.pr]||0)+l.qtd;});
   const prsSorted=Object.entries(prQtds).sort((a,b)=>b[1]-a[1]);
@@ -2091,7 +1865,6 @@ function renderCharts(f){
   const prVals=prsSorted.map(x=>x[1]);
   const palette=['#e07b00','#1d4ed8','#15803d','#dc2626','#7c3aed','#0891b2','#be185d','#d97706','#059669','#2563eb','#9333ea','#db2777','#16a34a','#ea580c','#f59e0b'];
 
-  // Altura dinâmica: 36px por barra + margens
   const chartHeight=Math.max(200, prLabels.length*38+60);
   const wrap=document.getElementById('chartPRWrap');
   wrap.style.height=chartHeight+'px';
@@ -2108,7 +1881,7 @@ function renderCharts(f){
       }]
     },
     options:{
-      indexAxis:'y',  // HORIZONTAL
+      indexAxis:'y',
       responsive:true,maintainAspectRatio:false,
       layout:{padding:{right:50}},
       plugins:{
@@ -2155,7 +1928,6 @@ function renderRanking(f){
     : '<div class="empty">Nenhum dado para o filtro selecionado.</div>';
 }
 
-// ── RESUMO ──
 const MESES_PT=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 function buildMesOptions(){
   const sel=document.getElementById('rFiltMes');
@@ -2171,8 +1943,6 @@ function buildMesOptions(){
     sel.appendChild(o);
   });
 }
-// Mapeia as chaves do formulário de pagamento de fiado (aba Fiado) para os
-// rótulos usados em PAY_FIELDS, para poder somar sem duplicar.
 const FP_TO_PAY = { especie: 'Espécie', pix: 'Pix', debito: 'Débito', credito: 'Crédito', qrcode: 'QR Code', gasPovo: 'Gás do Povo' };
 
 async function renderResumo(){
@@ -2187,14 +1957,8 @@ async function renderResumo(){
   if(dia)   f=f.filter(l=>l.data===dia);
   else if(mes) f=f.filter(l=>l.data.startsWith(mes));
 
-  // ── Pagamentos de fiado quitados posteriormente (aba 📒 Fiado) ──
-  // São valores efetivamente recebidos depois da venda original (ex: PR pagou
-  // via Pix a dívida que tinha ficado como Fiado). Não duplicam o "Valor Total"
-  // (que já é a receita da venda) — apenas entram na quebra de "Formas de Pagamento".
-  // Ignora tipo 'sobra' (já contabilizada no pag da venda original) e 'falta_fiado'
-  // (é dívida gerada, não dinheiro recebido).
   let fiadoPagsFiltrados = [];
-  if (!marca) { // pagamento de fiado não tem marca associada — só entra quando não há filtro de marca
+  if (!marca) {
     const _todosFiadoPags = await _loadFiadoPag();
     fiadoPagsFiltrados = _todosFiadoPags.filter(p => p.tipo !== 'sobra' && p.tipo !== 'falta_fiado' && p.formasPag);
     if (pr)      fiadoPagsFiltrados = fiadoPagsFiltrados.filter(p => p.pr === pr);
@@ -2202,7 +1966,6 @@ async function renderResumo(){
     else if(mes) fiadoPagsFiltrados = fiadoPagsFiltrados.filter(p => p.data && p.data.startsWith(mes));
   }
 
-  // ── Totais globais ──
   document.getElementById('summaryCards').innerHTML=`
     <div class="summary-card"><div class="s-label">Total Botijões</div><div class="s-value">${f.filter(l=>l.marca==='Ultragaz'||l.marca==='Butano').reduce((a,b)=>a+b.qtd,0)}</div></div>
     <div class="summary-card"><div class="s-label">Valor Total</div><div class="s-value green">${fmtVal(f.reduce((a,b)=>a+b.total,0))}</div></div>
@@ -2214,7 +1977,6 @@ async function renderResumo(){
     <div class="summary-card"><div class="s-label">Preço Médio Ultra</div><div class="s-value blue" style="font-size:18px">${(()=>{const itens=f.filter(l=>l.marca==='Ultragaz');const qtd=itens.reduce((a,b)=>a+b.qtd,0);const val=itens.reduce((a,b)=>a+b.total,0);return qtd>0?fmtVal(val/qtd):'—';})()}</div></div>
     <div class="summary-card"><div class="s-label">Preço Médio Butano</div><div class="s-value bgreen" style="font-size:18px">${(()=>{const itens=f.filter(l=>l.marca==='Butano');const qtd=itens.reduce((a,b)=>a+b.qtd,0);const val=itens.reduce((a,b)=>a+b.total,0);return qtd>0?fmtVal(val/qtd):'—';})()}</div></div>`;
 
-  // ── Produtos Avulsos ──
   const PROD_EMOJIS = {
     'Água 20L': '💧', 'Água 10L': '💧', 'Galão': '🪣',
     'P5': '🔴', 'P20': '🔴', 'P45': '🔴',
@@ -2249,14 +2011,11 @@ async function renderResumo(){
     }).join('');
   }
 
-  // ── Breakdown pagamentos ──
-  // Para pagamentos: apenas 1ª linha de cada venda (vendaId) para não duplicar
   const _visitedPB=new Set();
   const _fPrimeiros=f.filter(l=>{const vid=l.vendaId!=null?l.vendaId:l.id;if(!_visitedPB.has(vid)){_visitedPB.add(vid);return true;}return false;});
   document.getElementById('payBreakdown').innerHTML=PAY_FIELDS.map(p=>{
     let val=_fPrimeiros.reduce((a,b)=>a+(b.pag&&b.pag[p]||0),0);
     let n=_fPrimeiros.filter(l=>l.pag&&l.pag[p]>0).length;
-    // soma pagamentos de fiado quitados depois (aba Fiado), sem duplicar
     const fpKey = Object.keys(FP_TO_PAY).find(k => FP_TO_PAY[k] === p);
     if (fpKey) {
       const extras = fiadoPagsFiltrados.filter(pg => pg.formasPag && pg.formasPag[fpKey] > 0);
@@ -2270,16 +2029,12 @@ async function renderResumo(){
     </div>`;
   }).join('');
 
-  // ── Cartões por PR ──
-  const prsSemDados = [];
-  const prsComDados = [];
   const prsAtivos = [...new Set([...f.map(l=>l.pr), ...fiadoPagsFiltrados.map(p=>p.pr)])].sort();
 
   const grid=document.getElementById('prCardsGrid');
   if(!prsAtivos.length){
     grid.innerHTML='<div class="empty" style="grid-column:1/-1">Nenhum PR com dados para os filtros selecionados.</div>';
   } else {
-    // Saldo real de fiado por PR (já considera baixas/quitações feitas na aba 📒 Fiado)
     const fiadoPorPR = await calcFiadoPorPR();
     grid.innerHTML=prsAtivos.map(pr=>{
       const itens=f.filter(l=>l.pr===pr);
@@ -2290,12 +2045,10 @@ async function renderResumo(){
       const totalVenda=itens.reduce((a,b)=>a+b.total,0);
       const totalQtd=itens.reduce((a,b)=>a+b.qtd,0);
 
-      // pagamentos somados — considera apenas 1ª linha de cada venda (vendaId)
       const pagSoma={};
       const vistosPS=new Set();
       const itensPrimeiros=itens.filter(l=>{const vid=l.vendaId!=null?l.vendaId:l.id;if(!vistosPS.has(vid)){vistosPS.add(vid);return true;}return false;});
       PAY_FIELDS.forEach(p=>pagSoma[p]=itensPrimeiros.reduce((a,b)=>a+(b.pag&&b.pag[p]||0),0));
-      // soma pagamentos de fiado quitados depois (aba Fiado) para este PR, sem duplicar
       fiadoPagsFiltrados.filter(pg=>pg.pr===pr).forEach(pg=>{
         Object.keys(FP_TO_PAY).forEach(fpKey=>{
           const v = (pg.formasPag && pg.formasPag[fpKey]) || 0;
@@ -2310,12 +2063,8 @@ async function renderResumo(){
 
       const initials=pr.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
 
-      // Saldo de fiado deste PR — TODO o histórico (não só o período filtrado).
-      // saldo > 0 = ainda deve (pendência real); saldo < 0 = pagou/tem crédito a mais.
-      // Vem de calcFiadoPorPR(), que já desconta as baixas registradas na aba 📒 Fiado —
-      // por isso, ao quitar um fiado lá, o valor aqui cai automaticamente.
       const saldoFiadoPR = (fiadoPorPR[pr] && fiadoPorPR[pr].saldo) || 0;
-      const sobraAcum = -saldoFiadoPR; // inverte sinal p/ reaproveitar a lógica de exibição abaixo (>0 = a favor do PR)
+      const sobraAcum = -saldoFiadoPR;
       let sobraHtml = '';
       if (sobraAcum > 0.009) {
         sobraHtml = `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#dcfce7;border:1.5px solid #bbf7d0;border-radius:10px;">
@@ -2375,7 +2124,6 @@ async function renderResumo(){
     }).join('');
   }
 
-  // ── Tabela ──
   const tb=document.getElementById('tbodyResumo');
   if(!f.length){tb.innerHTML='<tr><td colspan="14" class="empty">Nenhum dado.</td></tr>';
     destroyCharts(); renderRanking(f); return;}
@@ -2391,11 +2139,9 @@ async function renderResumo(){
       <td style="font-weight:700;color:var(--accent)">${fmtVal(sumPag(l.pag))}</td>
     </tr>`).join('');
 
-  // Gráficos e Ranking
   setTimeout(()=>{ renderCharts(f); renderRanking(f); }, 0);
 }
 
-// ── Imprimir / gerar PDF do Detalhamento (respeita os filtros ativos) ──
 function imprimirDetalhamento(){
   const tbody = document.getElementById('tbodyResumo');
   if (!tbody || tbody.querySelector('.empty')) { showToast('⚠️ Não há dados para imprimir.'); return; }
@@ -2433,9 +2179,7 @@ function imprimirDetalhamento(){
         th, td { border: 1px solid #ccc; padding: 5px 6px; text-align: left; white-space: nowrap; }
         th { background:#f2f2f2; text-transform:uppercase; font-size:9px; }
         tr:nth-child(even) { background:#fafafa; }
-        @media print {
-          @page { size: A4 landscape; margin: 12mm; }
-        }
+        @media print { @page { size: A4 landscape; margin: 12mm; } }
       </style>
     </head>
     <body>
@@ -2482,8 +2226,7 @@ async function saveConfig(){
       butano:  bEl?parseFloat(bEl.value)||0:0
     };
   });
-  window._configPrecos = configPrecos; // sincroniza
-  // Salva configPrecos no Supabase
+  window._configPrecos = configPrecos;
   try {
     await window._fbSetDoc('config', 'precos', configPrecos);
   } catch(e) { console.error('Erro ao salvar config:', e); }
@@ -2500,10 +2243,8 @@ async function excluirPR(pr){
   if(idx===-1) return;
   PRS.splice(idx,1);
   delete configPrecos[pr];
-  // Salva no Supabase (preços e lista de PRs)
   try { await window._fbSetDoc('config', 'precos', configPrecos); } catch(e) {}
   try { await window._savePRs([...PRS]); } catch(e) { console.error('Erro ao salvar PRs:', e); }
-  // Atualiza todos os selects
   ['fPr','rFiltPr','editPr'].forEach(id=>{
     const sel=document.getElementById(id);
     const cur=sel.value;
@@ -2516,8 +2257,6 @@ async function excluirPR(pr){
   buildConfigGrid();
   showToast(`🗑️ PR "${pr}" excluído!`);
 }
-
-// ── showTab() — declarada globalmente no <head> (veja o primeiro <script>) ──
 
 // ── TOAST ──
 function showToast(msg){
@@ -2538,7 +2277,6 @@ function abrirEdicao(id){
   document.getElementById('editPreco').value=l.preco;
   document.getElementById('editTotal').value=l.total>0?'R$ '+fmtNum(l.total):'';
   selectEditBrand(l.marca);
-  // preenche PR select se ainda não populado
   const sel=document.getElementById('editPr');
   if(!sel.options.length){
     PRS.forEach(pr=>{const o=document.createElement('option');o.value=pr;o.textContent=pr;sel.appendChild(o);});
@@ -2586,7 +2324,6 @@ async function salvarEdicao(){
   const idx=lancamentos.findIndex(x=>x.id===id);
   if(idx===-1) return;
   lancamentos[idx]={...lancamentos[idx],data,pr,qtd,preco,total:qtd*preco,marca,pag};
-  // ✅ RÁPIDO: grava só este registro alterado, não a tabela inteira
   await save({type:'add', items:[lancamentos[idx]]}); renderTable(); renderTotals();
   fecharModal();
   showToast('✓ Lançamento atualizado!');
@@ -2600,20 +2337,17 @@ function abrirEdicaoGrupoComDados(data, pr){
   const itens=lancamentos.filter(l=>l.data===data&&l.pr===pr);
   if(!itens.length) return;
 
-  // Preenche data e PR
   document.getElementById('egData').value=data;
   const egSel=document.getElementById('egPr');
   egSel.innerHTML='';
   PRS.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;egSel.appendChild(o);});
   egSel.value=pr;
 
-  // RESET COMPLETO do container e contador antes de preencher
   _egLinhasCount=0;
   const cont=document.getElementById('egLinhasContainer');
   cont.innerHTML='';
   itens.forEach(l=>{ _egAdicionarLinhaComDados(l.id, l.qtd, l.preco, l.marca); });
 
-  // Pagamento — pega da primeira linha única por vendaId
   const vistos=new Set();
   let pagRef={}, valeGasRefEg=0, fiadoClienteRefEg='';
   itens.forEach(l=>{
@@ -2640,7 +2374,6 @@ function _egAdicionarLinhaComDados(origId, qtd, preco, marca){
   const d=document.createElement('div');
   d.id='eg_linha_'+i;
   d.dataset.origId=origId||'';
-  // Armazena marca como data-attribute para leitura confiável
   d.dataset.marca=marca||'Ultragaz';
   d.style.cssText='display:grid;grid-template-columns:80px 120px 110px 1fr 32px;gap:6px;align-items:center;margin-bottom:8px;padding:9px 10px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;';
   const isUltra=(marca==='Ultragaz');
@@ -2673,7 +2406,6 @@ function egSelectBrand(i, marca){
   const bb=document.getElementById('eg_butano_'+i);
   const linha=document.getElementById('eg_linha_'+i);
   if(!ub||!bb||!linha) return;
-  // Salva no data-attribute (fonte de verdade)
   linha.dataset.marca=marca;
   if(marca==='Ultragaz'){
     ub.style.cssText='flex:1;padding:7px 4px;border-radius:7px;font-family:DM Sans,sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:2px solid #1d4ed8;background:#eff6ff;color:#1d4ed8;';
@@ -2685,7 +2417,6 @@ function egSelectBrand(i, marca){
 }
 
 function egGetBrand(i){
-  // Lê do data-attribute — sempre confiável
   const linha=document.getElementById('eg_linha_'+i);
   return linha?linha.dataset.marca||'Ultragaz':'Ultragaz';
 }
@@ -2715,7 +2446,6 @@ async function salvarEdicaoGrupo(){
   if(!pr){err.textContent='⚠ Selecione o PR.';return;}
   err.textContent='';
 
-  // Coleta linhas visíveis
   const linhaEls=document.querySelectorAll('#egLinhasContainer > div');
   const novasLinhas=[];
   for(const el of linhaEls){
@@ -2729,13 +2459,11 @@ async function salvarEdicaoGrupo(){
   }
   if(!novasLinhas.length){err.textContent='⚠ Preencha ao menos 1 linha válida.';return;}
 
-  // Pagamento
   const pag={};
   EG_PAY_IDS.forEach((eid,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(eid)?.value)||0);
   const valeGasEg = parseInt(document.getElementById('egValeGas')?.value, 10) || 0;
   const fiadoClienteEg = (pag['Fiado'] > 0.009) ? (document.getElementById('egFiadoCliente')?.value || '') : '';
 
-  // ✅ TRAVA: mesma validação de sobra, agora no modo "Editar Venda Completa"
   const sobrasAntUsadasEg = pag['Sobras Anteriores'] || 0;
   if (sobrasAntUsadasEg > 0.009) {
     const oldItensEg = lancamentos.filter(l => l.data === _grupoAtualData && l.pr === _grupoAtualPr);
@@ -2749,12 +2477,10 @@ async function salvarEdicaoGrupo(){
     }
   }
 
-  // Remove todos os lançamentos antigos deste data+PR
   const oldItens=lancamentos.filter(l=>l.data===_grupoAtualData&&l.pr===_grupoAtualPr);
   const vendaIdBase=oldItens.length?oldItens[0].vendaId||oldItens[0].id:Date.now();
   lancamentos=lancamentos.filter(l=>!(l.data===_grupoAtualData&&l.pr===_grupoAtualPr));
 
-  // Recria com os novos dados
   const now=Date.now();
   const novosItensEg=[];
   novasLinhas.forEach((l,idx)=>{
@@ -2769,7 +2495,6 @@ async function salvarEdicaoGrupo(){
     novosItensEg.push(item);
   });
 
-  // ✅ RÁPIDO: só grava os itens alterados; remove só os ids que sobraram (linhas removidas)
   const idsOrfaosEg=oldItens.slice(novasLinhas.length).map(l=>l.id);
   _grupoAtualData=data; _grupoAtualPr=pr;
   await save({type:'add', items:novosItensEg});
@@ -2778,10 +2503,9 @@ async function salvarEdicaoGrupo(){
   fecharEditGrupoModal();
   showToast('✓ Venda atualizada com sucesso!');
 }
-
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 //  DEPÓSITO BANCÁRIO
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 let _depositosCache = null;
 
 async function _loadDepositos() {
@@ -2804,7 +2528,6 @@ async function renderDeposito() {
   if (dataEl && !dataEl.value) dataEl.value = hojeLocal();
   const dia = dataEl ? dataEl.value : hojeLocal();
 
-  // Total em espécie do dia — soma apenas 1x por venda (vendaId)
   const fonte = (window._lancamentos && window._lancamentos.length) ? window._lancamentos : lancamentos;
   const doDia = fonte.filter(l => l.data === dia);
   const vistos = new Set();
@@ -2814,9 +2537,6 @@ async function renderDeposito() {
     if (!vistos.has(vid)) { vistos.add(vid); totalEspecie += (l.pag && l.pag['Espécie']) || 0; }
   });
 
-  // ✅ Também soma dinheiro em espécie recebido depois, na quitação de Fiados
-  // (aba 📒 Fiado → Registrar Pagamento), pois esse valor também entra no caixa
-  // do dia em que foi efetivamente recebido — mesma lógica usada no Resumo.
   try {
     const _todosFiadoPags = await _loadFiadoPag();
     const especieFiadoDoDia = _todosFiadoPags
@@ -2851,7 +2571,6 @@ async function renderDeposito() {
     }).join('');
   }
 
-  // ── Histórico completo (todos os lançamentos, de todos os dias) ──
   const histMesEl = document.getElementById('depHistFiltroMes');
   const histMes = histMesEl ? histMesEl.value : '';
   let historicoCompleto = [...lancamentosDep];
@@ -2923,7 +2642,6 @@ async function excluirDesconto(id) {
 
 // ── ADICIONAR NOVO PR ──
 async function adicionarNovoPR(){
-
   const input=document.getElementById('newPrInput');
   const nome=input.value.trim().toUpperCase();
   const msg=document.getElementById('newPrMsg');
@@ -2931,9 +2649,7 @@ async function adicionarNovoPR(){
   if(PRS.includes(nome)){msg.style.color='var(--danger)';msg.textContent='⚠ PR já existe na lista.';return;}
   PRS.push(nome);
   PRS.sort();
-  // Salva lista de PRs no Supabase
   try { await window._savePRs([...PRS]); } catch(e) { console.error('Erro ao salvar PRs:', e); }
-  // atualiza selects de PR
   ['fPr','rFiltPr'].forEach(id=>{
     const sel=document.getElementById(id);
     const cur=sel.value;
@@ -2944,7 +2660,6 @@ async function adicionarNovoPR(){
     PRS.forEach(pr=>{const o=document.createElement('option');o.value=pr;o.textContent=pr;sel.appendChild(o);});
     sel.value=cur;
   });
-  // atualiza select do modal de edição
   const editSel=document.getElementById('editPr');
   editSel.innerHTML='';
   PRS.forEach(pr=>{const o=document.createElement('option');o.value=pr;o.textContent=pr;editSel.appendChild(o);});
@@ -2956,13 +2671,10 @@ async function adicionarNovoPR(){
   showToast(`✓ PR "${nome}" adicionado!`);
 }
 
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 //  CONTROLE DE CARGAS
-// ══════════════════════════════════════════════════════
-// cargas, freteConfig e empresaDiasConfig são carregados do Supabase pelo módulo ES
-// e armazenados em window.* antes de _appInit ser chamado
+// ══════════════════════════════════════════════════════════
 
-// Empresas e seus dias úteis padrão
 const EMPRESAS_VENC = [
   { nome: 'BERTONI',  diasPadrao: 5 },
   { nome: 'ROSA',     diasPadrao: 5 },
@@ -2973,7 +2685,6 @@ const EMPRESAS_VENC = [
 const PRODUTOS_FRETE = ['P 05','P 13','P 20','P 45'];
 const PRODUTOS_CARGA_OPTS = ['P 05','P 13','P 20','P 45'];
 
-// ── ITENS DA CARGA (formulário novo) ──
 let numItensCarga = 1;
 
 function _buildItemCargaDOM(containerId, i, qtd, prod, marca) {
@@ -3002,17 +2713,12 @@ function _toggleMarcaCarga(containerId, i) {
   if (marcaEl) marcaEl.style.display = (prodEl && prodEl.value === 'P 13') ? '' : 'none';
 }
 
-// Retorna o tipo (Ultragaz/Butano) selecionado no campo geral da carga,
-// de acordo com o container (novo lançamento ou edição).
 function _tipoCargaAtual(containerId) {
   const id = containerId === 'ecItensContainer' ? 'ecTipo' : 'cTipo';
   const el = document.getElementById(id);
   return (el && el.value) || 'Ultragaz';
 }
 
-// Ao trocar o Tipo (Ultra/Butano) no cabeçalho da carga, aplica automaticamente
-// a marca em todos os itens P 13 já lançados (o usuário ainda pode ajustar
-// item a item, se precisar misturar marcas na mesma carga).
 function _aplicarTipoCargaAosItens(containerId) {
   containerId = containerId || 'cItensContainer';
   const tipo = _tipoCargaAtual(containerId);
@@ -3042,7 +2748,6 @@ function removeItemCarga(containerId, i) {
   const isNew = containerId === 'cItensContainer';
   const totalAtual = isNew ? numItensCarga : document.querySelectorAll(`#${containerId} .carga-item-row`).length;
   if (totalAtual <= 1) { showToast('Deve haver ao menos 1 item.'); return; }
-  // Recolhe dados exceto o removido
   const total = isNew ? numItensCarga : totalAtual;
   const dados = [];
   for (let j = 0; j < total; j++) {
@@ -3076,14 +2781,13 @@ function getItensCarga(containerId) {
   return itens;
 }
 
-// ══════════════════════════════════════════════════════
-//  CONTROLE DE ESTOQUE — P13 (Ultragaz + Butano)
-// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+//  CONTROLE DE ESTOQUE — P13
+// ══════════════════════════════════════════════════════════
 const LS_ESTOQUE_INICIAL_KEY = 'estoqueInicial_v1';
 const LS_ESTOQUE_LOCAL_KEY = 'estoqueLocalAtual_v1';
-let estoqueOutroAtual = null; // produto atualmente selecionado na seção "Outros Itens"
+let estoqueOutroAtual = null;
 
-// Local (unidade) de estoque atualmente selecionado: 'Franco da Rocha' ou 'Morato'
 function getEstoqueLocalAtual() {
   try {
     return localStorage.getItem(LS_ESTOQUE_LOCAL_KEY) || 'Franco da Rocha';
@@ -3105,8 +2809,6 @@ function atualizarBotoesLocalEstoque() {
   if (btnM) btnM.classList.toggle('active', local === 'Morato');
 }
 
-// Uma carga "pertence" ao local se o campo descarga bater; cargas antigas sem
-// o campo preenchido são tratadas como Franco da Rocha (valor padrão do formulário).
 function _cargaPertenceAoLocal(c, local) {
   return (c.descarga || 'Franco da Rocha') === local;
 }
@@ -3117,11 +2819,8 @@ function getEstoqueInicialCacheLocal() {
   } catch (e) { return {}; }
 }
 
-// ✅ Estoque inicial agora é salvo no Supabase (config/estoque_inicial), não só no localStorage.
-// window._estoqueInicialCache guarda o valor já carregado do Supabase nesta sessão.
 function getEstoqueInicial() {
   if (window._estoqueInicialCache) return window._estoqueInicialCache;
-  // Enquanto o Supabase não carregou ainda, usa o cache local como fallback temporário
   return getEstoqueInicialCacheLocal();
 }
 
@@ -3143,11 +2842,9 @@ async function salvarEstoqueInicial() {
   };
   window._estoqueInicialCache = cfg;
   try {
-    // Mantém uma cópia local (funciona offline / carrega instantâneo)
     localStorage.setItem(LS_ESTOQUE_INICIAL_KEY, JSON.stringify(cfg));
   } catch (e) {}
   try {
-    // ✅ Salva também no Supabase, para não depender só do navegador local
     await window._fbSetDoc('config', 'estoque_inicial', cfg);
     showToast('💾 Estoque inicial salvo!');
   } catch (e) {
@@ -3176,13 +2873,11 @@ function buildEstoqueMesOptions() {
   });
 }
 
-// Monta o histórico diário completo de entradas/saídas/saldo de P13 por marca
 function calcEstoqueDiario() {
   const inicial = getEstoqueInicial();
   const dataIni = inicial.data || '';
 
-  // Saídas: vendas de P13 (marca Ultragaz/Butano) por dia
-  const saidasPorDia = {}; // { 'YYYY-MM-DD': { ultragaz: n, butano: n } }
+  const saidasPorDia = {};
   lancamentos.forEach(l => {
     if (l.marca !== 'Ultragaz' && l.marca !== 'Butano') return;
     if (dataIni && l.data < dataIni) return;
@@ -3190,7 +2885,6 @@ function calcEstoqueDiario() {
     saidasPorDia[l.data][l.marca === 'Ultragaz' ? 'ultragaz' : 'butano'] += (l.qtd || 0);
   });
 
-  // Entradas: itens P 13 de cargas, por dia e marca (somente do local selecionado)
   const local = getEstoqueLocalAtual();
   const entradasPorDia = {};
   cargas.forEach(c => {
@@ -3201,7 +2895,7 @@ function calcEstoqueDiario() {
     if (!itensP13.length) return;
     if (!entradasPorDia[c.data]) entradasPorDia[c.data] = { ultragaz: 0, butano: 0 };
     itensP13.forEach(it => {
-      const marca = it.marca === 'Butano' ? 'butano' : 'ultragaz'; // padrão Ultragaz se não informado
+      const marca = it.marca === 'Butano' ? 'butano' : 'ultragaz';
       entradasPorDia[c.data][marca] += (it.qtd || 0);
     });
   });
@@ -3248,7 +2942,6 @@ function renderEstoque() {
     visiveis = visiveis.filter(h => h.data.startsWith(mes));
   }
 
-  // Cards de saldo atual = último saldo do histórico completo (não filtrado)
   const ultimo = historico.length ? historico[historico.length - 1] : null;
   const saldoAtualU = ultimo ? ultimo.saldoU : (parseFloat(inicial.ultragaz) || 0);
   const saldoAtualB = ultimo ? ultimo.saldoB : (parseFloat(inicial.butano) || 0);
@@ -3270,7 +2963,7 @@ function renderEstoque() {
     tbody.innerHTML = '<tr><td colspan="8" class="empty">Nenhum dado para o filtro selecionado.</td></tr>';
     return;
   }
-  const ordenado = [...visiveis]; // ordem crescente por data (mais antiga primeiro)
+  const ordenado = [...visiveis];
   tbody.innerHTML = ordenado.map(h => {
     const [y, mo, d] = h.data.split('-');
     return `<tr>
@@ -3286,9 +2979,6 @@ function renderEstoque() {
   }).join('');
 }
 
-// ── Estoque de outros itens (P05, P20, P45, Cotas) — modal ──
-// Entradas: somadas a partir dos itens lançados na aba Cargas.
-// Saídas: somadas a partir dos lançamentos de venda avulsa (marca === 'Produto').
 function _calcEstoqueOutroItem(produto) {
   const local = getEstoqueLocalAtual();
   const entradasPorDia = {};
@@ -3306,7 +2996,7 @@ function _calcEstoqueOutroItem(produto) {
     saidasPorDia[l.data] = (saidasPorDia[l.data] || 0) + (l.qtd || 0);
   });
 
-  const todasDatas = [...new Set([...Object.keys(entradasPorDia), ...Object.keys(saidasPorDia)])].sort(); // ordem crescente
+  const todasDatas = [...new Set([...Object.keys(entradasPorDia), ...Object.keys(saidasPorDia)])].sort();
 
   let saldo = 0;
   return todasDatas.map(data => {
@@ -3317,7 +3007,6 @@ function _calcEstoqueOutroItem(produto) {
   });
 }
 
-// Seleciona (aba) qual "outro item" mostrar dentro da própria página de Estoque
 function selecionarEstoqueOutro(produto, btnEl) {
   estoqueOutroAtual = produto;
   document.querySelectorAll('#estoqueOutrosTabs .pill-item').forEach(b => b.classList.remove('active'));
@@ -3365,14 +3054,11 @@ function renderEstoqueOutro() {
   }
 }
 
-// Alias retrocompatível, caso algo ainda chame o nome antigo.
 function abrirEstoqueOutros(produto) {
   const btn = document.querySelector(`#estoqueOutrosTabs .pill-item[data-produto="${produto}"]`);
   selecionarEstoqueOutro(produto, btn);
 }
 
-// Configuração de modais de cargas — chamada dentro do _appInit (após Supabase carregar)
-// ── AUTO-MARCAR PAGO: vencimento >= 3 dias atrás ────────────────
 async function autoMarcarPago() {
   const hoje = hojeLocal();
   const limite = new Date(hoje + 'T12:00:00');
@@ -3401,32 +3087,41 @@ function initCargasUI() {
   buildItensCarga('cItensContainer', [{}]);
   calcVencimentoAuto();
   autoMarcarPago().then(() => renderCargas());
-  document.getElementById('editCargaModal').addEventListener('click', function(e){
-    if(false) fecharCargaModal();
-  });
-  document.getElementById('freteConfigModal').addEventListener('click', function(e){
-    if(false) fecharFreteConfig();
-  });
-  document.getElementById('prorrogarModal').addEventListener('click', function(e){
-    if(false) fecharProrrogar();
-  });
+
+  // [CORREÇÃO] Verificações para evitar erro "Cannot read properties of null"
+  const modalEdit = document.getElementById('editCargaModal');
+  if (modalEdit) {
+    modalEdit.addEventListener('click', function(e){
+      if(false) fecharCargaModal();
+    });
+  }
+  const modalFrete = document.getElementById('freteConfigModal');
+  if (modalFrete) {
+    modalFrete.addEventListener('click', function(e){
+      if(false) fecharFreteConfig();
+    });
+  }
+  const modalProrrogar = document.getElementById('prorrogarModal');
+  if (modalProrrogar) {
+    modalProrrogar.addEventListener('click', function(e){
+      if(false) fecharProrrogar();
+    });
+  }
 }
 
 async function saveCargas() {
-  window._cargas = cargas; // sincroniza antes de salvar
+  window._cargas = cargas;
   try {
     await window._saveCargas();
   } catch(e) { console.error('Erro ao salvar cargas:', e); }
 }
 
-// ── DIAS CORRIDOS ──
 function addDiasUteis(dataStr, dias) {
-  // Dias CORRIDOS: soma direto; se cair no fim de semana, avança para segunda-feira
   const d = new Date(dataStr + 'T12:00:00');
   d.setDate(d.getDate() + dias);
   const dow = d.getDay();
-  if (dow === 6) d.setDate(d.getDate() + 2); // sábado → segunda
-  if (dow === 0) d.setDate(d.getDate() + 1); // domingo → segunda
+  if (dow === 6) d.setDate(d.getDate() + 2);
+  if (dow === 0) d.setDate(d.getDate() + 1);
   return d.toISOString().split('T')[0];
 }
 
@@ -3441,7 +3136,6 @@ function calcVencimentoAuto() {
   }
 }
 
-// ── FRETE AUTOMÁTICO ──
 function calcFreteAuto() {
   let totalFrete = 0;
   let i = 0;
@@ -3468,9 +3162,9 @@ function calcEditFreteAuto() {
   if (totalFrete > 0) document.getElementById('ecFrete').value = totalFrete.toFixed(2);
 }
 
-// ── MODAL CONFIG FRETE ──
 function abrirFreteConfig() {
   const grid = document.getElementById('freteConfigGrid');
+  if (!grid) return;
   grid.innerHTML = PRODUTOS_FRETE.map(p => {
     const safeid = p.replace(/[^a-zA-Z0-9]/g,'_');
     return `<div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:12px;">
@@ -3483,24 +3177,26 @@ function abrirFreteConfig() {
     </div>`;
   }).join('');
 
-  // Tabela de empresas e dias úteis
   const hoje = hojeLocal();
   const tbody = document.getElementById('empresaDiasBody');
-  tbody.innerHTML = EMPRESAS_VENC.map(e => {
-    const dias = empresaDiasConfig[e.nome] != null ? empresaDiasConfig[e.nome] : e.diasPadrao;
-    const exemplVenc = addDiasUteis(hoje, dias);
-    const [y,m,d] = exemplVenc.split('-');
-    return `<tr>
-      <td style="font-weight:700">${e.nome}</td>
-      <td style="text-align:center">
-        <input type="number" id="dias_${e.nome}" min="1" max="30" value="${dias}"
-          onchange="atualizarExemploDias('${e.nome}')"/>
-      </td>
-      <td style="text-align:center;color:var(--ultra);font-weight:600;font-size:12px;" id="ex_${e.nome}">${d}/${m}/${y}</td>
-    </tr>`;
-  }).join('');
+  if (tbody) {
+    tbody.innerHTML = EMPRESAS_VENC.map(e => {
+      const dias = empresaDiasConfig[e.nome] != null ? empresaDiasConfig[e.nome] : e.diasPadrao;
+      const exemplVenc = addDiasUteis(hoje, dias);
+      const [y,m,d] = exemplVenc.split('-');
+      return `<tr>
+        <td style="font-weight:700">${e.nome}</td>
+        <td style="text-align:center">
+          <input type="number" id="dias_${e.nome}" min="1" max="30" value="${dias}"
+            onchange="atualizarExemploDias('${e.nome}')"/>
+        </td>
+        <td style="text-align:center;color:var(--ultra);font-weight:600;font-size:12px;" id="ex_${e.nome}">${d}/${m}/${y}</td>
+      </tr>`;
+    }).join('');
+  }
 
-  document.getElementById('freteConfigModal').classList.add('open');
+  const modalFrete = document.getElementById('freteConfigModal');
+  if (modalFrete) modalFrete.classList.add('open');
 }
 
 function atualizarExemploDias(empresa) {
@@ -3513,7 +3209,8 @@ function atualizarExemploDias(empresa) {
 }
 
 function fecharFreteConfig() {
-  document.getElementById('freteConfigModal').classList.remove('open');
+  const modalFrete = document.getElementById('freteConfigModal');
+  if (modalFrete) modalFrete.classList.remove('open');
 }
 
 async function salvarFreteConfig() {
@@ -3522,38 +3219,37 @@ async function salvarFreteConfig() {
     const el = document.getElementById('frete_' + safeid);
     if (el) freteConfig[p] = parseFloat(el.value) || 0;
   });
-  // Salva frete no Supabase (será feito junto com empresa_dias abaixo)
-
-  // Salvar dias úteis por empresa
   EMPRESAS_VENC.forEach(e => {
     const el = document.getElementById('dias_' + e.nome);
     if (el) empresaDiasConfig[e.nome] = parseInt(el.value) || e.diasPadrao;
   });
   window._freteConfig = freteConfig;
   window._empresaDiasConfig = empresaDiasConfig;
-  // Salva freteConfig e empresaDiasConfig no Supabase
   try {
     await window._fbSetDoc('config', 'frete', freteConfig);
     await window._fbSetDoc('config', 'empresa_dias', empresaDiasConfig);
   } catch(e) { console.error('Erro ao salvar config frete/dias:', e); }
 
   const m = document.getElementById('freteConfigMsg');
-  m.textContent = '✓ Salvo!';
-  setTimeout(() => { m.textContent = ''; fecharFreteConfig(); }, 1200);
+  if (m) {
+    m.textContent = '✓ Salvo!';
+    setTimeout(() => { m.textContent = ''; fecharFreteConfig(); }, 1200);
+  }
   showToast('✓ Config. de frete salva!');
 }
 
-// ── STATUS QUICK SELECT ──
 let _statusPopupCargaId = null;
 
 function abrirStatusQS(id, ev) {
   if (ev) { ev.preventDefault(); ev.stopPropagation(); }
   _statusPopupCargaId = id;
-  document.getElementById('statusQSModal').classList.add('open');
+  const modalStatus = document.getElementById('statusQSModal');
+  if (modalStatus) modalStatus.classList.add('open');
 }
 
 function fecharStatusQS() {
-  document.getElementById('statusQSModal').classList.remove('open');
+  const modalStatus = document.getElementById('statusQSModal');
+  if (modalStatus) modalStatus.classList.remove('open');
 }
 
 async function setStatusCarga(id, novoStatus) {
@@ -3573,7 +3269,6 @@ function setStatusProrrogado(id) {
   if (id != null) _statusPopupCargaId = id;
   const carga = cargas.find(c => c.id === id);
   const input = document.getElementById('prorrogarData');
-  // Sugere dia seguinte ao vencimento atual
   if (carga && carga.venc) {
     const d = new Date(carga.venc + 'T12:00:00');
     d.setDate(d.getDate() + 1);
@@ -3583,12 +3278,10 @@ function setStatusProrrogado(id) {
     d.setDate(d.getDate() + 1);
     input.value = d.toISOString().split('T')[0];
   }
-  // Marca o modal como sendo da tabela
   document.getElementById('prorrogarModal').dataset.origem = 'tabela';
   document.getElementById('prorrogarModal').classList.add('open');
 }
 
-// ── BOLETO PRORROGADO ──
 function abrirProrrogar() {
   const vencAtual = document.getElementById('cVenc').value;
   const input = document.getElementById('prorrogarData');
@@ -3601,12 +3294,18 @@ function abrirProrrogar() {
     d.setDate(d.getDate() + 1);
     input.value = d.toISOString().split('T')[0];
   }
-  document.getElementById('prorrogarModal').dataset.origem = 'form';
-  document.getElementById('prorrogarModal').classList.add('open');
+  const modal = document.getElementById('prorrogarModal');
+  if (modal) {
+    modal.dataset.origem = 'form';
+    modal.classList.add('open');
+  }
 }
+
 function fecharProrrogar() {
-  document.getElementById('prorrogarModal').classList.remove('open');
+  const modal = document.getElementById('prorrogarModal');
+  if (modal) modal.classList.remove('open');
 }
+
 async function confirmarProrrogar() {
   const novaData = document.getElementById('prorrogarData').value;
   if (!novaData) { showToast('⚠ Informe a nova data de vencimento!'); return; }
@@ -3628,7 +3327,6 @@ async function confirmarProrrogar() {
   fecharProrrogar();
 }
 
-// Calcula o líquido em tempo real no formulário
 function calcCargaLiquido() {
   const v = parseFloat(document.getElementById('cValor').value) || 0;
   const d = parseFloat(document.getElementById('cDesconto').value) || 0;
@@ -3641,7 +3339,6 @@ function calcEditCargaLiquido() {
   document.getElementById('ecLiquido').value = 'R$ ' + fmtNum(v - d);
 }
 
-// Adicionar nova carga
 async function addCarga() {
   const err = document.getElementById('cargaErr');
   const data    = document.getElementById('cData').value;
@@ -3659,7 +3356,6 @@ async function addCarga() {
   const valorRaw = document.getElementById('cValor').value;
   const valor    = parseFloat(valorRaw) || 0;
   const desconto = parseFloat(document.getElementById('cDesconto').value) || 0;
-  // qtd total e produto principal para compatibilidade/exibição
   const qtdTotal = itensValidos.reduce((a, it) => a + it.qtd, 0);
   const produtoLabel = itensValidos.length === 1
     ? itensValidos[0].produto
@@ -3685,29 +3381,27 @@ async function addCarga() {
     obs:       document.getElementById('cObs').value.trim(),
   };
 
-  // Quantidade lançada sem valor (vazio ou zero) → pergunta se é troca
   if (!valorRaw || valor <= 0) {
     _pendingCarga = dadosBase;
-    document.getElementById('trocaModal').classList.add('open');
+    const modalTroca = document.getElementById('trocaModal');
+    if (modalTroca) modalTroca.classList.add('open');
     return;
   }
 
   await finalizarNovaCarga({ ...dadosBase, troca: false });
 }
 
-// Carga pendente aguardando resposta do modal de troca
 let _pendingCarga = null;
 
-// Chamado pelos botões do modal de troca (Sim / Não)
 async function resolverTroca(isTroca) {
-  document.getElementById('trocaModal').classList.remove('open');
+  const modalTroca = document.getElementById('trocaModal');
+  if (modalTroca) modalTroca.classList.remove('open');
   if (!_pendingCarga) return;
   await finalizarNovaCarga({ ..._pendingCarga, troca: isTroca });
   _pendingCarga = null;
   showToast(isTroca ? '🔄 Troca registrada!' : '✅ Carga registrada!');
 }
 
-// Finaliza o registro da carga (comum aos dois fluxos)
 async function finalizarNovaCarga(dados) {
   const carga = { id: Date.now(), ...dados };
   cargas.push(carga);
@@ -3715,7 +3409,6 @@ async function finalizarNovaCarga(dados) {
   renderCargas();
   if (dados.valor > 0) showToast('✅ Carga registrada!');
 
-  // Limpa formulário
   ['cValor','cDesconto','cLiquido','cFrete','cObs','cNF'].forEach(id => {
     document.getElementById(id).value = '';
   });
@@ -3731,7 +3424,6 @@ async function finalizarNovaCarga(dados) {
   calcVencimentoAuto();
 }
 
-// Deletar carga
 async function deleteCarga(id) {
   if (!confirm('Remover esta carga?')) return;
   cargas = cargas.filter(c => c.id !== id);
@@ -3739,7 +3431,6 @@ async function deleteCarga(id) {
   renderCargas();
 }
 
-// Editar carga
 function abrirEdicaoCarga(id) {
   const c = cargas.find(x => x.id === id);
   if (!c) return;
@@ -3751,7 +3442,6 @@ function abrirEdicaoCarga(id) {
   document.getElementById('ecCaminhao').value      = c.caminhao || '';
   document.getElementById('ecTipo').value          = c.tipo || 'Ultragaz';
   document.getElementById('ecDescarga').value      = c.descarga || 'Franco da Rocha';
-  // Itens: usa array itens se existir, senão cria a partir de produto/qtd antigos
   const itens = c.itens && c.itens.length
     ? c.itens
     : [{ qtd: c.qtd || 0, produto: c.produto || '' }];
@@ -3764,11 +3454,15 @@ function abrirEdicaoCarga(id) {
   document.getElementById('ecStatus').value        = c.status;
   document.getElementById('ecObs').value           = c.obs || '';
   document.getElementById('editCargaErr').textContent = '';
-  document.getElementById('editCargaModal').classList.add('open');
+  const modalEditCarga = document.getElementById('editCargaModal');
+  if (modalEditCarga) modalEditCarga.classList.add('open');
 }
+
 function fecharCargaModal() {
-  document.getElementById('editCargaModal').classList.remove('open');
+  const modal = document.getElementById('editCargaModal');
+  if (modal) modal.classList.remove('open');
 }
+
 async function salvarEdicaoCarga() {
   const id  = parseInt(document.getElementById('editCargaId').value);
   const idx = cargas.findIndex(x => x.id === id);
@@ -3817,7 +3511,6 @@ async function salvarEdicaoCarga() {
   showToast('✓ Carga atualizada!');
 }
 
-// Renderizar tudo da aba cargas
 function renderCargas() {
   buildCargasMesOptions();
   buildCargasEmpresaOptions();
@@ -3833,7 +3526,6 @@ function renderCargas() {
   if (fStatus)  f = f.filter(c => c.status === fStatus);
   if (fMes)     f = f.filter(c => c.data.startsWith(fMes));
 
-  // ── Cards de resumo ──
   const totalValor   = f.reduce((a, c) => a + c.valor, 0);
   const totalLiquido = f.reduce((a, c) => a + (c.liquido || c.valor), 0);
   const totalFrete   = f.reduce((a, c) => a + (c.frete || 0), 0);
@@ -3842,7 +3534,6 @@ function renderCargas() {
   const cargasTroca  = f.filter(c => c.troca);
   const totalTrocaQtd = cargasTroca.reduce((a, c) => a + (c.qtd || 0), 0);
 
-  // ── Próximas a vencer (cargas A VENCER + PRORROGADO com vencimento futuro/próximo) ──
   const hoje = hojeLocal();
   const proximas = cargas
     .filter(c => (c.status === 'A VENCER' || c.status === 'PRORROGADO') && c.venc)
@@ -3877,7 +3568,6 @@ function renderCargas() {
       }).join('');
 
   const qtdAvencer = cargas.filter(c => c.status === 'A VENCER' || c.status === 'PRORROGADO').length;
-
   const totalDesconto = f.reduce((a, c) => a + (c.desconto || 0), 0);
 
   document.getElementById('cargaSummary').innerHTML = `
@@ -3899,7 +3589,6 @@ function renderCargas() {
     </div>
   `;
 
-  // ── Tabela ──
   const tb = document.getElementById('tbodyCargas');
   if (!f.length) {
     tb.innerHTML = '<tr><td colspan="16" class="empty">Nenhuma carga para os filtros selecionados.</td></tr>';
@@ -3908,7 +3597,6 @@ function renderCargas() {
     return;
   }
 
-  // ── Tfoot totais ──
   const tfootEl = document.getElementById('tfootCargas');
   const sumQtd     = f.reduce((a, c) => a + (c.qtd || 0), 0);
   const sumValor   = f.reduce((a, c) => a + (c.valor || 0), 0);
@@ -3916,7 +3604,6 @@ function renderCargas() {
   const sumLiquido = f.reduce((a, c) => a + (c.liquido || c.valor || 0), 0);
   const sumFrete   = f.reduce((a, c) => a + (c.frete || 0), 0);
 
-  // ── Cálculo de tonelagem lançada ──
   const PESO_PRODUTO = { 'P 05': 5, 'P 13': 13, 'P 20': 20, 'P 45': 45 };
   function getPesoKg(produto) { return PESO_PRODUTO[produto] || 0; }
   const sumKg = f.reduce((a, c) => {
@@ -3956,7 +3643,6 @@ function renderCargas() {
     const tipoLabel = c.tipo === 'Butano' ? '🟢 Butano' : '🔵 Ultragaz';
     const vencDisplay = c.venc ? fmtDate(c.venc) : '-';
     const vencStyle = c.status === 'PRORROGADO' ? 'color:var(--ultra);font-weight:700' : 'color:var(--muted)';
-    // Monta display de itens
     const itensDisplay = c.itens && c.itens.length > 1
       ? c.itens.map(it => `<div style="font-size:11px;white-space:nowrap"><strong>${it.qtd}</strong> × ${it.produto}</div>`).join('')
       : `<span style="font-weight:600">${c.produto || '—'}</span>`;
@@ -4029,14 +3715,12 @@ function exportarPDFCargas() {
 
   if (!f.length) { showToast('⚠ Nenhuma carga para exportar!'); return; }
 
-  // Labels de filtro
   let mesLabel = 'Todos os meses';
   if (fMes) { const [y, mo] = fMes.split('-'); mesLabel = `${MESES_PT[parseInt(mo,10)-1]} ${y}`; }
   const empresaLabel = fEmpresa || 'Todas as empresas';
   const prodLabel    = fProd    || 'Todos os produtos';
   const statusLabel  = fStatus  || 'Todos os status';
 
-  // Totais
   const sumQtd     = f.reduce((a, c) => a + (c.qtd || 0), 0);
   const sumValor   = f.reduce((a, c) => a + (c.valor || 0), 0);
   const sumDesc    = f.reduce((a, c) => a + (c.desconto || 0), 0);
@@ -4047,7 +3731,6 @@ function exportarPDFCargas() {
   const cargasTrocaPDF   = f.filter(c => c.troca);
   const totalTrocaQtdPDF = cargasTrocaPDF.reduce((a, c) => a + (c.qtd || 0), 0);
 
-  // Tonelagem
   const PESO_PROD_PDF = { 'P 05': 5, 'P 13': 13, 'P 20': 20, 'P 45': 45 };
   const pdfSumKg = f.reduce((a, c) => {
     if (c.itens && c.itens.length > 0)
@@ -4095,7 +3778,6 @@ function exportarPDFCargas() {
     </tr>`;
   };
 
-  // ── Agrupamento por empresa ──
   const gruposEmpresa = {};
   f.forEach(c => {
     const emp = c.empresa || 'Sem empresa';
@@ -4227,22 +3909,16 @@ function exportarPDFCargas() {
     </div>
   </div>
   
-<!-- ══════════════════════════════════════════════════════════
-     REGISTRO DO SERVICE WORKER (PWA)
-════════════════════════════════════════════════════════════ -->
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
       const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
       console.log('[PWA] Service Worker registrado:', reg.scope);
-
-      // Detecta atualização disponível
       reg.addEventListener('updatefound', () => {
         const newSW = reg.installing;
         newSW.addEventListener('statechange', () => {
           if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-            // Nova versão disponível — avisa o usuário
             const toast = document.createElement('div');
             toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1f36;color:#fff;padding:12px 24px;border-radius:10px;font-family:DM Sans,sans-serif;font-size:13px;font-weight:600;z-index:9999;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);';
             toast.innerHTML = '🔄 Nova versão disponível! <button onclick="location.reload()" style="background:#e07b00;color:#fff;border:none;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">Atualizar</button>';
@@ -4255,7 +3931,6 @@ if ('serviceWorker' in navigator) {
     }
   });
 
-  // Controla estado online/offline
   function atualizarStatusOnline() {
     const online = navigator.onLine;
     let badge = document.getElementById('pwa-online-badge');
@@ -4304,9 +3979,6 @@ async function exportarPDF(){
 
   if(!f.length){showToast('\u26a0 Nenhum dado para exportar!');return;}
 
-  // Pagamentos de fiado quitados depois (aba 📒 Fiado) — mesma lógica do Resumo,
-  // sem duplicar: só entram quando não há filtro de marca (pagamento de fiado
-  // não é atribuído a Ultragaz/Butano especificamente).
   let fiadoPagsFiltrados = [];
   if (!marca) {
     const _todosFiadoPags = await _loadFiadoPag();
@@ -4316,14 +3988,12 @@ async function exportarPDF(){
     else if (mesVal) fiadoPagsFiltrados = fiadoPagsFiltrados.filter(p => p.data && p.data.startsWith(mesVal));
   }
 
-  // Labels
   let periodoLabel='Todos os meses';
   if(diaVal){const[y,mo,d]=diaVal.split('-');periodoLabel=`${d}/${mo}/${y}`;}
   else if(mesVal){const[y,mo]=mesVal.split('-');periodoLabel=`${MESES_PT[parseInt(mo,10)-1]} ${y}`;}
   const prLabel=pr||'Todos os PRs';
   const marcaLabel=marca||'Todas as marcas';
 
-  // Totais gerais
   const totalQtd=f.reduce((a,b)=>a+b.qtd,0);
   const totalVal=f.reduce((a,b)=>a+b.total,0);
   const qtdUltra=f.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.qtd,0);
@@ -4331,7 +4001,6 @@ async function exportarPDF(){
   const qtdButano=f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.qtd,0);
   const valButano=f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.total,0);
 
-  // Agrupa somente por PR (soma todos os lançamentos do período por PR)
   const grupos={};
   f.forEach(l=>{
     const key=l.pr;
@@ -4340,7 +4009,6 @@ async function exportarPDF(){
   });
   const gruposArr=Object.values(grupos).sort((a,b)=>a.pr.localeCompare(b.pr));
 
-  // Soma pagamentos sem duplicar por vendaId
   function somarPag(lista){
     const vistos=new Set(); const soma={};
     PAY_FIELDS.forEach(p=>soma[p]=0);
@@ -4351,9 +4019,8 @@ async function exportarPDF(){
     return soma;
   }
 
-  const nCols=4+PAY_FIELDS.length+1; // PR+Qtd+Data+TotalVenda + pags + TotalPago
+  const nCols=4+PAY_FIELDS.length+1;
 
-  // Gera 1 linha por grupo PR+Data (agrupado), sem badges
   function linhaGrupo(g,marcaNome){
     const itensMarca=g.itens.filter(l=>l.marca===marcaNome);
     if(!itensMarca.length) return '';
@@ -4371,7 +4038,6 @@ async function exportarPDF(){
     </tr>`;
   }
 
-  // Bloco por marca
   function blocoMarca(marcaNome,corHeader,corBg){
     const gs=gruposArr.filter(g=>g.itens.some(l=>l.marca===marcaNome));
     if(!gs.length) return '';
@@ -4395,8 +4061,6 @@ async function exportarPDF(){
   }
 
   const pagGeral=somarPag(f);
-  // Soma os pagamentos de fiado quitados depois (aba Fiado) no total geral —
-  // sem atribuir a uma marca específica, só no total.
   fiadoPagsFiltrados.forEach(pg=>{
     Object.keys(FP_TO_PAY).forEach(fpKey=>{
       const v=(pg.formasPag && pg.formasPag[fpKey])||0;
@@ -4503,7 +4167,6 @@ function fecharBackupModal() {
 }
 
 async function carregarInfoBackup() {
-  // Meta info
   try {
     const meta = await window._fbGetDoc('config', 'backup_meta');
     const el = document.getElementById('backupMetaInfo');
@@ -4528,7 +4191,6 @@ async function carregarInfoBackup() {
     }
   } catch(e) { console.error(e); }
 
-  // Lista de backups
   try {
     const backups = await window._fbGetBackups();
     const list = document.getElementById('backupList');
@@ -4567,7 +4229,6 @@ async function fazerBackupManual() {
   btn.disabled = true;
   try {
     const hoje = hojeLocal();
-    // Adiciona sufixo de hora para não sobrescrever backup do mesmo dia
     const label = hoje + '_' + new Date().toTimeString().slice(0,5).replace(':','-');
     await window._executarBackup(label);
     showToast('✅ Backup manual criado!');
@@ -4591,15 +4252,11 @@ async function importarBackupJSON(file) {
     const text = await file.text();
     const json = JSON.parse(text);
 
-    // Aceita tanto o formato de backup do próprio app quanto exports
-    // manuais (ex.: um export antigo do Firebase com a mesma estrutura).
     const lancs  = json.lancamentos || (json.data && json.data.lancamentos) || [];
     const cargas = json.cargas      || (json.data && json.data.cargas)      || [];
     const cfg    = json.config      || (json.data && json.data.config)      || {};
     const prs    = json.prs || json.prsSupabase || (cfg.prs && cfg.prs.lista) || null;
-    // Formato NOVO: array de registros na tabela roberto_fiados (backups feitos após a correção)
     const fiadosNovo = json.fiados || (json.data && json.data.fiados) || [];
-    // Formato LEGADO: lista única salva em config.fiado_pagamentos (backups antigos)
     const fiadoLegado = json.fiadoPagamentos || json.fiado_pagamentos || null;
 
     if (!lancs.length && !cargas.length && !fiadosNovo.length) {
@@ -4655,7 +4312,6 @@ async function baixarBackup(dataLabel) {
   } catch(e) { showToast('⚠ Erro ao baixar backup!'); console.error(e); }
 }
 
-
 // ══════════════════════════════════════════════
 //  MARGEM — lógica completa
 // ══════════════════════════════════════════════
@@ -4701,8 +4357,6 @@ function limparFiltrosMargem() {
   renderMargem();
 }
 
-
-// ── EXPORTAR PDF — MARGEM POR PR ──
 function exportarPDFMargem() {
   const mes     = document.getElementById('mFiltMes')?.value || '';
   const dataIni = document.getElementById('mFiltDataIni')?.value || '';
@@ -4754,7 +4408,6 @@ function exportarPDFMargem() {
     return { pr, qtdU, valU, pmU, mUnitU, mTotU, qtdB, valB, pmB, mUnitB, mTotB, mTotal, totalVenda, pctMargem, totalQtd };
   }).sort((a,b) => b.mTotal - a.mTotal);
 
-  // Labels de filtro
   let periodoLabel = 'Todos os lançamentos';
   if (dataIni || dataFim) {
     const ini = dataIni ? fmtDate(dataIni) : '—';
@@ -4766,7 +4419,6 @@ function exportarPDFMargem() {
   }
   const prLabel = prFilt || 'Todos os PRs';
 
-  // Totais gerais
   const totalMargem   = dados.reduce((a,b) => a + b.mTotal, 0);
   const totalBotijoes = dados.reduce((a,b) => a + b.totalQtd, 0);
   const totalVendasG  = dados.reduce((a,b) => a + b.totalVenda, 0);
@@ -4916,8 +4568,6 @@ function exportarPDFMargem() {
   showToast('📄 Relatório de margem gerado!');
 }
 
-
-
 function renderMargem() {
   buildMargemMesOptions();
   populateMargemFiltPr();
@@ -4940,7 +4590,6 @@ function renderMargem() {
 
   const prsAtivos = [...new Set(f.map(l => l.pr))].sort();
 
-  // ── Dados por PR ──
   const dados = prsAtivos.map(pr => {
     const itens = f.filter(l => l.pr === pr);
     const ultraItens  = itens.filter(l => l.marca === 'Ultragaz');
@@ -4966,7 +4615,6 @@ function renderMargem() {
     return { pr, qtdU, valU, pmU, mUnitU, mTotU, qtdB, valB, pmB, mUnitB, mTotB, mTotal, totalVenda, pctMargem, totalQtd };
   });
 
-  // ── Cards de visão geral ──
   const totalMargem   = dados.reduce((a,b) => a + b.mTotal, 0);
   const totalBotijoes = dados.reduce((a,b) => a + b.totalQtd, 0);
   const totalVendasG  = dados.reduce((a,b) => a + b.totalVenda, 0);
@@ -4990,14 +4638,12 @@ function renderMargem() {
     `;
   }
 
-  // ── Tabela ──
   const tbody = document.getElementById('tbodyMargem');
   if (!dados.length) {
     tbody.innerHTML = '<tr><td colspan="12" class="empty">Nenhum dado para o filtro selecionado.</td></tr>';
   } else if (custoU === 0 && custoB === 0) {
     tbody.innerHTML = '<tr><td colspan="12" class="empty">Informe o custo de pelo menos uma marca para calcular as margens.</td></tr>';
   } else {
-    // Ordena por margem total desc
     const sorted = [...dados].sort((a,b) => b.mTotal - a.mTotal);
     tbody.innerHTML = sorted.map((d, i) => {
       const cor = d.mTotal >= 0 ? 'var(--success)' : 'var(--danger)';
@@ -5022,7 +4668,6 @@ function renderMargem() {
     }).join('');
   }
 
-  // ── Gráfico ──
   if (chartMargemInst) { chartMargemInst.destroy(); chartMargemInst = null; }
   const ctx = document.getElementById('chartMargem');
   if (dados.length && (custoU > 0 || custoB > 0)) {
@@ -5051,9 +4696,7 @@ function renderMargem() {
       }
     });
   }
-
 }
-
 
 document.addEventListener('DOMContentLoaded', function(){
   const bm=document.getElementById('backupModal');
@@ -5063,4 +4706,3 @@ document.addEventListener('DOMContentLoaded', function(){
   const egm=document.getElementById('editGrupoModal');
   // clique fora desabilitado
 });
-
