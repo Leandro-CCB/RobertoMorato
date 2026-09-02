@@ -3117,7 +3117,7 @@ async function gerarRelatorioDiario() {
       <div class="sum-box"><div class="sum-lbl">Total Vendido</div><div class="sum-val" style="color:#16a34a;font-size:16px">R$ ${fmtNum(totalValDia)}</div></div>
       <div class="sum-box"><div class="sum-lbl">Botijões</div><div class="sum-val">${totalQtdDia}</div></div>
       <div class="sum-box"><div class="sum-lbl">Total Fiado</div><div class="sum-val" style="color:#dc2626;font-size:16px">R$ ${fmtNum(totalFiadosDia)}</div></div>
-      <div class="sum-box"><div class="sum-lbl">Saldo em Espécie</div><div class="sum-val" style="font-size:16px">R$ ${fmtNum(saldoEspecieEsperado)}</div></div>
+      <div class="sum-box"><div class="sum-lbl">Total em Espécie</div><div class="sum-val" style="font-size:16px">R$ ${fmtNum(totalEspecie)}</div></div>
     </div>
 
     <div class="section-title">📋 1. Lançamentos do Dia</div>
