@@ -52,22 +52,28 @@ window._appInit = async function() {
     else if(id==='rFiltPr') { const ph=document.createElement('option');ph.value='';ph.textContent='Todos os PRs';sel.appendChild(ph); }
     PRS.forEach(pr => { const o=document.createElement('option'); o.value=pr; o.textContent=pr; sel.appendChild(o); });
   });
+  // Carrega clientes cadastrados (para atribuição de Fiado)
+  // OBS: isto roda ANTES das demais inicializações de propósito — se alguma
+  // etapa abaixo lançar um erro, a lista de clientes já estará carregada.
+  try {
+    const cfgClientes = await window._fbGetDoc('config', 'clientes');
+    CLIENTES = (cfgClientes && cfgClientes.lista) ? cfgClientes.lista : [];
+  } catch(e) { console.warn('[clientes] erro ao carregar:', e.message); CLIENTES = []; }
+  popularSelectFiadoCliente();
+  if (typeof renderClientesConfig === 'function') renderClientesConfig();
+
   buildLinhas();
   buildConfigGrid();
 
   renderTable();
   renderTotals();
   initCargasUI();
-
-  // Carrega clientes cadastrados (para atribuição de Fiado)
-  try {
-    const cfgClientes = await window._fbGetDoc('config', 'clientes');
-    CLIENTES = (cfgClientes && cfgClientes.lista) ? cfgClientes.lista : [];
-  } catch(e) { console.warn('[clientes] erro ao carregar:', e.message); CLIENTES = []; }
-  popularSelectFiadoCliente();
 }; // end _appInit
 
 // ── CLIENTES ──────────────────────────────────────────────────
+// (mantido por compatibilidade — não é mais usado pelo box de fiado,
+// que agora suporta distribuição entre vários clientes, mas outras
+// telas como abrirEdicaoGrupoComDados ainda usam um <select> simples)
 function popularSelectFiadoCliente() {
   const sel = document.getElementById('fFiadoCliente');
   if (!sel) return;
@@ -77,16 +83,78 @@ function popularSelectFiadoCliente() {
   sel.value = CLIENTES.includes(atual) ? atual : '';
 }
 
+// ── DISTRIBUIÇÃO DE FIADO ENTRE CLIENTES ────────────────────────
+// _fiadoDist: [{ cliente:'NOME'|'', valor: number }]. Entradas sem cliente
+// selecionado ou com valor <= 0 não contam como distribuídas; o restante
+// (total do fiado - distribuído) permanece automaticamente no nome do PR.
+let _fiadoDist = [];
+
 function toggleFiadoClienteBox() {
   const box = document.getElementById('fiadoClienteBox');
   const val = parseFloat(document.getElementById('pFiado')?.value) || 0;
   if (!box) return;
+  const totalEl = document.getElementById('fiadoDistTotalVal');
+  if (totalEl) totalEl.textContent = fmtVal(val);
   if (val > 0.009) {
-    popularSelectFiadoCliente();
+    if (!_fiadoDist.length) _fiadoDist.push({ cliente: '', valor: 0 });
+    renderFiadoDistLinhas();
     box.style.display = 'block';
   } else {
     box.style.display = 'none';
-    document.getElementById('fFiadoCliente').value = '';
+    _fiadoDist = [];
+    renderFiadoDistLinhas();
+  }
+}
+
+function renderFiadoDistLinhas() {
+  const cont = document.getElementById('fiadoDistLinhas');
+  if (!cont) return;
+  cont.innerHTML = _fiadoDist.map((row, i) => `
+    <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
+      <select onchange="atualizarFiadoDistCliente(${i},this.value)" style="flex:2;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);background:#fff;">
+        <option value="">— Manter no nome do PR —</option>
+        ${CLIENTES.map(c => `<option value="${c}" ${row.cliente === c ? 'selected' : ''}>${c}</option>`).join('')}
+      </select>
+      <input type="number" min="0" step="0.01" placeholder="0,00" value="${row.valor > 0 ? row.valor : ''}" oninput="atualizarFiadoDistValor(${i},this.value)" style="flex:1;max-width:130px;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:12px;" />
+      <button type="button" onclick="removerFiadoDistLinha(${i})" title="Remover" style="background:transparent;border:none;color:var(--danger);font-weight:700;cursor:pointer;font-size:15px;line-height:1;padding:4px 6px;">✕</button>
+    </div>`).join('');
+  atualizarResumoFiadoDist();
+}
+
+function adicionarFiadoDistLinha() {
+  _fiadoDist.push({ cliente: '', valor: 0 });
+  renderFiadoDistLinhas();
+}
+
+function removerFiadoDistLinha(i) {
+  _fiadoDist.splice(i, 1);
+  renderFiadoDistLinhas();
+}
+
+function atualizarFiadoDistCliente(i, val) {
+  if (_fiadoDist[i]) _fiadoDist[i].cliente = val;
+  atualizarResumoFiadoDist();
+}
+
+function atualizarFiadoDistValor(i, val) {
+  if (_fiadoDist[i]) _fiadoDist[i].valor = parseFloat(val) || 0;
+  atualizarResumoFiadoDist();
+}
+
+function getFiadoDistValidas() {
+  return _fiadoDist.filter(r => r.cliente && r.valor > 0.009);
+}
+
+function atualizarResumoFiadoDist() {
+  const total = parseFloat(document.getElementById('pFiado')?.value) || 0;
+  const distribuido = getFiadoDistValidas().reduce((s, r) => s + r.valor, 0);
+  const restante = total - distribuido;
+  const elD = document.getElementById('fiadoDistDistribuidoVal');
+  const elR = document.getElementById('fiadoDistRestanteVal');
+  if (elD) elD.textContent = fmtVal(distribuido);
+  if (elR) {
+    elR.textContent = fmtVal(restante);
+    elR.style.color = restante < -0.009 ? 'var(--danger)' : '';
   }
 }
 
@@ -369,6 +437,7 @@ async function _registrarSobraFaltaNoFiado({ tipo, valor, pr, data }) {
 let _editFormData=null, _editFormPr=null;
 
 function carregarEdicaoNoForm(data, pr){
+ try {
   const itens=lancamentos.filter(l=>l.data===data&&l.pr===pr);
   if(!itens.length) return;
 
@@ -409,19 +478,33 @@ function carregarEdicaoNoForm(data, pr){
     calcLinha(i);
   });
 
-  let pagRef={}, valeGasRef=0, fiadoClienteRef='';
+  let pagRef={}, valeGasRef=0, valeGasFuncionarioRef=0, fiadoDistRef=null, fiadoClienteRef='';
   for(const l of itens){
     const p=l.pag||{};
     const temValor=PAY_FIELDS.some(f=>p[f]>0);
-    if(temValor){pagRef=p; valeGasRef=l.valeGas||0; fiadoClienteRef=l.fiadoCliente||''; break;}
+    if(temValor){
+      pagRef=p; valeGasRef=l.valeGas||0; valeGasFuncionarioRef=l.valeGasFuncionario||0;
+      fiadoDistRef=l.fiadoDistribuicao||null; fiadoClienteRef=l.fiadoCliente||'';
+      break;
+    }
   }
   PAY_IDS.forEach((id,idx)=>{
     const val=pagRef[PAY_FIELDS[idx]];
     document.getElementById(id).value=(val&&val>0)?val:'';
   });
   document.getElementById('pValeGas').value = valeGasRef>0 ? valeGasRef : '';
-  popularSelectFiadoCliente();
-  document.getElementById('fFiadoCliente').value = fiadoClienteRef;
+  const elVgf=document.getElementById('pValeGasFuncionario');
+  if (elVgf) elVgf.value = valeGasFuncionarioRef>0 ? valeGasFuncionarioRef : '';
+
+  // Restaura a distribuição de fiado (nova estrutura), ou converte o
+  // campo antigo (fiadoCliente único) para uma linha de distribuição.
+  if (fiadoDistRef && fiadoDistRef.length) {
+    _fiadoDist = fiadoDistRef.map(r=>({cliente:r.cliente||'', valor:r.valor||0}));
+  } else if (fiadoClienteRef) {
+    _fiadoDist = [{cliente: fiadoClienteRef, valor: pagRef['Fiado']||0}];
+  } else {
+    _fiadoDist = [];
+  }
   toggleFiadoClienteBox();
   calcPagTotal();
 
@@ -433,6 +516,10 @@ function carregarEdicaoNoForm(data, pr){
 
   document.getElementById('tab-lancamento').scrollIntoView({behavior:'smooth'});
   document.querySelector('.card').scrollIntoView({behavior:'smooth'});
+ } catch(e) {
+  console.error('[carregarEdicaoNoForm] erro:', e);
+  showToast('⚠ Erro ao abrir edição: ' + e.message);
+ }
 }
 
 function cancelarEdicaoForm(){
@@ -448,7 +535,10 @@ function cancelarEdicaoForm(){
   calcPagTotal();
   document.getElementById('fPr').value='';
   document.getElementById('pValeGas').value='';
-  document.getElementById('fFiadoCliente').value='';
+  const elVgf=document.getElementById('pValeGasFuncionario');
+  if (elVgf) elVgf.value='';
+  _fiadoDist = [];
+  renderFiadoDistLinhas();
   document.getElementById('fiadoClienteBox').style.display='none';
   document.getElementById('formError').textContent='';
 }
@@ -473,7 +563,17 @@ async function addLancamento(){
   const pag={};
   PAY_IDS.forEach((id,idx)=>pag[PAY_FIELDS[idx]]=parseFloat(document.getElementById(id).value)||0);
   const valeGas = parseInt(document.getElementById('pValeGas')?.value, 10) || 0;
-  const fiadoCliente = (pag['Fiado'] > 0.009) ? (document.getElementById('fFiadoCliente')?.value || '') : '';
+  const valeGasFuncionario = parseInt(document.getElementById('pValeGasFuncionario')?.value, 10) || 0;
+
+  // Distribuição de Fiado entre clientes cadastrados (o que sobra fica com o PR)
+  const fiadoDistribuicao = (pag['Fiado'] > 0.009) ? getFiadoDistValidas() : [];
+  if (fiadoDistribuicao.length) {
+    const totalDistribuido = fiadoDistribuicao.reduce((s,r)=>s+r.valor,0);
+    if (totalDistribuido > pag['Fiado'] + 0.009) {
+      err.textContent = `⚠ O total distribuído entre clientes (R$ ${fmtNum(totalDistribuido)}) não pode ultrapassar o valor do Fiado (R$ ${fmtNum(pag['Fiado'])}).`;
+      return;
+    }
+  }
 
   const sobrasAntUsadas = pag['Sobras Anteriores'] || 0;
   if (sobrasAntUsadas > 0.009) {
@@ -503,7 +603,9 @@ async function addLancamento(){
       const item={id,vendaId:vendaIdBase,data,pr,...l,
         pag:idx===0?pag:Object.fromEntries(PAY_FIELDS.map(f=>[f,0])),
         valeGas: idx===0 ? valeGas : 0,
-        fiadoCliente: idx===0 ? fiadoCliente : ''};
+        valeGasFuncionario: idx===0 ? valeGasFuncionario : 0,
+        fiadoDistribuicao: idx===0 ? fiadoDistribuicao : [],
+        fiadoCliente: ''};
       lancamentos.push(item);
       novosItens.push(item);
     });
@@ -531,7 +633,9 @@ async function addLancamento(){
       const novoLanc={id:now+idx, vendaId, data, pr, ...l,
         pag: idx===0 ? pag : Object.fromEntries(PAY_FIELDS.map(f=>[f,0])),
         valeGas: idx===0 ? valeGas : 0,
-        fiadoCliente: idx===0 ? fiadoCliente : ''};
+        valeGasFuncionario: idx===0 ? valeGasFuncionario : 0,
+        fiadoDistribuicao: idx===0 ? fiadoDistribuicao : [],
+        fiadoCliente: ''};
       lancamentos.push(novoLanc);
       novasLinhas.push(novoLanc);
     });
@@ -557,7 +661,10 @@ async function addLancamento(){
     document.getElementById('lTotalVal').textContent='R$ 0,00';
     document.getElementById('fPr').value='';
     document.getElementById('pValeGas').value='';
-    document.getElementById('fFiadoCliente').value='';
+    const elVgfReset=document.getElementById('pValeGasFuncionario');
+    if (elVgfReset) elVgfReset.value='';
+    _fiadoDist = [];
+    renderFiadoDistLinhas();
     document.getElementById('fiadoClienteBox').style.display='none';
     if (!_pendenteSobraFalta && painelEl) painelEl.style.display='none';
   }
@@ -784,9 +891,27 @@ async function calcFiadoPorPR(excludeVendaId) {
 
     const vf = (l.pag && l.pag['Fiado']) || 0;
     if (vf > 0) {
-      const chave = l.fiadoCliente ? ('👤 ' + l.fiadoCliente) : l.pr;
-      if (!fiado[chave]) fiado[chave] = [];
-      fiado[chave].push({ data: l.data, valor: vf, tipo: 'fiado', desc: l.fiadoCliente ? `Venda fiado (PR: ${l.pr})` : 'Venda fiado', id: vid, status: l.statusFiado || 'aberto' });
+      if (l.fiadoDistribuicao && l.fiadoDistribuicao.length) {
+        // Novo formato: valor do fiado dividido entre vários clientes + restante com o PR
+        let somaDistribuida = 0;
+        l.fiadoDistribuicao.forEach(row => {
+          if (!row.cliente || !(row.valor > 0)) return;
+          somaDistribuida += row.valor;
+          const chave = '👤 ' + row.cliente;
+          if (!fiado[chave]) fiado[chave] = [];
+          fiado[chave].push({ data: l.data, valor: row.valor, tipo: 'fiado', desc: `Venda fiado (PR: ${l.pr})`, id: vid, status: l.statusFiado || 'aberto' });
+        });
+        const restantePR = vf - somaDistribuida;
+        if (restantePR > 0.009) {
+          if (!fiado[l.pr]) fiado[l.pr] = [];
+          fiado[l.pr].push({ data: l.data, valor: restantePR, tipo: 'fiado', desc: 'Venda fiado', id: vid, status: l.statusFiado || 'aberto' });
+        }
+      } else {
+        // Formato antigo (compatibilidade): 1 valor -> 1 cliente ou PR
+        const chave = l.fiadoCliente ? ('👤 ' + l.fiadoCliente) : l.pr;
+        if (!fiado[chave]) fiado[chave] = [];
+        fiado[chave].push({ data: l.data, valor: vf, tipo: 'fiado', desc: l.fiadoCliente ? `Venda fiado (PR: ${l.pr})` : 'Venda fiado', id: vid, status: l.statusFiado || 'aberto' });
+      }
     }
 
     const sobraUsada = (l.pag && l.pag['Sobras Anteriores']) || 0;
@@ -1525,6 +1650,8 @@ function renderTable(){
   });
 
   tb.innerHTML=gruposArr.map(g=>{
+    const gDataAttr=String(g.data).replace(/'/g,"\\'");
+    const gPrAttr=String(g.pr).replace(/'/g,"\\'");
     const qtdTotal=g.itens.filter(l=>l.marca==='Ultragaz'||l.marca==='Butano').reduce((s,l)=>s+l.qtd,0);
     const valorTotal=g.itens.reduce((s,l)=>s+l.total,0);
 
@@ -1561,7 +1688,7 @@ function renderTable(){
 
   return `<tr>
       <td>${fmtDate(g.data)}</td>
-      <td style="font-weight:700;white-space:nowrap"><button class="btn-sm-edit" title="Editar venda" onclick="carregarEdicaoNoForm('${g.data}','${g.pr}')" style="vertical-align:middle;margin-right:5px;">✏️</button>${g.pr}</td>
+      <td style="font-weight:700;white-space:nowrap"><button class="btn-sm-edit" title="Editar venda" onclick="carregarEdicaoNoForm('${gDataAttr}','${gPrAttr}')" style="vertical-align:middle;margin-right:5px;">✏️</button>${g.pr}</td>
       <td style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--text)">${qtdTotal}</td>
       <td style="font-weight:700;color:var(--success)">${fmtVal(valorTotal)}</td>
       <td>${marcaBadges}</td>
@@ -1577,7 +1704,7 @@ function renderTable(){
       <td style="color:var(--muted);font-weight:${totalValeGas>0?'700':'400'}">${totalValeGas>0?totalValeGas:'-'}</td>
       <td style="font-weight:700;color:var(--accent)">${totalPago>0?fmtVal(totalPago):'-'}</td>
       <td style="white-space:nowrap">
-        <button class="btn-sm-del" title="Excluir lançamento completo" onclick="event.stopPropagation();event.preventDefault();excluirGrupoLanc('${g.data}','${g.pr}');return false;">🗑️</button>
+        <button class="btn-sm-del" title="Excluir lançamento completo" onclick="event.stopPropagation();event.preventDefault();excluirGrupoLanc('${gDataAttr}','${gPrAttr}');return false;">🗑️</button>
       </td>
     </tr>`;
   }).join('');
