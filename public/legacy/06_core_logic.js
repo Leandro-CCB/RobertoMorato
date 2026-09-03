@@ -3019,6 +3019,35 @@ async function gerarRelatorioDiario() {
         </tbody>
       </table>` : '<div style="padding:14px;color:#9ca3af;font-size:11px;">Nenhum fiado registrado nesta data.</div>';
 
+    // ── Pagamentos de fiado recebidos no dia (mesma fonte usada no fechamento
+    // de caixa: _loadFiadoPag(), excluindo os ajustes internos de sobra/falta) ──
+    const _todosFiadoPagsSecao2 = await _loadFiadoPag();
+    const pagamentosDoDia = _todosFiadoPagsSecao2.filter(p => p.data === dia && p.tipo !== 'sobra' && p.tipo !== 'falta_fiado');
+    const totalPagamentosDia = pagamentosDoDia.reduce((s,p) => s + (p.valor || 0), 0);
+    const clientesQuePagaram = new Set(pagamentosDoDia.map(p => (p.pr || '').replace(/^👤\s*/, '')));
+
+    const cardsFiadosPagosHTML = `
+      <div class="summary-row" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px;">
+        <div class="sum-box"><div class="sum-lbl">Fiados Pagos no Dia</div><div class="sum-val" style="color:#16a34a;font-size:16px">R$ ${fmtNum(totalPagamentosDia)}</div></div>
+        <div class="sum-box"><div class="sum-lbl">Clientes que Pagaram</div><div class="sum-val" style="font-size:16px">${clientesQuePagaram.size}</div></div>
+      </div>`;
+
+    const tabelaPagamentosHTML = pagamentosDoDia.length ? `
+      <table style="margin-top:8px;">
+        <thead><tr><th>Cliente / PR</th><th>Valor</th><th>Observação</th></tr></thead>
+        <tbody>
+          ${pagamentosDoDia.map(p => `<tr>
+            <td style="font-weight:700">${(p.pr || '').replace(/^👤\s*/, '')}</td>
+            <td style="text-align:right;font-weight:700;color:#16a34a">R$ ${fmtNum(p.valor)}</td>
+            <td style="color:#6b7280">${p.obs || '-'}</td>
+          </tr>`).join('')}
+          <tr style="background:#f0fdf4;font-weight:700;border-top:2px solid #16a34a">
+            <td colspan="2" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#16a34a">TOTAL PAGO</td>
+            <td style="text-align:right;color:#16a34a">R$ ${fmtNum(totalPagamentosDia)}</td>
+          </tr>
+        </tbody>
+      </table>` : '<div style="padding:14px;color:#9ca3af;font-size:11px;">Nenhum pagamento de fiado registrado nesta data.</div>';
+
     // ══ SEÇÃO 3: DEPÓSITO BANCÁRIO (mesma fórmula de renderDeposito) ══
     const vistosEsp = new Set();
     let totalEspecie = 0;
@@ -3027,9 +3056,8 @@ async function gerarRelatorioDiario() {
       if (!vistosEsp.has(vid)) { vistosEsp.add(vid); totalEspecie += (l.pag && l.pag['Espécie']) || 0; }
     });
     try {
-      const _todosFiadoPags = await _loadFiadoPag();
-      const especieFiadoDoDia = _todosFiadoPags
-        .filter(p => p.tipo !== 'sobra' && p.tipo !== 'falta_fiado' && p.formasPag && p.data === dia)
+      const especieFiadoDoDia = pagamentosDoDia
+        .filter(p => p.formasPag)
         .reduce((a,p) => a + (p.formasPag.especie || 0), 0);
       totalEspecie += especieFiadoDoDia;
     } catch(e) { console.warn('[relatorioDiario] erro ao somar espécie de fiados quitados:', e.message); }
@@ -3124,7 +3152,10 @@ async function gerarRelatorioDiario() {
     ${tabelaLancamentosHTML}
 
     <div class="section-title">📒 2. Fiados</div>
+    ${cardsFiadosPagosHTML}
     ${tabelaFiadosHTML}
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:.8px;color:#16a34a;margin:12px 0 4px;">💵 Pagamentos Recebidos</div>
+    ${tabelaPagamentosHTML}
 
     <div class="section-title">🏦 3. Depósito Bancário / Fechamento de Caixa em Espécie</div>
     ${tabelaDepositoLancamentos}
@@ -3137,10 +3168,10 @@ async function gerarRelatorioDiario() {
     </div>
     </body></html>`;
 
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const win = window.open(url, '_blank');
+    const win = window.open('', '_blank');
     if (!win) { showToast('⚠ Permita pop-ups para gerar o relatório!'); return; }
+    win.document.write(html);
+    win.document.close();
     fecharModalRelatorioDiario();
     showToast('📄 Relatório Diário gerado!');
   } catch(e) {
