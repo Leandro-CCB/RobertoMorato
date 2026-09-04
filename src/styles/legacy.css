@@ -155,6 +155,23 @@ select option{background:#fff;}
 
 /* ── TABLE ── */
 .table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);}
+
+/* Tabela de Lançamentos: mantém a coluna do PR (editar ✏️) fixa à esquerda
+   e a coluna de Ações (excluir 🗑️) fixa à direita, para que os botões
+   fiquem sempre visíveis mesmo rolando a tabela para o lado (ela tem
+   muitas colunas de forma de pagamento). */
+#tabelaLancamentos th:nth-child(2), #tabelaLancamentos td:nth-child(2){
+  position:sticky; left:0; z-index:2; background:#fff;
+  box-shadow:2px 0 4px rgba(0,0,0,.07);
+}
+#tabelaLancamentos thead th:nth-child(2){ background:var(--surface3); z-index:3; }
+#tabelaLancamentos th:last-child, #tabelaLancamentos td:last-child{
+  position:sticky; right:0; z-index:2; background:#fff;
+  box-shadow:-2px 0 4px rgba(0,0,0,.07);
+}
+#tabelaLancamentos thead th:last-child{ background:var(--surface3); z-index:3; }
+#tabelaLancamentos tbody tr:hover td:nth-child(2),
+#tabelaLancamentos tbody tr:hover td:last-child{ background:var(--surface2); }
 table{width:100%;border-collapse:collapse;font-size:11px;}
 thead{background:var(--surface3);}
 thead th{padding:7px 5px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
