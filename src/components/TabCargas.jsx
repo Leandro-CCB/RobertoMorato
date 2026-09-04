@@ -29,7 +29,6 @@ const HTML = `<div id="tab-cargas" class="page">
           <option value="ROSA">Rosa</option>
           <option value="PINHEIRO">Pinheiro</option>
           <option value="LIROMILS">Liromils</option>
-          <option value="IMPERIO">Imperio</option>
         </select>
       </div>
       <div class="form-group">
@@ -216,7 +215,6 @@ const HTML = `<div id="tab-cargas" class="page">
             <option value="ROSA">Rosa</option>
             <option value="PINHEIRO">Pinheiro</option>
             <option value="LIROMILS">Liromils</option>
-            <option value="IMPERIO">Imperio</option>
           </select>
         </div>
         <div class="form-group"><label>Transportadora</label>

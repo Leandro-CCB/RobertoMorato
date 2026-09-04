@@ -118,7 +118,7 @@ function toggleFiadoClienteBox() {
   const totalEl = document.getElementById('fiadoDistTotalVal');
   if (totalEl) totalEl.textContent = fmtVal(val);
   if (val > 0.009) {
-    if (!_fiadoDist.length) _fiadoDist.push({ cliente: '', valor: 0 });
+    if (!_fiadoDist.length) _fiadoDist.push({ cliente: '', valor: 0, documento: '' });
     renderFiadoDistLinhas();
     box.style.display = 'block';
   } else {
@@ -133,18 +133,19 @@ function renderFiadoDistLinhas() {
   if (!cont) return;
   cont.innerHTML = _fiadoDist.map((row, i) => `
     <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
-      <select onchange="atualizarFiadoDistCliente(${i},this.value)" style="flex:2;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);background:#fff;">
+      <select onchange="atualizarFiadoDistCliente(${i},this.value)" style="flex:1.3;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:var(--text);background:#fff;">
         <option value="">— Manter no nome do PR —</option>
         ${CLIENTES.map(c => `<option value="${c}" ${row.cliente === c ? 'selected' : ''}>${c}</option>`).join('')}
       </select>
-      <input type="number" min="0" step="0.01" placeholder="0,00" value="${row.valor > 0 ? row.valor : ''}" oninput="atualizarFiadoDistValor(${i},this.value)" style="flex:1;max-width:130px;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:12px;" />
+      <input type="number" min="0" step="0.01" placeholder="0,00" value="${row.valor > 0 ? row.valor : ''}" oninput="atualizarFiadoDistValor(${i},this.value)" style="flex:0.7;max-width:110px;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:12px;" />
+      <input type="text" placeholder="Documento" value="${row.documento || ''}" oninput="atualizarFiadoDistDocumento(${i},this.value)" style="flex:1;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:'DM Sans',sans-serif;font-size:12px;" />
       <button type="button" onclick="removerFiadoDistLinha(${i})" title="Remover" style="background:transparent;border:none;color:var(--danger);font-weight:700;cursor:pointer;font-size:15px;line-height:1;padding:4px 6px;">✕</button>
     </div>`).join('');
   atualizarResumoFiadoDist();
 }
 
 function adicionarFiadoDistLinha() {
-  _fiadoDist.push({ cliente: '', valor: 0 });
+  _fiadoDist.push({ cliente: '', valor: 0, documento: '' });
   renderFiadoDistLinhas();
 }
 
@@ -161,6 +162,10 @@ function atualizarFiadoDistCliente(i, val) {
 function atualizarFiadoDistValor(i, val) {
   if (_fiadoDist[i]) _fiadoDist[i].valor = parseFloat(val) || 0;
   atualizarResumoFiadoDist();
+}
+
+function atualizarFiadoDistDocumento(i, val) {
+  if (_fiadoDist[i]) _fiadoDist[i].documento = val;
 }
 
 function getFiadoDistValidas() {
@@ -536,7 +541,7 @@ function carregarEdicaoNoForm(data, pr){
   // Restaura a distribuição de fiado (nova estrutura), ou converte o
   // campo antigo (fiadoCliente único) para uma linha de distribuição.
   if (fiadoDistRef && fiadoDistRef.length) {
-    _fiadoDist = fiadoDistRef.map(r=>({cliente:r.cliente||'', valor:r.valor||0}));
+    _fiadoDist = fiadoDistRef.map(r=>({cliente:r.cliente||'', valor:r.valor||0, documento:r.documento||''}));
   } else if (fiadoClienteRef) {
     _fiadoDist = [{cliente: fiadoClienteRef, valor: pagRef['Fiado']||0}];
   } else {
@@ -936,7 +941,7 @@ async function calcFiadoPorPR(excludeVendaId) {
           somaDistribuida += row.valor;
           const chave = '👤 ' + row.cliente;
           if (!fiado[chave]) fiado[chave] = [];
-          fiado[chave].push({ data: l.data, valor: row.valor, tipo: 'fiado', desc: `Venda fiado (PR: ${l.pr})`, id: vid, status: l.statusFiado || 'aberto' });
+          fiado[chave].push({ data: l.data, valor: row.valor, tipo: 'fiado', desc: `Venda fiado (PR: ${l.pr})`, documento: row.documento || '', id: vid, status: l.statusFiado || 'aberto' });
         });
         const restantePR = vf - somaDistribuida;
         if (restantePR > 0.009) {
@@ -1216,7 +1221,7 @@ async function renderFiado() {
             ${badgeLabel}
           </span>
         </td>
-        <td style="padding:6px 10px;font-size:12px;color:var(--muted)">${h.desc}${formasPagHTML}</td>
+        <td style="padding:6px 10px;font-size:12px;color:var(--muted)">${h.desc}${h.documento ? ` <span style="font-weight:700;color:var(--text);">— Doc: ${h.documento}</span>` : ''}${formasPagHTML}</td>
         <td style="padding:6px 10px;font-weight:700;color:${corValor}">
           ${sinalValor}${fmtVal(h.valor)}
         </td>
@@ -2998,22 +3003,23 @@ async function gerarRelatorioDiario() {
     Object.keys(dadosFiado).forEach(chave => {
       dadosFiado[chave].historico.forEach(h => {
         if (h.data === dia && h.tipo === 'fiado') {
-          fiadosDoDia.push({ cliente: chave.replace(/^👤\s*/, ''), desc: h.desc, valor: h.valor });
+          fiadosDoDia.push({ cliente: chave.replace(/^👤\s*/, ''), desc: h.desc, documento: h.documento || '', valor: h.valor });
         }
       });
     });
     const totalFiadosDia = fiadosDoDia.reduce((s,f) => s+f.valor, 0);
     const tabelaFiadosHTML = fiadosDoDia.length ? `
       <table>
-        <thead><tr><th>Cliente / PR</th><th>Descrição</th><th>Valor</th></tr></thead>
+        <thead><tr><th>Cliente / PR</th><th>Descrição</th><th>Documento</th><th>Valor</th></tr></thead>
         <tbody>
           ${fiadosDoDia.map(f => `<tr>
             <td style="font-weight:700">${f.cliente}</td>
             <td style="color:#6b7280">${f.desc}</td>
+            <td style="color:#6b7280">${f.documento || '-'}</td>
             <td style="text-align:right;font-weight:700;color:#dc2626">R$ ${fmtNum(f.valor)}</td>
           </tr>`).join('')}
           <tr style="background:#fef2f2;font-weight:700;border-top:2px solid #dc2626">
-            <td colspan="2" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#dc2626">TOTAL DE FIADOS</td>
+            <td colspan="3" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#dc2626">TOTAL DE FIADOS</td>
             <td style="text-align:right;color:#dc2626">R$ ${fmtNum(totalFiadosDia)}</td>
           </tr>
         </tbody>
