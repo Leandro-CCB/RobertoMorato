@@ -2162,14 +2162,47 @@ async function renderResumo(){
     else if(mes) fiadoPagsFiltrados = fiadoPagsFiltrados.filter(p => p.data && p.data.startsWith(mes));
   }
 
+  // ── Cálculos para os cards de resumo ──────────────────────────────────────
+  // Visita apenas a primeira linha de cada venda (vendaId) para não duplicar pagamentos
+  const _visitedSC = new Set();
+  const _fPrimeirosSC = f.filter(l => {
+    const vid = l.vendaId != null ? l.vendaId : l.id;
+    if (!_visitedSC.has(vid)) { _visitedSC.add(vid); return true; }
+    return false;
+  });
+
+  // Campos que representam dinheiro real recebido (exclui Fiado e Sobras Anteriores).
+  // "Sobras Anteriores" e troco acumulado de periodos passados, nao dinheiro novo.
+  // "Fiado" ainda nao foi recebido - entra so quando quitado na aba Fiado.
+  const _CAMPOS_RECEBIDOS = ['Especie','Debito','Credito','QR Code','Pix','Moeda','Gas do Povo'];
+  const _CAMPOS_RECEBIDOS_ORIG = ['Espécie','Débito','Crédito','QR Code','Pix','Moeda','Gás do Povo'];
+
+  const _totalFaturado    = f.reduce((a,b) => a + b.total, 0);
+  const _totalFiadoGerado = _fPrimeirosSC.reduce((a,b) => a + (b.pag && b.pag['Fiado'] || 0), 0);
+
+  // Soma apenas os campos de dinheiro real nas vendas do periodo (1a linha de cada venda)
+  const _recebidoVendas = _fPrimeirosSC.reduce((a, l) => {
+    return a + _CAMPOS_RECEBIDOS_ORIG.reduce((s, campo) => s + (l.pag && l.pag[campo] || 0), 0);
+  }, 0);
+
+  // Pagamentos de fiado efetivamente quitados no periodo (registrados na aba Fiado)
+  const _fiadoQuitadoNoPeriodo = fiadoPagsFiltrados.reduce((a, pg) => {
+    if (!pg.formasPag) return a;
+    return a + Object.values(pg.formasPag).reduce((s, v) => s + (v || 0), 0);
+  }, 0);
+
+  // Valor recebido = dinheiro real das vendas + fiado quitado no periodo
+  const _valorRecebido = _recebidoVendas + _fiadoQuitadoNoPeriodo;
+
   document.getElementById('summaryCards').innerHTML=`
     <div class="summary-card"><div class="s-label">Total Botijões</div><div class="s-value">${f.filter(l=>l.marca==='Ultragaz'||l.marca==='Butano').reduce((a,b)=>a+b.qtd,0)}</div></div>
-    <div class="summary-card"><div class="s-label">Valor Total</div><div class="s-value green">${fmtVal(f.reduce((a,b)=>a+b.total,0))}</div></div>
+    <div class="summary-card"><div class="s-label">Valor Faturado</div><div class="s-value" style="color:#6b7280;font-size:18px">${fmtVal(_totalFaturado)}</div></div>
+    <div class="summary-card"><div class="s-label">Valor Recebido</div><div class="s-value green">${fmtVal(_valorRecebido)}</div></div>
     <div class="summary-card"><div class="s-label">Ultragaz Qtd</div><div class="s-value blue">${f.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.qtd,0)}</div></div>
     <div class="summary-card"><div class="s-label">Ultragaz Valor</div><div class="s-value blue" style="font-size:18px">${fmtVal(f.filter(l=>l.marca==='Ultragaz').reduce((a,b)=>a+b.total,0))}</div></div>
     <div class="summary-card"><div class="s-label">Butano Qtd</div><div class="s-value bgreen">${f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.qtd,0)}</div></div>
     <div class="summary-card"><div class="s-label">Butano Valor</div><div class="s-value bgreen" style="font-size:18px">${fmtVal(f.filter(l=>l.marca==='Butano').reduce((a,b)=>a+b.total,0))}</div></div>
-    <div class="summary-card"><div class="s-label">Total Fiado</div><div class="s-value red">${fmtVal(f.reduce((a,b)=>a+(b.pag&&b.pag['Fiado']||0),0))}</div></div>
+    <div class="summary-card"><div class="s-label">Total Fiado</div><div class="s-value red">${fmtVal(_totalFiadoGerado)}</div></div>
     <div class="summary-card"><div class="s-label">Preço Médio Ultra</div><div class="s-value blue" style="font-size:18px">${(()=>{const itens=f.filter(l=>l.marca==='Ultragaz');const qtd=itens.reduce((a,b)=>a+b.qtd,0);const val=itens.reduce((a,b)=>a+b.total,0);return qtd>0?fmtVal(val/qtd):'—';})()}</div></div>
     <div class="summary-card"><div class="s-label">Preço Médio Butano</div><div class="s-value bgreen" style="font-size:18px">${(()=>{const itens=f.filter(l=>l.marca==='Butano');const qtd=itens.reduce((a,b)=>a+b.qtd,0);const val=itens.reduce((a,b)=>a+b.total,0);return qtd>0?fmtVal(val/qtd):'—';})()}</div></div>`;
 
