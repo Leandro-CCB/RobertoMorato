@@ -84,6 +84,28 @@ window._appInit = async function() {
   popularSelectFiadoCliente();
   if (typeof renderClientesConfig === 'function') renderClientesConfig();
 
+  // ── Carrega empresas do Supabase ──────────────────────────────────────
+  try {
+    const linhasEmpresas = await window._fbGetCollection('empresas');
+    if (linhasEmpresas && linhasEmpresas.length) {
+      EMPRESAS_VENC = linhasEmpresas.map(r => ({
+        nome: r._fbId,
+        diasPadrao: r.diasPadrao != null ? r.diasPadrao : 5,
+      })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    } else {
+      // Primeira vez: migra empresas padrão para o banco automaticamente
+      for (const e of EMPRESAS_DEFAULT) {
+        try { await window._fbSetDoc('empresas', e.nome, { diasPadrao: e.diasPadrao }); } catch(_) {}
+      }
+      EMPRESAS_VENC = [...EMPRESAS_DEFAULT];
+    }
+  } catch(e) {
+    console.warn('[empresas] erro ao carregar:', e.message);
+    EMPRESAS_VENC = [...EMPRESAS_DEFAULT];
+  }
+  popularSelectsEmpresa();
+  if (typeof renderEmpresasConfig === 'function') renderEmpresasConfig();
+
   buildLinhas();
   buildConfigGrid();
 
@@ -3255,12 +3277,115 @@ async function adicionarNovoPR(){
 //  CONTROLE DE CARGAS
 // ══════════════════════════════════════════════════════════
 
-const EMPRESAS_VENC = [
+// ── EMPRESAS (cadastro dinâmico, carregado do Supabase em _appInit) ──
+// Empresas padrão (usadas como fallback caso o banco esteja vazio)
+const EMPRESAS_DEFAULT = [
   { nome: 'BERTONI',  diasPadrao: 5 },
   { nome: 'ROSA',     diasPadrao: 5 },
   { nome: 'PINHEIRO', diasPadrao: 6 },
   { nome: 'LIROMILS', diasPadrao: 5 },
 ];
+// Array mutável — populado no _appInit com dados do Supabase
+let EMPRESAS_VENC = [...EMPRESAS_DEFAULT];
+
+// ── Sincroniza lista de empresas com o banco antes de gravar ──
+async function _sincronizarEmpresasDoBanco() {
+  try {
+    const linhas = await window._fbGetCollection('empresas');
+    if (linhas && linhas.length) {
+      EMPRESAS_VENC = linhas.map(r => ({
+        nome: r._fbId,
+        diasPadrao: r.diasPadrao != null ? r.diasPadrao : 5,
+      })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    }
+  } catch(e) {
+    console.warn('[empresas] não foi possível revalidar lista antes de salvar:', e.message);
+  }
+}
+
+// ── Renderiza lista de empresas cadastradas na aba Config ──
+function renderEmpresasConfig() {
+  const div = document.getElementById('empresasListDiv');
+  if (!div) return;
+  if (!EMPRESAS_VENC.length) {
+    div.innerHTML = '<div style="font-size:12px;color:var(--muted2);">Nenhuma empresa cadastrada ainda.</div>';
+    return;
+  }
+  div.innerHTML = EMPRESAS_VENC.map(e => `
+    <span style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;color:var(--text);">
+      🏢 ${e.nome} <span style="font-size:10px;color:var(--muted);font-weight:400">(${e.diasPadrao}d)</span>
+      <button onclick="removerEmpresa('${e.nome.replace(/'/g,"\\'")}')" title="Remover empresa" style="background:transparent;border:none;color:var(--danger);cursor:pointer;font-weight:700;font-size:13px;">✕</button>
+    </span>`).join('');
+}
+
+// ── Popula os <select> de empresa nas cargas ──
+function popularSelectsEmpresa() {
+  const ids = ['cEmpresa', 'ecEmpresa', 'cfEmpresa'];
+  ids.forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '';
+    const ph = document.createElement('option');
+    if (id === 'cfEmpresa') {
+      ph.value = ''; ph.textContent = 'Todas';
+    } else {
+      ph.value = ''; ph.textContent = '— Selecione —';
+    }
+    sel.appendChild(ph);
+    EMPRESAS_VENC.forEach(e => {
+      const o = document.createElement('option');
+      o.value = e.nome; o.textContent = e.nome;
+      sel.appendChild(o);
+    });
+    // Restaura seleção anterior se ainda válida
+    if (cur && EMPRESAS_VENC.some(e => e.nome === cur)) sel.value = cur;
+  });
+}
+
+// ── Adiciona nova empresa ──
+async function adicionarNovaEmpresa() {
+  const input = document.getElementById('newEmpresaInput');
+  const diasInput = document.getElementById('newEmpresaDias');
+  const msg = document.getElementById('newEmpresaMsg');
+  const nome = (input.value || '').trim().toUpperCase();
+  const dias = parseInt(diasInput.value) || 5;
+  if (!nome) { msg.style.color = 'var(--danger)'; msg.textContent = '⚠ Informe o nome da empresa.'; return; }
+  await _sincronizarEmpresasDoBanco();
+  if (EMPRESAS_VENC.some(e => e.nome === nome)) {
+    msg.style.color = 'var(--danger)'; msg.textContent = '⚠ Empresa já cadastrada.'; return;
+  }
+  try {
+    await window._fbSetDoc('empresas', nome, { diasPadrao: dias });
+  } catch(e) {
+    msg.style.color = 'var(--danger)'; msg.textContent = '⚠ Erro ao salvar: ' + e.message; return;
+  }
+  EMPRESAS_VENC.push({ nome, diasPadrao: dias });
+  EMPRESAS_VENC.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  input.value = '';
+  diasInput.value = '5';
+  msg.style.color = 'var(--success)';
+  msg.textContent = `✓ Empresa "${nome}" adicionada!`;
+  setTimeout(() => { msg.textContent = ''; }, 3000);
+  renderEmpresasConfig();
+  popularSelectsEmpresa();
+  showToast(`✓ Empresa "${nome}" adicionada!`);
+}
+
+// ── Remove empresa ──
+async function removerEmpresa(nome) {
+  if (!confirm(`Remover a empresa "${nome}"?\n\nIsso NÃO apaga cargas já registradas — apenas remove da lista de cadastro.`)) return;
+  await _sincronizarEmpresasDoBanco();
+  try {
+    await window._fbDeleteDoc('empresas', nome);
+  } catch(e) {
+    showToast('⚠ Erro ao remover empresa: ' + e.message); return;
+  }
+  EMPRESAS_VENC = EMPRESAS_VENC.filter(e => e.nome !== nome);
+  renderEmpresasConfig();
+  popularSelectsEmpresa();
+  showToast(`✓ Empresa "${nome}" removida.`);
+}
 
 const PRODUTOS_FRETE = ['P 05','P 13','P 20','P 45'];
 const PRODUTOS_CARGA_OPTS = ['P 05','P 13','P 20','P 45'];
@@ -3801,7 +3926,12 @@ async function salvarFreteConfig() {
   });
   EMPRESAS_VENC.forEach(e => {
     const el = document.getElementById('dias_' + e.nome);
-    if (el) empresaDiasConfig[e.nome] = parseInt(el.value) || e.diasPadrao;
+    if (el) {
+      const novosDias = parseInt(el.value) || e.diasPadrao;
+      empresaDiasConfig[e.nome] = novosDias;
+      // Persiste dias atualizados também na tabela de empresas
+      try { window._fbSetDoc('empresas', e.nome, { diasPadrao: novosDias }); } catch(_) {}
+    }
   });
   window._freteConfig = freteConfig;
   window._empresaDiasConfig = empresaDiasConfig;

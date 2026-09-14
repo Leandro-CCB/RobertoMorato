@@ -20,6 +20,7 @@
     backups:     'roberto_backups',
     fiados:      'roberto_fiados',      // ✅ NOVA TABELA PARA FIADOS (SEGURA)
     clientes:    'roberto_clientes',    // ✅ Cadastro de clientes (fiado por cliente)
+    empresas:    'roberto_empresas',    // ✅ Cadastro de empresas fornecedoras de carga
     depositos:   'roberto_depositos',   // ✅ Descontos do Depósito Bancário
   };
 

@@ -25,10 +25,6 @@ const HTML = `<div id="tab-cargas" class="page">
         <label>Empresa (Comprou)</label>
         <select id="cEmpresa" onchange="calcVencimentoAuto()">
           <option value="">— Selecione —</option>
-          <option value="BERTONI">Bertoni</option>
-          <option value="ROSA">Rosa</option>
-          <option value="PINHEIRO">Pinheiro</option>
-          <option value="LIROMILS">Liromils</option>
         </select>
       </div>
       <div class="form-group">
@@ -211,10 +207,6 @@ const HTML = `<div id="tab-cargas" class="page">
         <div class="form-group"><label>Empresa</label>
           <select id="ecEmpresa">
             <option value="">— Selecione —</option>
-            <option value="BERTONI">Bertoni</option>
-            <option value="ROSA">Rosa</option>
-            <option value="PINHEIRO">Pinheiro</option>
-            <option value="LIROMILS">Liromils</option>
           </select>
         </div>
         <div class="form-group"><label>Transportadora</label>

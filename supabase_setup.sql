@@ -158,3 +158,26 @@ drop policy if exists "anon_full_access" on public.roberto_clientes;
 create policy "anon_full_access" on public.roberto_clientes
   for all to anon using (true) with check (true);
 
+-- ══════════════════════════════════════════════════════════════
+--  Tabela: roberto_empresas (cadastro de empresas fornecedoras de carga)
+--  1 LINHA POR EMPRESA (id = nome em maiúsculas).
+--  O campo data contém { diasPadrao: N } — prazo de vencimento em dias úteis.
+--  Script idempotente: pode rodar mesmo se a tabela já existir.
+-- ══════════════════════════════════════════════════════════════
+create table if not exists public.roberto_empresas (
+  id          text primary key,
+  data        jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+drop trigger if exists trg_roberto_empresas_updated on public.roberto_empresas;
+create trigger trg_roberto_empresas_updated
+  before update on public.roberto_empresas
+  for each row execute function public.roberto_set_updated_at();
+
+alter table public.roberto_empresas enable row level security;
+
+drop policy if exists "anon_full_access" on public.roberto_empresas;
+create policy "anon_full_access" on public.roberto_empresas
+  for all to anon using (true) with check (true);
