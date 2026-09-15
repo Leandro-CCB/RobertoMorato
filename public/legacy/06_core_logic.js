@@ -1159,6 +1159,7 @@ async function renderFiado() {
 
   cardsEl.innerHTML = prs.map(pr => {
     const d = dados[pr];
+    const prAttr = String(pr).replace(/'/g,"\\'"); // [BUG FIX] escapa aspas simples em onclick
 
     let historicoFiltrado = mesSelecionado ? d.historico.filter(h => h.data.slice(0,7) === mesSelecionado) : d.historico;
     if (diaSelecionado) historicoFiltrado = historicoFiltrado.filter(h => h.data === diaSelecionado);
@@ -1254,8 +1255,8 @@ async function renderFiado() {
         <td style="padding:6px 10px;font-size:12px;text-align:center;color:var(--ultra);font-weight:700;">${ultCell}</td>
         <td style="padding:6px 10px;">
           <div style="display:flex;gap:4px;">
-            ${isFiado && !isFaltaFiado && !isSobraUso ? `<button onclick="verVendaFiado('${pr}',${h.id},${h.valor})" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Ver detalhes da venda">👁️ Ver</button>` : ''}
-            ${isFiado && !isFaltaFiado && !isSobraUso ? `<button onclick="abrirModalStatusFiado('${pr}',${h.id},'${h.status==='quitado'?'quitado':'aberto'}')" style="background:${h.status==='quitado'?'var(--success)':'var(--surface3)'};color:${h.status==='quitado'?'#fff':'var(--text)'};border:1px solid ${h.status==='quitado'?'var(--success)':'var(--border)'};border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Alterar status do fiado">${h.status==='quitado'?'✅ Baixado':'📌 Em aberto'}</button>` : ''}
+            ${isFiado && !isFaltaFiado && !isSobraUso ? `<button onclick="verVendaFiado('${prAttr}',${h.id},${h.valor})" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Ver detalhes da venda">👁️ Ver</button>` : ''}
+            ${isFiado && !isFaltaFiado && !isSobraUso ? `<button onclick="abrirModalStatusFiado('${prAttr}',${h.id},'${h.status==='quitado'?'quitado':'aberto'}')" style="background:${h.status==='quitado'?'var(--success)':'var(--surface3)'};color:${h.status==='quitado'?'#fff':'var(--text)'};border:1px solid ${h.status==='quitado'?'var(--success)':'var(--border)'};border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Alterar status do fiado">${h.status==='quitado'?'✅ Baixado':'📌 Em aberto'}</button>` : ''}
             ${podeExcluir && !isFiado ?`
               ${!isSobra && !isFaltaFiado ? `<button onclick="editarPagFiado(${h.id})" style="background:var(--ultra-light);color:var(--ultra);border:1px solid #bfdbfe;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:700;" title="Editar">✏️</button>` : ''}
               <button onclick="excluirPagFiado(${h.id})" style="background:transparent;color:var(--muted2);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;" title="Excluir">✕</button>
@@ -1278,7 +1279,7 @@ async function renderFiado() {
           <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${corSaldo};line-height:1">${fmtVal(Math.abs(saldoCard))}${saldoCard<0?' (crédito)':''}</div>
           ${mesSelecionado ? `<div style="font-size:10px;color:var(--muted);margin-top:2px;">Acumulado até o mês: <b style="color:${saldoAcumuladoCard<=0?'var(--success)':'var(--danger)'}">${fmtVal(Math.abs(saldoAcumuladoCard))}${saldoAcumuladoCard<0?' (créd.)':''}</b></div>` : ''}
         </div>
-        ${d.saldo > 0 ? `<button onclick="abrirFiadoPagModal('${pr}',${d.saldo})" style="background:var(--success);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(21,128,61,.25);">💵 Registrar Pagamento</button>` : ''}
+        ${d.saldo > 0 ? `<button onclick="abrirFiadoPagModal('${prAttr}',${d.saldo})" style="background:var(--success);color:#fff;border:none;padding:10px 18px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(21,128,61,.25);">💵 Registrar Pagamento</button>` : ''}
       </div>
 
       <div style="margin-top:14px;">
@@ -1952,8 +1953,22 @@ async function executarLimparFiado() {
   showToast('⏳ Limpando...');
 
   try {
+    // [BUG FIX] Antes: só limpava a memória e o doc legado 'config/fiado_pagamentos',
+    // mas os pagamentos vivem na tabela roberto_fiados — após recarregar, tudo voltava.
+    // Agora a coleção 'fiados' é esvaziada de fato no Supabase.
+    if (typeof window._fbClearCollection === 'function') {
+      const removidos = await window._fbClearCollection('fiados');
+      console.log(`[limparFiado] ${removidos} pagamento(s) removido(s) da tabela roberto_fiados.`);
+    } else {
+      // Fallback defensivo: apaga um a um (caso o helper não exista)
+      const pags = await _loadFiadoPag();
+      for (const p of pags) {
+        try { await window._fbDeleteDoc('fiados', p._fbId || p.id); } catch(_) {}
+      }
+    }
     window._fiadoPagamentos = [];
-    await window._fbSetDoc('config', 'fiado_pagamentos', { lista: [] });
+    // Mantém o doc legado em sincronia (uso antigo do app)
+    try { await window._fbSetDoc('config', 'fiado_pagamentos', { lista: [] }); } catch(_) {}
 
     if (opcao === 'tudo') {
       lancamentos.forEach(l => {
@@ -2081,7 +2096,7 @@ function renderCharts(f){
   const prsSorted=Object.entries(prQtds).sort((a,b)=>b[1]-a[1]);
   const prLabels=prsSorted.map(x=>x[0]);
   const prVals=prsSorted.map(x=>x[1]);
-  const palette=['#e07b00','#1d4ed8','#15803d','#dc2626','#7c3aed','#0891b2','#be185d','#d97706','#059669','#2563eb','#9333ea','#db2777','#16a34a','#ea580c','#f59e0b'];
+  const palette=['#e8690b','#1d4ed8','#15803d','#dc2626','#7c3aed','#0891b2','#be185d','#d97706','#059669','#2563eb','#9333ea','#db2777','#16a34a','#ea580c','#f59e0b'];
 
   const chartHeight=Math.max(200, prLabels.length*38+60);
   const wrap=document.getElementById('chartPRWrap');
@@ -2385,7 +2400,7 @@ async function renderResumo(){
       <td style="font-family:'Bebas Neue',sans-serif;font-size:18px">${l.qtd}</td>
       <td>${fmtVal(l.preco)}</td>
       <td style="font-weight:700;color:var(--success)">${fmtVal(l.total)}</td>
-      <td><span class="badge badge-${l.marca==='Ultragaz'?'ultra':'butano'}">${l.marca}</span></td>
+      <td><span class="badge badge-${l.marca==='Ultragaz'?'ultra':l.marca==='Butano'?'butano':'produto'}">${l.marca==='Produto'?('📦 '+(l.produto||'Produto')):l.marca}</span></td>
       ${PAY_FIELDS.map(p=>`<td style="color:${p==='Fiado'?'var(--danger)':'var(--muted)'}">${l.pag&&l.pag[p]>0?fmtVal(l.pag[p]):'-'}</td>`).join('')}
       <td style="font-weight:700;color:var(--accent)">${fmtVal(sumPag(l.pag))}</td>
     </tr>`).join('');
@@ -3030,12 +3045,12 @@ async function gerarRelatorioDiario() {
     const totalQtdDia = doDia.reduce((a,l) => a+l.qtd, 0);
     const totalValDia = doDia.reduce((a,l) => a+l.total, 0);
     const totPagoGeralLanc = PAY_FIELDS.reduce((a,p) => a+pagGeralLanc[p], 0);
-    const totalGeralLancRow = `<tr style="background:#fff3e0;font-weight:700;border-top:3px solid #e07b00">
-      <td style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e07b00">TOTAL DO DIA</td>
-      <td style="text-align:center;color:#e07b00">${totalQtdDia}</td>
-      <td style="text-align:right;color:#e07b00">R$ ${fmtNum(totalValDia)}</td>
-      ${PAY_FIELDS.map(p => `<td style="text-align:right;color:${p==='Fiado'?'#dc2626':'#e07b00'}">${pagGeralLanc[p]>0?'R$ '+fmtNum(pagGeralLanc[p]):'-'}</td>`).join('')}
-      <td style="text-align:right;color:#e07b00">R$ ${fmtNum(totPagoGeralLanc)}</td>
+    const totalGeralLancRow = `<tr style="background:#fff3e0;font-weight:700;border-top:3px solid #e8690b">
+      <td style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e8690b">TOTAL DO DIA</td>
+      <td style="text-align:center;color:#e8690b">${totalQtdDia}</td>
+      <td style="text-align:right;color:#e8690b">R$ ${fmtNum(totalValDia)}</td>
+      ${PAY_FIELDS.map(p => `<td style="text-align:right;color:${p==='Fiado'?'#dc2626':'#e8690b'}">${pagGeralLanc[p]>0?'R$ '+fmtNum(pagGeralLanc[p]):'-'}</td>`).join('')}
+      <td style="text-align:right;color:#e8690b">R$ ${fmtNum(totPagoGeralLanc)}</td>
     </tr>`;
 
     const tabelaLancamentosHTML = doDia.length ? `
@@ -3153,9 +3168,9 @@ async function gerarRelatorioDiario() {
           <tr><td>Acréscimos recebidos</td><td style="text-align:right;font-weight:700;color:#16a34a">+ R$ ${fmtNum(totalAcrescimos)}</td></tr>
           <tr><td>Saídas em espécie</td><td style="text-align:right;font-weight:700;color:#dc2626">− R$ ${fmtNum(totalDescontos)}</td></tr>
           <tr><td>Valor levado/depositado no banco</td><td style="text-align:right;font-weight:700;color:#16a34a">R$ ${fmtNum(totalLevadoBanco)}</td></tr>
-          <tr style="background:#fff3e0;font-weight:700;border-top:3px solid #e07b00">
-            <td style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e07b00">SALDO EM ESPÉCIE ESPERADO</td>
-            <td style="text-align:right;color:#e07b00">R$ ${fmtNum(saldoEspecieEsperado)}</td>
+          <tr style="background:#fff3e0;font-weight:700;border-top:3px solid #e8690b">
+            <td style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e8690b">SALDO EM ESPÉCIE ESPERADO</td>
+            <td style="text-align:right;color:#e8690b">R$ ${fmtNum(saldoEspecieEsperado)}</td>
           </tr>
         </tbody>
       </table>
@@ -3168,8 +3183,8 @@ async function gerarRelatorioDiario() {
       @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&display=swap');
       *{box-sizing:border-box;margin:0;padding:0;}
       body{font-family:'DM Sans',sans-serif;color:#1a1f36;background:#fff;padding:24px;font-size:11px;}
-      .report-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #e07b00;}
-      .logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#e07b00;}
+      .report-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #e8690b;}
+      .logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#e8690b;}
       .logo span{color:#1a1f36;}
       .report-meta{text-align:right;font-size:11px;color:#6b7280;}
       .report-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:#1a1f36;margin-bottom:4px;}
@@ -3179,13 +3194,13 @@ async function gerarRelatorioDiario() {
       .summary-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
       .sum-box{background:#f7f8fc;border:1px solid #dde1ec;border-radius:8px;padding:8px 10px;text-align:center;}
       .sum-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:3px;}
-      .sum-val{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#e07b00;}
+      .sum-val{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#e8690b;}
       table{width:100%;border-collapse:collapse;font-size:10px;}
       thead{background:#1a1f36;}
       th{padding:6px 7px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#fff;white-space:nowrap;}
       th:not(:first-child){text-align:right;}
       td{padding:5px 7px;border-bottom:1px solid #f0f2f7;vertical-align:middle;}
-      .section-title{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;color:#e07b00;margin:14px 0 6px;border-bottom:1px solid #dde1ec;padding-bottom:3px;}
+      .section-title{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;color:#e8690b;margin:14px 0 6px;border-bottom:1px solid #dde1ec;padding-bottom:3px;}
       .footer{margin-top:20px;text-align:center;font-size:10px;color:#9ca3af;border-top:1px solid #dde1ec;padding-top:10px;}
       @media print{body{padding:8px;} .no-print{display:none;}}
     </style></head><body>
@@ -3224,7 +3239,7 @@ async function gerarRelatorioDiario() {
 
     <div class="footer"><strong style="color:#374151">Sistema Controle de PR</strong> — Relatório Diário gerado automaticamente</div>
     <div class="no-print" style="margin-top:20px;text-align:center">
-      <button onclick="window.print()" style="background:#e07b00;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px">🖨️ Imprimir / Salvar PDF</button>
+      <button onclick="window.print()" style="background:#e8690b;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px">🖨️ Imprimir / Salvar PDF</button>
       <button onclick="window.close()" style="background:#f0f2f7;color:#374151;border:1px solid #dde1ec;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✕ Fechar</button>
     </div>
     </body></html>`;
@@ -3768,7 +3783,8 @@ async function autoMarcarPago() {
   const hoje = hojeLocal();
   const limite = new Date(hoje + 'T12:00:00');
   limite.setDate(limite.getDate() - 3);
-  const limiteStr = limite.toISOString().split('T')[0];
+  // [BUG FIX] formata com componentes locais (não usa toISOString/UTC)
+  const limiteStr = `${limite.getFullYear()}-${String(limite.getMonth() + 1).padStart(2, '0')}-${String(limite.getDate()).padStart(2, '0')}`;
   let alterou = false;
   cargas.forEach(c => {
     if (
@@ -3827,7 +3843,9 @@ function addDiasUteis(dataStr, dias) {
   const dow = d.getDay();
   if (dow === 6) d.setDate(d.getDate() + 2);
   if (dow === 0) d.setDate(d.getDate() + 1);
-  return d.toISOString().split('T')[0];
+  // [BUG FIX] formata com componentes locais (não usa toISOString/UTC)
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
 }
 
 function calcVencimentoAuto() {
@@ -3982,11 +4000,12 @@ function setStatusProrrogado(id) {
   if (carga && carga.venc) {
     const d = new Date(carga.venc + 'T12:00:00');
     d.setDate(d.getDate() + 1);
-    input.value = d.toISOString().split('T')[0];
+    // Formata com componentes locais para não deslocar no fuso UTC
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0');
+    input.value = `${y}-${m}-${dd}`;
   } else {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    input.value = d.toISOString().split('T')[0];
+    // [BUG FIX] antes: new Date() + toISOString() (UTC) gerava data errada à noite
+    input.value = dataLocalAdiantada(1);
   }
   document.getElementById('prorrogarModal').dataset.origem = 'tabela';
   document.getElementById('prorrogarModal').classList.add('open');
@@ -4000,9 +4019,8 @@ function abrirProrrogar() {
     d.setDate(d.getDate() + 1);
     input.value = d.toISOString().split('T')[0];
   } else {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    input.value = d.toISOString().split('T')[0];
+    // [BUG FIX] antes: new Date() + toISOString() (UTC) gerava data errada à noite
+    input.value = dataLocalAdiantada(1);
   }
   const modal = document.getElementById('prorrogarModal');
   if (modal) {
@@ -4510,7 +4528,7 @@ function exportarPDFCargas() {
     const bodyRows = cs.map(rowHtmlPdf).join('');
     const subtotalRow = `<tr class="empresa-subtotal">
       <td colspan="6" style="text-align:right;font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;font-weight:700">Subtotal ${emp}</td>
-      <td style="text-align:center;font-weight:700;font-size:14px;color:#e07b00">${subQtd}</td>
+      <td style="text-align:center;font-weight:700;font-size:14px;color:#e8690b">${subQtd}</td>
       <td style="font-weight:700;color:#0f766e">R$ ${fmtNum(subValor)}</td>
       <td style="color:#dc2626;font-weight:700">${subDesc > 0 ? 'R$ '+fmtNum(subDesc) : '-'}</td>
       <td style="font-weight:700;color:#15803d">R$ ${fmtNum(subLiquido)}</td>
@@ -4520,9 +4538,9 @@ function exportarPDFCargas() {
     return headerRow + bodyRows + subtotalRow;
   }).join('');
 
-  const totaisRow = `<tr style="background:#fff3e0;font-weight:700;border-top:2px solid #e07b00">
+  const totaisRow = `<tr style="background:#fff3e0;font-weight:700;border-top:2px solid #e8690b">
     <td colspan="6" style="text-align:right;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280">TOTAIS GERAIS (${f.length} registro${f.length!==1?'s':''})</td>
-    <td style="text-align:center;font-weight:700;font-size:16px;color:#e07b00">${sumQtd}</td>
+    <td style="text-align:center;font-weight:700;font-size:16px;color:#e8690b">${sumQtd}</td>
     <td style="font-weight:700;color:#0f766e">R$ ${fmtNum(sumValor)}</td>
     <td style="color:#dc2626;font-weight:700">${sumDesc > 0 ? 'R$ '+fmtNum(sumDesc) : '-'}</td>
     <td style="font-weight:700;color:#15803d">R$ ${fmtNum(sumLiquido)}</td>
@@ -4539,8 +4557,8 @@ function exportarPDFCargas() {
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'DM Sans',sans-serif;background:#f0f2f7;color:#1a1f36;padding:24px;}
     .report-wrap{max-width:1200px;margin:0 auto;background:#fff;border-radius:16px;padding:28px 32px;box-shadow:0 4px 24px rgba(0,0,0,.10);}
-    .report-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;padding-bottom:16px;border-bottom:2px solid #e07b00;}
-    .report-logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#e07b00;}
+    .report-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;padding-bottom:16px;border-bottom:2px solid #e8690b;}
+    .report-logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#e8690b;}
     .report-logo span{color:#1a1f36;font-size:14px;letter-spacing:1px;display:block;font-family:'DM Sans',sans-serif;font-weight:600;margin-top:2px;}
     .report-meta{text-align:right;font-size:11px;color:#6b7280;}
     .report-meta strong{color:#1a1f36;}
@@ -4552,14 +4570,14 @@ function exportarPDFCargas() {
     .sum-box{background:#f7f8fc;border:1px solid #dde1ec;border-radius:10px;padding:12px 14px;}
     .sum-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#6b7280;margin-bottom:4px;}
     .sum-val{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.5px;}
-    .sum-val.teal{color:#0f766e;} .sum-val.green{color:#15803d;} .sum-val.orange{color:#e07b00;}
+    .sum-val.teal{color:#0f766e;} .sum-val.green{color:#15803d;} .sum-val.orange{color:#e8690b;}
     .sum-val.blue{color:#1d4ed8;} .sum-val.red{color:#dc2626;}
     table{width:100%;border-collapse:collapse;font-size:12px;}
     th{background:#f0f2f7;padding:8px 7px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#6b7280;border:1px solid #dde1ec;text-align:left;white-space:nowrap;}
     td{padding:8px 7px;border:1px solid #dde1ec;vertical-align:middle;background:#fff;}
     tr:nth-child(even) td{background:#f7f8fc;}
     .empresa-group-header td{background:#1a1f36 !important;color:#fff;font-weight:700;font-size:11px;padding:7px 9px;letter-spacing:.4px;border-color:#1a1f36;}
-    .empresa-subtotal td{background:#fff3e0 !important;border-top:1.5px solid #e07b00;}
+    .empresa-subtotal td{background:#fff3e0 !important;border-top:1.5px solid #e8690b;}
     .footer{margin-top:28px;text-align:center;font-size:11px;color:#6b7280;border-top:1px solid #dde1ec;padding-top:12px;}
     .no-print{margin-top:20px;text-align:center;}
     @media print{
@@ -4598,7 +4616,7 @@ function exportarPDFCargas() {
       <div class="sum-box"><div class="sum-lbl">🚚 Total Frete</div><div class="sum-val blue" style="font-size:15px">R$ ${fmtNum(sumFrete)}</div></div>
     </div>
 
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:#e07b00;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:#e8690b;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
       📋 Detalhamento
       <div style="flex:1;height:1px;background:#dde1ec;margin-left:8px;"></div>
     </div>
@@ -4614,7 +4632,7 @@ function exportarPDFCargas() {
 
     <div class="footer"><strong style="color:#374151">Registro de Cargas — Grupo Bertoni</strong> — Desenvolvido por <strong style="color:#374151">Leandro Machado</strong></div>
     <div class="no-print" style="margin-top:20px;text-align:center">
-      <button onclick="window.print()" style="background:#e07b00;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px">🖨️ Imprimir / Salvar PDF</button>
+      <button onclick="window.print()" style="background:#e8690b;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px">🖨️ Imprimir / Salvar PDF</button>
       <button onclick="window.close()" style="background:#f0f2f7;color:#374151;border:1px solid #dde1ec;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✕ Fechar</button>
     </div>
   </div>
@@ -4631,7 +4649,7 @@ if ('serviceWorker' in navigator) {
           if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
             const toast = document.createElement('div');
             toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1f36;color:#fff;padding:12px 24px;border-radius:10px;font-family:DM Sans,sans-serif;font-size:13px;font-weight:600;z-index:9999;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.3);';
-            toast.innerHTML = '🔄 Nova versão disponível! <button onclick="location.reload()" style="background:#e07b00;color:#fff;border:none;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">Atualizar</button>';
+            toast.innerHTML = '🔄 Nova versão disponível! <button onclick="location.reload()" style="background:#e8690b;color:#fff;border:none;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;">Atualizar</button>';
             document.body.appendChild(toast);
           }
         });
@@ -4778,13 +4796,13 @@ async function exportarPDF(){
     });
   });
   const totPagoGeral=PAY_FIELDS.reduce((a,p)=>a+pagGeral[p],0);
-  const totalGeralRow=`<tr style="background:#fff3e0;font-weight:700;border-top:3px solid #e07b00">
-    <td style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e07b00">TOTAL GERAL</td>
-    <td style="text-align:center;color:#e07b00">${totalQtd}</td>
+  const totalGeralRow=`<tr style="background:#fff3e0;font-weight:700;border-top:3px solid #e8690b">
+    <td style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e8690b">TOTAL GERAL</td>
+    <td style="text-align:center;color:#e8690b">${totalQtd}</td>
     <td></td>
-    <td style="text-align:right;color:#e07b00">R$ ${fmtNum(totalVal)}</td>
-    ${PAY_FIELDS.map(p=>`<td style="text-align:right;color:${p==='Fiado'?'#dc2626':'#e07b00'}">${pagGeral[p]>0?'R$ '+fmtNum(pagGeral[p]):'-'}</td>`).join('')}
-    <td style="text-align:right;color:#e07b00">R$ ${fmtNum(totPagoGeral)}</td>
+    <td style="text-align:right;color:#e8690b">R$ ${fmtNum(totalVal)}</td>
+    ${PAY_FIELDS.map(p=>`<td style="text-align:right;color:${p==='Fiado'?'#dc2626':'#e8690b'}">${pagGeral[p]>0?'R$ '+fmtNum(pagGeral[p]):'-'}</td>`).join('')}
+    <td style="text-align:right;color:#e8690b">R$ ${fmtNum(totPagoGeral)}</td>
   </tr>`;
 
   const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
@@ -4793,8 +4811,8 @@ async function exportarPDF(){
     @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&display=swap');
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'DM Sans',sans-serif;color:#1a1f36;background:#fff;padding:24px;font-size:11px;}
-    .report-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #e07b00;}
-    .logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#e07b00;}
+    .report-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #e8690b;}
+    .logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#e8690b;}
     .logo span{color:#1a1f36;}
     .report-meta{text-align:right;font-size:11px;color:#6b7280;}
     .report-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:#1a1f36;margin-bottom:4px;}
@@ -4804,13 +4822,13 @@ async function exportarPDF(){
     .summary-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:16px;}
     .sum-box{background:#f7f8fc;border:1px solid #dde1ec;border-radius:8px;padding:8px 10px;text-align:center;}
     .sum-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6b7280;margin-bottom:3px;}
-    .sum-val{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#e07b00;}
+    .sum-val{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#e8690b;}
     table{width:100%;border-collapse:collapse;font-size:10px;}
     thead{background:#1a1f36;}
     th{padding:6px 7px;text-align:left;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#fff;white-space:nowrap;}
     th:not(:first-child){text-align:right;}
     td{padding:5px 7px;border-bottom:1px solid #f0f2f7;vertical-align:middle;}
-    .section-title{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;color:#e07b00;margin:14px 0 6px;border-bottom:1px solid #dde1ec;padding-bottom:3px;}
+    .section-title{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;color:#e8690b;margin:14px 0 6px;border-bottom:1px solid #dde1ec;padding-bottom:3px;}
     .footer{margin-top:20px;text-align:center;font-size:10px;color:#9ca3af;border-top:1px solid #dde1ec;padding-top:10px;}
     @media print{body{padding:8px;} .no-print{display:none;}}
   </style></head><body>
@@ -4852,7 +4870,7 @@ async function exportarPDF(){
   ${fiadoPagsFiltrados.length ? `<div style="font-size:9px;color:#6b7280;margin-top:6px;">* O TOTAL GERAL inclui pagamentos de fiado quitados posteriormente na aba 📒 Fiado (R$ ${fmtNum(fiadoPagsFiltrados.reduce((a,p)=>a+p.valor,0))}), não atribuídos a uma marca específica.</div>` : ''}
   <div class="footer"><strong style="color:#374151">Sistema Controle de PR</strong> \u2014 Desenvolvido por <strong style="color:#374151">Leandro Machado</strong></div>
   <div class="no-print" style="margin-top:20px;text-align:center">
-    <button onclick="window.print()" style="background:#e07b00;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px">\uD83D\uDDA8\uFE0F Imprimir / Salvar PDF</button>
+    <button onclick="window.print()" style="background:#e8690b;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px">\uD83D\uDDA8\uFE0F Imprimir / Salvar PDF</button>
     <button onclick="window.close()" style="background:#f0f2f7;color:#374151;border:1px solid #dde1ec;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">\u2715 Fechar</button>
   </div>
   </body></html>`;
@@ -4880,8 +4898,8 @@ async function carregarInfoBackup() {
   try {
     const meta = await window._fbGetDoc('config', 'backup_meta');
     const el = document.getElementById('backupMetaInfo');
-    if (meta) {
-      const [y,m,d] = meta.ultimo.split('-');
+    if (meta && meta.ultimo) {
+      const [y,m,d] = String(meta.ultimo).split('-');
       const hoje = hojeLocal();
       const diff = Math.floor((new Date(hoje) - new Date(meta.ultimo)) / 86400000);
       const proximo = 10 - diff;
@@ -5161,15 +5179,15 @@ function exportarPDFMargem() {
     </tr>`;
   }).join('');
 
-  const totaisRow = `<tr style="background:#fff3e0;font-weight:700;border-top:2px solid #e07b00">
-    <td style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e07b00">TOTAL GERAL</td>
+  const totaisRow = `<tr style="background:#fff3e0;font-weight:700;border-top:2px solid #e8690b">
+    <td style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#e8690b">TOTAL GERAL</td>
     <td style="text-align:center;color:#1d4ed8">${totQtdU || '-'}</td>
     <td></td><td></td>
     <td style="text-align:right;color:${corVal(totMTotU)}">${custoU>0?fmtSinal(totMTotU):'-'}</td>
     <td style="text-align:center;color:#15803d">${totQtdB || '-'}</td>
     <td></td><td></td>
     <td style="text-align:right;color:${corVal(totMTotB)}">${custoB>0?fmtSinal(totMTotB):'-'}</td>
-    <td style="text-align:center;color:#e07b00">${totalBotijoes}</td>
+    <td style="text-align:center;color:#e8690b">${totalBotijoes}</td>
     <td style="text-align:right;color:${corVal(totalMargem)}">${fmtSinal(totalMargem)}</td>
     <td style="text-align:right;color:${corVal(margemMedia)}">${margemMedia.toFixed(1).replace('.',',')}%</td>
   </tr>`;
@@ -5183,8 +5201,8 @@ function exportarPDFMargem() {
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'DM Sans',sans-serif;background:#f0f2f7;color:#1a1f36;padding:24px;}
     .report-wrap{max-width:1200px;margin:0 auto;background:#fff;border-radius:16px;padding:28px 32px;box-shadow:0 4px 24px rgba(0,0,0,.10);}
-    .report-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;padding-bottom:16px;border-bottom:2px solid #e07b00;}
-    .report-logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#e07b00;}
+    .report-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;padding-bottom:16px;border-bottom:2px solid #e8690b;}
+    .report-logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:#e8690b;}
     .report-logo span{color:#1a1f36;font-size:14px;letter-spacing:1px;display:block;font-family:'DM Sans',sans-serif;font-weight:600;margin-top:2px;}
     .report-meta{text-align:right;font-size:11px;color:#6b7280;}
     .report-meta strong{color:#1a1f36;}
@@ -5196,7 +5214,7 @@ function exportarPDFMargem() {
     .sum-box{background:#f7f8fc;border:1px solid #dde1ec;border-radius:10px;padding:12px 14px;}
     .sum-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#6b7280;margin-bottom:4px;}
     .sum-val{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.5px;}
-    .sum-val.green{color:#15803d;} .sum-val.red{color:#dc2626;} .sum-val.orange{color:#e07b00;}
+    .sum-val.green{color:#15803d;} .sum-val.red{color:#dc2626;} .sum-val.orange{color:#e8690b;}
     .sum-val.blue{color:#1d4ed8;} .sum-val.bgreen{color:#15803d;}
     table{width:100%;border-collapse:collapse;font-size:11px;}
     thead tr:first-child th{background:#1a1f36;color:#fff;padding:8px 7px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;text-align:center;}
@@ -5240,7 +5258,7 @@ function exportarPDFMargem() {
       <div class="sum-box"><div class="sum-lbl">🏆 Melhor PR</div><div class="sum-val orange" style="font-size:15px">${melhorPR ? melhorPR.pr : '—'}</div></div>
     </div>
 
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:#e07b00;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:#e8690b;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
       📈 Margem por PR
       <div style="flex:1;height:1px;background:#dde1ec;margin-left:8px;"></div>
     </div>
@@ -5265,7 +5283,7 @@ function exportarPDFMargem() {
 
     <div class="footer"><strong style="color:#374151">Análise de Margem por PR — Grupo Bertoni</strong> — Desenvolvido por <strong style="color:#374151">Leandro Machado</strong></div>
     <div class="no-print" style="margin-top:20px;text-align:center">
-      <button onclick="window.print()" style="background:#e07b00;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px">🖨️ Imprimir / Salvar PDF</button>
+      <button onclick="window.print()" style="background:#e8690b;color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-right:10px">🖨️ Imprimir / Salvar PDF</button>
       <button onclick="window.close()" style="background:#f0f2f7;color:#374151;border:1px solid #dde1ec;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">✕ Fechar</button>
     </div>
   </div>

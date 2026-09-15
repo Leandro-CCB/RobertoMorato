@@ -111,6 +111,28 @@
     await sb.from(TABLES[col]).delete().in('id', ids.map(String));
   }
 
+  // Esvazia uma coleção INTEIRA de propósito (usado pelo "Limpar Fiado").
+  // Diferente de fsSaveCollection(col, []), que é bloqueado pela trava de
+  // segurança anti-exclusão-em-massa, esta função é uma exclusão EXPLÍCITA:
+  // pagina todos os ids e apaga em blocos de 1000.
+  // Retorna a quantidade de registros removidos.
+  async function fsClearCollection(col) {
+    if (!TABLES[col]) throw new Error(`Coleção desconhecida: ${col}`);
+    let apagados = 0;
+    while (true) {
+      const { data, error } = await sb.from(TABLES[col]).select('id').limit(1000);
+      if (error) throw error;
+      if (!data || !data.length) break;
+      const ids = data.map(r => r.id);
+      const { error: delErr } = await sb.from(TABLES[col]).delete().in('id', ids);
+      if (delErr) throw delErr;
+      apagados += ids.length;
+      if (ids.length < 1000) break;
+    }
+    return apagados;
+  }
+
+
   // ── Restaurar backup ────────────────────────────────────────────────
   window._restaurarBackup = async function(nomeBackup) {
     if (!nomeBackup) { alert('Informe o nome do backup.'); return; }
@@ -151,7 +173,7 @@
       el = document.createElement('div');
       el.id = 'fbLoadingOverlay';
       el.style.cssText = 'position:fixed;inset:0;background:rgba(255,255,255,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:DM Sans,sans-serif;';
-      el.innerHTML = '<div style="font-size:42px">⚡</div><div style="font-size:15px;font-weight:700;color:#e07b00">Conectando ao Supabase…</div><div style="width:44px;height:44px;border:4px solid #e07b00;border-top-color:transparent;border-radius:50%;animation:fbspin .8s linear infinite"></div><style>@keyframes fbspin{to{transform:rotate(360deg)}}</style>';
+      el.innerHTML = '<div style="font-size:42px">⚡</div><div style="font-size:15px;font-weight:700;color:#e8690b">Conectando ao Supabase…</div><div style="width:44px;height:44px;border:4px solid #e8690b;border-top-color:transparent;border-radius:50%;animation:fbspin .8s linear infinite"></div><style>@keyframes fbspin{to{transform:rotate(360deg)}}</style>';
       document.body.appendChild(el);
     }
     el.style.display = show ? 'flex' : 'none';
@@ -248,6 +270,7 @@
   window._fbGetCollection = fsGetCollection;     // ✅ ADICIONADO
   window._fbSaveCollection = fsSaveCollection;   // ✅ ADICIONADO
   window._fbDeleteDoc = fsDeleteDoc;             // ✅ ADICIONADO
+  window._fbClearCollection = fsClearCollection; // ✅ Esvazia coleção inteira (exclusão intencional)
 
   window._saveLancamentos       = () => fsSaveCollection('lancamentos', window._lancamentos || [], l => l.id);
   window._saveCargas            = () => fsSaveCollection('cargas',      window._cargas      || [], c => c.id);

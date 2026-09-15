@@ -10,7 +10,12 @@
   const TABLE = 'roberto_usuarios';
 
   const SESSION_KEY = 'bertoni_auth_session';
-  const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 horas
+  // [MELHORIA] Sessão persistente: 30 dias com renovação automática a cada
+  // abertura (sliding session). Enquanto o dispositivo for usado ao menos
+  // uma vez por mês, o usuário NÃO precisa digitar login/senha de novo.
+  const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
+  const LS_LAST_USER   = 'bertoni_auth_lastuser';  // lembra o último usuário
+  const LS_MANTER      = 'bertoni_auth_manter';    // lembra a escolha do checkbox
 
   async function sha256Hex(texto) {
     const buf = new TextEncoder().encode(texto);
@@ -27,7 +32,13 @@
     if (!raw) return null;
     try {
       const s = JSON.parse(raw);
-      if (!s.ts || (Date.now() - s.ts) > SESSION_TTL_MS) return null;
+      if (!s.ts || (Date.now() - s.ts) > SESSION_TTL_MS) { limparSessao(); return null; }
+      // [MELHORIA] Sessão deslizante: renova o timestamp a cada abertura,
+      // mas SOMENTE para sessões gravadas no localStorage ("manter conectado").
+      // Sessões de sessionStorage morrem ao fechar a aba por design.
+      if (window.localStorage.getItem(SESSION_KEY)) {
+        try { window.localStorage.setItem(SESSION_KEY, JSON.stringify({ ...s, ts: Date.now() })); } catch (_) {}
+      }
       return s;
     } catch { return null; }
   }
@@ -35,6 +46,12 @@
   function salvarSessao(usuario, isMaster, manter) {
     const s = { usuario, isMaster: !!isMaster, ts: Date.now() };
     getStorage(manter).setItem(SESSION_KEY, JSON.stringify(s));
+    // [MELHORIA] Guarda o último login e a preferência "manter conectado"
+    // para pré-preencher o formulário na próxima visita.
+    try {
+      window.localStorage.setItem(LS_LAST_USER, usuario);
+      window.localStorage.setItem(LS_MANTER, manter ? '1' : '0');
+    } catch (_) {}
   }
 
   function limparSessao() {
@@ -139,15 +156,17 @@
 
     tbody.innerHTML = data.map(u => {
       const criado = u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '—';
+      // [BUG FIX] escapa aspas simples/duplas do nome para não quebrar o onclick
+      const uSafe = String(u.usuario).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       return `<tr>
         <td>${u.usuario}</td>
         <td>${u.is_master ? '<span class="usr-badge master">Master</span>' : '—'}</td>
         <td><span class="usr-badge ${u.ativo ? 'ativo' : 'inativo'}">${u.ativo ? 'Ativo' : 'Inativo'}</span></td>
         <td>${criado}</td>
         <td class="usr-actions">
-          <button title="Redefinir senha" onclick="window.__auth.abrirModalRedefinirSenha('${u.id}','${u.usuario}')">🔑</button>
+          <button title="Redefinir senha" onclick="window.__auth.abrirModalRedefinirSenha('${u.id}','${uSafe}')">🔑</button>
           <button title="${u.ativo ? 'Desativar' : 'Ativar'}" onclick="window.__auth.alternarAtivo('${u.id}', ${!u.ativo})">${u.ativo ? '⏸️' : '▶️'}</button>
-          <button title="Excluir" onclick="window.__auth.excluirUsuario('${u.id}','${u.usuario}')">🗑️</button>
+          <button title="Excluir" onclick="window.__auth.excluirUsuario('${u.id}','${uSafe}')">🗑️</button>
         </td>
       </tr>`;
     }).join('');
@@ -279,6 +298,16 @@
       } else {
         mostrarLogin();
       }
+      // [MELHORIA] Pré-preenche o último usuário e a preferência
+      // "manter conectado" (marcado por padrão para entrada rápida).
+      try {
+        const inpUsuario = document.getElementById('authUsuario');
+        const inpManter  = document.getElementById('authManterConectado');
+        const ultimoUser = window.localStorage.getItem(LS_LAST_USER);
+        const manterPref = window.localStorage.getItem(LS_MANTER);
+        if (inpUsuario && !inpUsuario.value && ultimoUser) inpUsuario.value = ultimoUser;
+        if (inpManter) inpManter.checked = manterPref !== '0'; // padrão: marcado
+      } catch (_) {}
       ['authUsuario', 'authSenha'].forEach(id => {
         document.getElementById(id).addEventListener('keydown', (ev) => {
           if (ev.key === 'Enter') tentarLogin();

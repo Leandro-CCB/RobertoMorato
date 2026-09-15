@@ -98,3 +98,58 @@ isolada em seu próprio arquivo `.jsx`, em vez de um único HTML gigante.
   foram alteradas.
 - `supabase_setup.sql` e `security_setup.sql` foram mantidos na raiz, iguais
   ao projeto original, caso precise recriar o banco.
+
+## Changelog — Revisão v1.1 (correções de bugs + visual profissional)
+
+### Bugs corrigidos
+
+1. **"Limpar Fiado" não apagava os pagamentos de verdade** (`06_core_logic.js` +
+   `02_supabase_module.js`): a função só limpava a memória e um documento
+   legado de configuração; os pagamentos gravados na tabela `roberto_fiados`
+   voltavam após recarregar a página. Agora a coleção é esvaziada de fato no
+   Supabase via novo helper `_fbClearCollection` (exclusão intencional,
+   fora da trava anti-exclusão-em-massa).
+2. **Fuso horário (datas UTC)** (`06_core_logic.js`, `01_head_globals.js`):
+   "Prorrogado" usava `new Date()` + `toISOString()` para sugerir a data de
+   amanhã — entre 21h e meia-noite (horário de Brasília) a data saía 1 dia
+   errado. Criado o helper `dataLocalAdiantada()` (componentes locais, mesmo
+   padrão de `hojeLocal()`) e aplicado também em `addDiasUteis()` e
+   `autoMarcarPago()`.
+3. **Badge "Produto" com cor errada na tabela Resumo** (`06_core_logic.js`):
+   itens de marca Produto apareciam com badge verde "Butano"; agora usam o
+   badge amarelo "Produto" com o nome do produto.
+4. **Crash no modal de backup** (`06_core_logic.js`): `carregarInfoBackup()`
+   quebrava se `backup_meta` existisse sem o campo `ultimo`. Agora há guarda.
+5. **Nomes com apóstrofo quebravam botões** (`06_core_logic.js`,
+   `03_auth_module.js`): nomes de PR/cliente/usuário com aspas simples
+   (ex.: `D'ALMEIDA`) quebravam os `onclick` gerados. Agora são escapados.
+
+### Sessão persistente (login automático) — `03_auth_module.js`
+
+- Sessão agora dura **30 dias** (antes: 12 horas) e é **renovada
+  automaticamente** a cada abertura do app (sessão deslizante).
+- O checkbox **"Manter conectado neste dispositivo"** vem **marcado por
+  padrão** e a escolha do usuário é lembrada.
+- O **último usuário** fica salvo no `localStorage` e é pré-preenchido na
+  tela de login.
+- Resultado: com "manter conectado" ativo (padrão), não é mais preciso
+  digitar login/senha no dia a dia — só ao usar "Sair" ou trocar de
+  dispositivo. A senha **não** é gravada no navegador (prática insegura);
+  a sessão de 30 dias cobre o mesmo conforto.
+
+### Visual profissional (Design System v2 — `src/styles/legacy.css`)
+
+- Paleta refinada "Executive Amber": laranja Bertoni mais elegante com
+  gradientes, azul/verde das marcas recalibrados, neutros mais limpos.
+- Cards com sombras em camadas, borda suave, hover com elevação sutil e
+  barra de destaque animada (summary cards / total cards).
+- Sidebar com abas em pill, indicador lateral na aba ativa e micro-hover.
+- Tabelas com zebra sutil, header com borda dupla e linhas com hover.
+- Inputs com focus ring acessível; botões com gradiente e sombra colorida.
+- Tela de login redesenhada (fundo escuro com brilhos, card animado,
+  dica sobre "manter conectado") e toast escuro moderno.
+- Scrollbars customizadas, `::selection` temática, animação suave na
+  troca de abas e nos modais.
+- `theme-color` do PWA atualizada para `#e8690b`; Service Worker na
+  versão 3. Relatórios PDF e gráficos alinhados à nova cor.
+

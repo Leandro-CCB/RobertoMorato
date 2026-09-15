@@ -8,6 +8,18 @@ function hojeLocal() {
   return `${y}-${m}-${dd}`;
 }
 
+// [BUG FIX] Data local deslocada N dias (positivo = futuro) SEM usar toISOString(),
+// que converte para UTC e faz a data "pular" um dia entre 21h e meia-noite no Brasil.
+// Formata com os componentes LOCAIS do Date, igual a hojeLocal().
+function dataLocalAdiantada(dias) {
+  const d = new Date();
+  d.setDate(d.getDate() + (dias || 0));
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
 // toggleSidebar — mostra/oculta a sidebar (header) através de uma classe no body
 function toggleSidebar() {
   document.body.classList.toggle('sidebar-collapsed');

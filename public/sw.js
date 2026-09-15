@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════════
 
 const CACHE_NAME = 'bertoni-pr-v2-supabase';
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 
 // Assets que serão cacheados para uso offline
 const ASSETS_TO_CACHE = [
